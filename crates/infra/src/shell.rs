@@ -20,7 +20,15 @@ impl Runner for ShellRunner {
         command: &str,
         timeout: Duration,
     ) -> Result<RunOutput, RunError> {
+        // Verify commands run from the repo root; putting it first on PATH makes `. lib.sh`
+        // (POSIX `.` searches PATH, not cwd) and `./tool`-less invocations resolve inside the
+        // worktree. The worktree is the sandbox, so this widens nothing that matters.
+        let path = std::env::var("PATH").map_or_else(
+            |_| cwd.to_string_lossy().into_owned(),
+            |p| format!("{}:{p}", cwd.to_string_lossy()),
+        );
         let child = Command::new("/bin/sh")
+            .env("PATH", path)
             .arg("-c")
             .arg(command)
             .current_dir(cwd)
@@ -76,6 +84,19 @@ mod tests {
         assert_eq!(out.stdout, "hi\n");
         assert_eq!(out.stderr, "err\n");
         assert!(!out.succeeded());
+    }
+
+    #[tokio::test]
+    async fn cwd_is_on_path_so_dot_source_works() {
+        let dir = std::env::temp_dir().join(format!("factory-sh-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("lib.sh"), "f() { echo ok; }\n").unwrap();
+        let out = ShellRunner
+            .run(&dir, ". lib.sh && f", Duration::from_seconds(5))
+            .await
+            .unwrap();
+        assert!(out.succeeded(), "{}", out.stderr);
+        assert_eq!(out.stdout, "ok\n");
     }
 
     #[tokio::test]
