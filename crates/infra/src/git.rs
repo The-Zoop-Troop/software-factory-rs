@@ -16,11 +16,13 @@ pub struct GitCli {
 }
 
 impl GitCli {
+    /// Both paths are made absolute up front: git resolves relative paths against its own
+    /// `-C`/cwd, while the rest of the factory resolves them against the process cwd.
     #[must_use]
     pub fn new(repo: impl Into<PathBuf>, worktrees: impl Into<PathBuf>) -> Self {
         Self {
-            repo: repo.into(),
-            worktrees: worktrees.into(),
+            repo: absolute(repo.into()),
+            worktrees: absolute(worktrees.into()),
         }
     }
 
@@ -73,6 +75,14 @@ impl GitCli {
     fn worktree_path(&self, branch: &BranchName) -> PathBuf {
         // Branch names contain '/', which would nest directories; flatten them.
         self.worktrees.join(branch.as_ref().replace('/', "__"))
+    }
+}
+
+fn absolute(p: PathBuf) -> PathBuf {
+    if p.is_absolute() {
+        p
+    } else {
+        std::env::current_dir().map(|cwd| cwd.join(&p)).unwrap_or(p)
     }
 }
 
