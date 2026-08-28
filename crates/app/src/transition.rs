@@ -103,6 +103,7 @@ async fn run_effect(store: &dyn BeadStore, task: &Task, effect: &Effect) -> Resu
             })
             .await
             .map(|_| ()),
+        Effect::CloseTaskBead { task: id } => store.close(id, "merged to main").await,
         Effect::CloseVerifyBead { verify } => store.close(verify, "paired task merged").await,
     }
 }

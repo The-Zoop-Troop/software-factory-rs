@@ -136,6 +136,9 @@ pub enum Effect {
     },
     /// Append a note to the task bead.
     AppendNote { task: BeadId, note: String },
+    /// Close the task's own ledger issue (its metadata says `closed`; the issue must agree so
+    /// dependents unblock). Must run before `CloseVerifyBead`, which is blocked by the task.
+    CloseTaskBead { task: BeadId },
     /// Close the paired verify bead alongside the task.
     CloseVerifyBead { verify: BeadId },
 }
@@ -359,7 +362,10 @@ impl Task {
                         state: TaskState::Closed { merged },
                         ..self
                     },
-                    effects: vec![Effect::CloseVerifyBead { verify }],
+                    effects: vec![
+                        Effect::CloseTaskBead { task: id },
+                        Effect::CloseVerifyBead { verify },
+                    ],
                 })
             }
             (TaskState::Mergeable { .. }, Event::MergeFailed { detail }) => {
@@ -540,7 +546,7 @@ mod tests {
         assert_eq!(tr.task.state.name(), "closed");
         assert!(matches!(
             tr.effects.as_slice(),
-            [Effect::CloseVerifyBead { .. }]
+            [Effect::CloseTaskBead { .. }, Effect::CloseVerifyBead { .. }]
         ));
         assert!(tr.task.state.is_terminal());
     }
