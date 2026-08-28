@@ -4,7 +4,9 @@
 //! they call `apply_event` with a fact and let the domain decide.
 
 use domain::task::Effect;
-use domain::{BeadId, BeadKind, Event, FactoryMeta, IllegalTransition, Task, Transition};
+use domain::{
+    BeadId, BeadKind, BeadMeta, Event, FactoryMeta, IllegalTransition, MergeMeta, Task, Transition,
+};
 
 use crate::bead::NewBead;
 use crate::ports::{BeadStore, StoreError};
@@ -80,7 +82,11 @@ async fn run_effect(store: &dyn BeadStore, task: &Task, effect: &Effect) -> Resu
                 parent: None,
                 needs: vec![],
                 acceptance: None,
-                meta: Some(FactoryMeta::from(task.clone())),
+                meta: Some(BeadMeta::Merge(MergeMeta {
+                    task: task.id.clone(),
+                    branch: branch.clone(),
+                    head: head.clone(),
+                })),
             })
             .await
             .map(|_| ()),

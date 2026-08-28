@@ -1,7 +1,9 @@
 //! Ports: the effects workflows are allowed to perform, as traits.
 
+use std::path::{Path, PathBuf};
+
 use async_trait::async_trait;
-use domain::{BeadId, BeadKind, FactoryMeta, Timestamp};
+use domain::{BeadId, BeadKind, BranchName, Duration, FactoryMeta, Sha, Timestamp};
 
 use crate::bead::{Bead, NewBead};
 use crate::events::FactoryEvent;
@@ -73,4 +75,77 @@ pub trait EventSink: Send + Sync {
 /// Wall-clock source. The only place `now` comes from.
 pub trait Clock: Send + Sync {
     fn now(&self) -> Timestamp;
+}
+
+/// Failures from the git adapter, already translated.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum RepoError {
+    #[error("ref not found: {0}")]
+    RefNotFound(String),
+    #[error("git rejected the operation: {0}")]
+    Rejected(String),
+    #[error("git unavailable: {0}")]
+    Unavailable(String),
+}
+
+/// A checked-out worktree. Removed by `Repo::worktree_remove`; never dropped silently.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Worktree {
+    pub path: PathBuf,
+    pub branch: BranchName,
+    pub head: Sha,
+}
+
+/// The project repository (a local clone with a bare "origin" the Integrator pushes to).
+#[async_trait]
+pub trait Repo: Send + Sync {
+    /// Create a detached worktree at `head` (which must be the tip of `branch`).
+    ///
+    /// # Errors
+    /// `RefNotFound` if `head` is unknown; `Rejected`/`Unavailable` otherwise.
+    async fn worktree_add(&self, branch: &BranchName, head: &Sha) -> Result<Worktree, RepoError>;
+
+    /// Remove a worktree created by `worktree_add`, discarding any changes.
+    ///
+    /// # Errors
+    /// `Rejected`/`Unavailable`.
+    async fn worktree_remove(&self, worktree: Worktree) -> Result<(), RepoError>;
+}
+
+/// Outcome of running a command.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RunOutput {
+    /// `None` when the process was killed by a signal or the timeout.
+    pub exit_code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    pub timed_out: bool,
+}
+
+impl RunOutput {
+    #[must_use]
+    pub fn succeeded(&self) -> bool {
+        self.exit_code == Some(0) && !self.timed_out
+    }
+}
+
+/// Failure to even start a command (as opposed to the command failing).
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("could not run `{command}`: {reason}")]
+pub struct RunError {
+    pub command: String,
+    pub reason: String,
+}
+
+/// Runs shell commands in a directory with a timeout. The verify and build sandbox.
+#[async_trait]
+pub trait Runner: Send + Sync {
+    /// # Errors
+    /// `RunError` only if the process could not be spawned; a non-zero exit is an `Ok(RunOutput)`.
+    async fn run(
+        &self,
+        cwd: &Path,
+        command: &str,
+        timeout: Duration,
+    ) -> Result<RunOutput, RunError>;
 }

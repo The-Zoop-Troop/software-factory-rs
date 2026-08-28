@@ -12,9 +12,9 @@ use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use infra::BdCli;
 use infra::app::domain::{BeadId, TaskState};
-use infra::app::{Bead, BeadStore};
+use infra::app::{Bead, BeadStore, verify_once};
+use infra::{BdCli, GitCli, JsonlSink, ShellRunner, SystemClock};
 
 #[derive(Debug, Parser)]
 #[command(name = "factory", version, about = "Autonomous AI software factory")]
@@ -34,6 +34,21 @@ enum Command {
     Bead {
         #[command(subcommand)]
         command: BeadCommand,
+    },
+    /// Run the Verifier: check every task awaiting verification.
+    Verify {
+        /// Path to the project clone.
+        #[arg(long, default_value = "repo")]
+        repo: PathBuf,
+        /// Directory for throwaway worktrees.
+        #[arg(long, default_value = ".factory/worktrees")]
+        worktrees: PathBuf,
+        /// Event log path (JSONL, appended).
+        #[arg(long, default_value = ".factory/events.jsonl")]
+        events: PathBuf,
+        /// Seconds between passes; omit to run once and exit.
+        #[arg(long)]
+        interval: Option<u64>,
     },
 }
 
@@ -59,6 +74,26 @@ async fn main() -> anyhow::Result<()> {
             let id = BeadId::try_new(id)?;
             let bead = store.show(&id).await?;
             print!("{}", render(&bead));
+        }
+        Command::Verify {
+            repo,
+            worktrees,
+            events,
+            interval,
+        } => {
+            if let Some(dir) = events.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            let git = GitCli::new(&repo, &worktrees);
+            let log = JsonlSink::open(&events)?;
+            let store = BdCli::new(&cli.workdir).with_actor("verifier");
+            loop {
+                let report =
+                    verify_once(&store, &git, &ShellRunner, &SystemClock, &log, "verifier").await?;
+                tracing::info!(?report, "verify pass");
+                let Some(secs) = interval else { break };
+                tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
+            }
         }
     }
     Ok(())

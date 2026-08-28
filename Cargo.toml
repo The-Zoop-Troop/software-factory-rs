@@ -18,7 +18,7 @@ nutype = "0.7"
 itertools = "0.15"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "process", "time", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "process", "time", "sync", "fs"] }
 tokio-util = "0.7"
 futures = "0.3"
 tracing = "0.1"

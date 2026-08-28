@@ -26,6 +26,6 @@ pub use budget::{Budget, BudgetExceeded, Usage};
 pub use ids::{AgentId, BeadId, BranchName, Sha};
 pub use kind::BeadKind;
 pub use lease::Lease;
-pub use meta::{FactoryMeta, MetaParseError};
+pub use meta::{BeadMeta, FactoryMeta, MergeMeta, MetaParseError, VerifyMeta};
 pub use task::{Event, IllegalTransition, Task, TaskState, Transition};
 pub use time::{Duration, Timestamp};

@@ -343,6 +343,8 @@ mod tests {
                 state: TaskState::Open,
                 ..leased(0, 1, Budget::default())
             }),
+            verify: None,
+            merge: None,
         };
         assert_eq!(decide(&bead, Timestamp::from_unix_seconds(10)), None);
     }

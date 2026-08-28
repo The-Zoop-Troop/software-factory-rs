@@ -8,8 +8,12 @@ use crate::budget::{Budget, Usage};
 use crate::ids::{BeadId, Sha};
 use crate::task::{Task, TaskState};
 
-/// Key under a bead's metadata object where the factory keeps its fields.
+/// Key under a bead's metadata object where the factory keeps a task's fields.
 pub const META_KEY: &str = "fac";
+/// Key for a verify bead's fields.
+pub const VERIFY_META_KEY: &str = "fac_verify";
+/// Key for a merge bead's fields.
+pub const MERGE_META_KEY: &str = "fac_merge";
 
 /// Schema version of the metadata blob; bump on incompatible change.
 pub const META_VERSION: u32 = 1;
@@ -109,6 +113,170 @@ impl FactoryMeta {
     }
 }
 
+/// What a verify bead stores: which task it checks and how.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "RawVerifyMeta", into = "RawVerifyMeta")
+)]
+pub struct VerifyMeta {
+    pub task: BeadId,
+    /// Shell commands run in order inside a fresh worktree; the first non-zero exit fails.
+    pub commands: Vec<String>,
+    pub timeout: crate::time::Duration,
+}
+
+/// Wire shape of `VerifyMeta`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RawVerifyMeta {
+    pub version: u32,
+    pub task: String,
+    pub commands: Vec<String>,
+    #[cfg_attr(feature = "serde", serde(default = "default_timeout"))]
+    pub timeout: crate::time::Duration,
+}
+
+fn default_timeout() -> crate::time::Duration {
+    crate::time::Duration::from_minutes(20)
+}
+
+/// Why a verify blob could not be decoded.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum VerifyMetaParseError {
+    #[error("unsupported verify metadata version {found} (expected {expected})")]
+    Version { found: u32, expected: u32 },
+    #[error("invalid task id: {0}")]
+    Task(String),
+    #[error("verify bead has no commands")]
+    NoCommands,
+}
+
+impl TryFrom<RawVerifyMeta> for VerifyMeta {
+    type Error = VerifyMetaParseError;
+
+    fn try_from(raw: RawVerifyMeta) -> Result<Self, Self::Error> {
+        if raw.version != META_VERSION {
+            return Err(VerifyMetaParseError::Version {
+                found: raw.version,
+                expected: META_VERSION,
+            });
+        }
+        if raw.commands.iter().all(|c| c.trim().is_empty()) {
+            return Err(VerifyMetaParseError::NoCommands);
+        }
+        Ok(Self {
+            task: BeadId::try_new(raw.task)
+                .map_err(|e| VerifyMetaParseError::Task(e.to_string()))?,
+            commands: raw
+                .commands
+                .into_iter()
+                .filter(|c| !c.trim().is_empty())
+                .collect(),
+            timeout: raw.timeout,
+        })
+    }
+}
+
+impl From<VerifyMeta> for RawVerifyMeta {
+    fn from(m: VerifyMeta) -> Self {
+        Self {
+            version: META_VERSION,
+            task: m.task.into_inner(),
+            commands: m.commands,
+            timeout: m.timeout,
+        }
+    }
+}
+
+/// What a merge bead stores: the branch the Integrator should land and for which task.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(try_from = "RawMergeMeta", into = "RawMergeMeta")
+)]
+pub struct MergeMeta {
+    pub task: BeadId,
+    pub branch: crate::ids::BranchName,
+    pub head: Sha,
+}
+
+/// Wire shape of `MergeMeta`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RawMergeMeta {
+    pub version: u32,
+    pub task: String,
+    pub branch: String,
+    pub head: String,
+}
+
+/// Why a merge blob could not be decoded.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum MergeMetaParseError {
+    #[error("unsupported merge metadata version {found} (expected {expected})")]
+    Version { found: u32, expected: u32 },
+    #[error("invalid task id: {0}")]
+    Task(String),
+    #[error("invalid branch: {0}")]
+    Branch(String),
+    #[error("invalid head sha: {0}")]
+    Head(String),
+}
+
+impl TryFrom<RawMergeMeta> for MergeMeta {
+    type Error = MergeMetaParseError;
+
+    fn try_from(raw: RawMergeMeta) -> Result<Self, Self::Error> {
+        if raw.version != META_VERSION {
+            return Err(MergeMetaParseError::Version {
+                found: raw.version,
+                expected: META_VERSION,
+            });
+        }
+        Ok(Self {
+            task: BeadId::try_new(raw.task)
+                .map_err(|e| MergeMetaParseError::Task(e.to_string()))?,
+            branch: crate::ids::BranchName::try_new(raw.branch)
+                .map_err(|e| MergeMetaParseError::Branch(e.to_string()))?,
+            head: Sha::try_new(raw.head).map_err(|e| MergeMetaParseError::Head(e.to_string()))?,
+        })
+    }
+}
+
+impl From<MergeMeta> for RawMergeMeta {
+    fn from(m: MergeMeta) -> Self {
+        Self {
+            version: META_VERSION,
+            task: m.task.into_inner(),
+            branch: m.branch.into_inner(),
+            head: m.head.into_inner(),
+        }
+    }
+}
+
+/// Any factory metadata a bead can carry, keyed by bead kind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BeadMeta {
+    Task(FactoryMeta),
+    Verify(VerifyMeta),
+    Merge(MergeMeta),
+}
+
+impl BeadMeta {
+    /// The metadata key this variant is stored under.
+    #[must_use]
+    pub const fn key(&self) -> &'static str {
+        match self {
+            Self::Task(_) => META_KEY,
+            Self::Verify(_) => VERIFY_META_KEY,
+            Self::Merge(_) => MERGE_META_KEY,
+        }
+    }
+}
+
 impl From<Task> for FactoryMeta {
     fn from(t: Task) -> Self {
         Self {
@@ -158,6 +326,26 @@ mod tests {
         assert!(err.to_string().contains("version"));
         let bad = r#"{"version":1,"verify_bead":"fac-2","base":"nope","state":{"state":"open"}}"#;
         assert!(serde_json::from_str::<FactoryMeta>(bad).is_err());
+    }
+
+    #[test]
+    fn verify_meta_rejects_empty_commands() {
+        let bad = r#"{"version":1,"task":"fac-1","commands":["  "]}"#;
+        assert!(serde_json::from_str::<VerifyMeta>(bad).is_err());
+        let ok = r#"{"version":1,"task":"fac-1","commands":["cargo test"]}"#;
+        let m: VerifyMeta = serde_json::from_str(ok).unwrap();
+        assert_eq!(m.timeout, crate::time::Duration::from_minutes(20));
+    }
+
+    #[test]
+    fn merge_meta_roundtrip() {
+        let m = MergeMeta {
+            task: BeadId::try_new("fac-1").unwrap(),
+            branch: crate::ids::BranchName::try_new("task/fac-1").unwrap(),
+            head: Sha::try_new("b".repeat(40)).unwrap(),
+        };
+        let back: MergeMeta = serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
+        assert_eq!(back, m);
     }
 
     #[test]

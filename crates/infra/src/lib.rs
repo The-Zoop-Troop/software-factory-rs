@@ -15,9 +15,13 @@
 
 pub mod bd;
 pub mod clock;
+pub mod git;
 pub mod jsonl;
+pub mod shell;
 
 pub use app;
 pub use bd::BdCli;
 pub use clock::SystemClock;
+pub use git::GitCli;
 pub use jsonl::JsonlSink;
+pub use shell::ShellRunner;

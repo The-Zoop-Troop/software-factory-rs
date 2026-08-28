@@ -14,6 +14,8 @@ pub enum EventKind {
         event: &'static str,
         to: &'static str,
     },
+    /// Verifier ran a verify bead against a task.
+    Verified { passed: bool, verify_bead: BeadId },
     /// Steward reopened a task whose lease expired.
     LeaseReaped,
     /// Steward escalated a task to an incident.

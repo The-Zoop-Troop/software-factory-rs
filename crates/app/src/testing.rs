@@ -9,12 +9,18 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use domain::{BeadId, BeadKind, FactoryMeta, Timestamp};
+use std::path::{Path, PathBuf};
+
+use domain::{
+    BeadId, BeadKind, BeadMeta, BranchName, Duration, FactoryMeta, Sha, Timestamp, VerifyMeta,
+};
 use tokio::sync::Mutex;
 
 use crate::bead::{Bead, BeadStatus, NewBead};
 use crate::events::FactoryEvent;
-use crate::ports::{BeadStore, Clock, EventSink, StoreError};
+use crate::ports::{
+    BeadStore, Clock, EventSink, Repo, RepoError, RunError, RunOutput, Runner, StoreError, Worktree,
+};
 
 /// In-memory bead store. Ready == every active bead of the kind (no dependency graph).
 #[derive(Debug, Default)]
@@ -39,6 +45,8 @@ impl FakeStore {
                 parent: None,
                 kind: Some(BeadKind::Task),
                 meta: Some(meta),
+                verify: None,
+                merge: None,
             },
         );
     }
@@ -70,6 +78,17 @@ impl FakeStore {
         }
     }
 
+    /// Insert a verify bead paired with `task`.
+    pub async fn seed_verify(&self, id: BeadId, task: BeadId, commands: &[&str]) {
+        let mut bead = plain(id, "verify", Some(BeadKind::Verify), None, BeadStatus::Open);
+        bead.verify = Some(VerifyMeta {
+            task,
+            commands: commands.iter().map(|c| (*c).to_owned()).collect(),
+            timeout: Duration::from_minutes(1),
+        });
+        self.beads.lock().await.insert(bead.id.clone(), bead);
+    }
+
     /// Insert a bead the factory does not own.
     pub async fn seed_plain(&self, id: BeadId, title: &str) {
         self.beads.lock().await.insert(
@@ -85,6 +104,8 @@ impl FakeStore {
                 parent: None,
                 kind: None,
                 meta: None,
+                verify: None,
+                merge: None,
             },
         );
     }
@@ -154,7 +175,18 @@ impl BeadStore for FakeStore {
                 labels: vec![new.kind.label()],
                 parent: new.parent,
                 kind: Some(new.kind),
-                meta: new.meta,
+                meta: match &new.meta {
+                    Some(BeadMeta::Task(m)) => Some(m.clone()),
+                    Some(BeadMeta::Verify(_) | BeadMeta::Merge(_)) | None => None,
+                },
+                verify: match &new.meta {
+                    Some(BeadMeta::Verify(m)) => Some(m.clone()),
+                    Some(BeadMeta::Task(_) | BeadMeta::Merge(_)) | None => None,
+                },
+                merge: match &new.meta {
+                    Some(BeadMeta::Merge(m)) => Some(m.clone()),
+                    Some(BeadMeta::Task(_) | BeadMeta::Verify(_)) | None => None,
+                },
             },
         );
         Ok(id)
@@ -199,6 +231,8 @@ fn plain(
         parent,
         kind,
         meta: None,
+        verify: None,
+        merge: None,
     }
 }
 
@@ -227,5 +261,83 @@ pub struct FixedClock(pub Timestamp);
 impl Clock for FixedClock {
     fn now(&self) -> Timestamp {
         self.0
+    }
+}
+
+/// Records worktree adds/removes; never touches disk.
+#[derive(Debug, Default)]
+pub struct FakeRepo {
+    pub added: std::sync::Mutex<Vec<Worktree>>,
+    pub removed: std::sync::Mutex<Vec<Worktree>>,
+    /// Heads that `worktree_add` should reject as unknown.
+    pub missing: Vec<Sha>,
+}
+
+#[async_trait]
+impl Repo for FakeRepo {
+    async fn worktree_add(&self, branch: &BranchName, head: &Sha) -> Result<Worktree, RepoError> {
+        if self.missing.contains(head) {
+            return Err(RepoError::RefNotFound(head.to_string()));
+        }
+        let wt = Worktree {
+            path: PathBuf::from(format!("/fake/wt/{branch}")),
+            branch: branch.clone(),
+            head: head.clone(),
+        };
+        self.added.lock().expect("test mutex").push(wt.clone());
+        Ok(wt)
+    }
+
+    async fn worktree_remove(&self, worktree: Worktree) -> Result<(), RepoError> {
+        self.removed.lock().expect("test mutex").push(worktree);
+        Ok(())
+    }
+}
+
+/// Scripted command outcomes: exact command string → output. Unknown commands fail to spawn.
+#[derive(Debug, Default)]
+pub struct FakeRunner {
+    pub script: BTreeMap<String, RunOutput>,
+    pub calls: std::sync::Mutex<Vec<(PathBuf, String)>>,
+}
+
+impl FakeRunner {
+    #[must_use]
+    pub fn ok(stdout: &str) -> RunOutput {
+        RunOutput {
+            exit_code: Some(0),
+            stdout: stdout.into(),
+            stderr: String::new(),
+            timed_out: false,
+        }
+    }
+
+    #[must_use]
+    pub fn fail(code: i32, stderr: &str) -> RunOutput {
+        RunOutput {
+            exit_code: Some(code),
+            stdout: String::new(),
+            stderr: stderr.into(),
+            timed_out: false,
+        }
+    }
+}
+
+#[async_trait]
+impl Runner for FakeRunner {
+    async fn run(
+        &self,
+        cwd: &Path,
+        command: &str,
+        _timeout: Duration,
+    ) -> Result<RunOutput, RunError> {
+        self.calls
+            .lock()
+            .expect("test mutex")
+            .push((cwd.to_path_buf(), command.to_owned()));
+        self.script.get(command).cloned().ok_or_else(|| RunError {
+            command: command.to_owned(),
+            reason: "unscripted".into(),
+        })
     }
 }

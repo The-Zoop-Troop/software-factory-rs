@@ -4,8 +4,8 @@
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use app::domain::meta::META_KEY;
-use app::domain::{BeadId, BeadKind, FactoryMeta};
+use app::domain::meta::{MERGE_META_KEY, META_KEY, VERIFY_META_KEY};
+use app::domain::{BeadId, BeadKind, BeadMeta, FactoryMeta, MergeMeta, VerifyMeta};
 use app::{Bead, BeadStatus, BeadStore, NewBead, StoreError};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -120,12 +120,20 @@ impl TryFrom<RawBead> for Bead {
             .filter(|p| !p.is_empty())
             .map(|p| BeadId::try_new(p).map_err(|e| decode("parent", &e)))
             .transpose()?;
-        let meta = raw
-            .metadata
-            .and_then(|mut m| m.remove(META_KEY))
+        let mut metadata = raw.metadata.unwrap_or_default();
+        let meta = metadata
+            .remove(META_KEY)
+            .map(|v| serde_json::from_value::<FactoryMeta>(v).map_err(|e| decode(META_KEY, &e)))
+            .transpose()?;
+        let verify = metadata
+            .remove(VERIFY_META_KEY)
             .map(|v| {
-                serde_json::from_value::<FactoryMeta>(v).map_err(|e| decode("metadata.fac", &e))
+                serde_json::from_value::<VerifyMeta>(v).map_err(|e| decode(VERIFY_META_KEY, &e))
             })
+            .transpose()?;
+        let merge = metadata
+            .remove(MERGE_META_KEY)
+            .map(|v| serde_json::from_value::<MergeMeta>(v).map_err(|e| decode(MERGE_META_KEY, &e)))
             .transpose()?;
         Ok(Self {
             id,
@@ -138,6 +146,8 @@ impl TryFrom<RawBead> for Bead {
             parent,
             kind,
             meta,
+            verify,
+            merge,
         })
     }
 }
@@ -148,9 +158,20 @@ struct Created {
 }
 
 fn meta_json(meta: &FactoryMeta) -> Result<String, StoreError> {
-    let value = serde_json::to_value(meta).map_err(|e| StoreError::Decode(e.to_string()))?;
-    let wrapped =
-        serde_json::Value::Object(std::iter::once((META_KEY.to_owned(), value)).collect());
+    wrap_json(META_KEY, meta)
+}
+
+fn bead_meta_json(meta: &BeadMeta) -> Result<String, StoreError> {
+    match meta {
+        BeadMeta::Task(m) => wrap_json(meta.key(), m),
+        BeadMeta::Verify(m) => wrap_json(meta.key(), m),
+        BeadMeta::Merge(m) => wrap_json(meta.key(), m),
+    }
+}
+
+fn wrap_json<T: serde::Serialize>(key: &str, value: &T) -> Result<String, StoreError> {
+    let value = serde_json::to_value(value).map_err(|e| StoreError::Decode(e.to_string()))?;
+    let wrapped = serde_json::Value::Object(std::iter::once((key.to_owned(), value)).collect());
     serde_json::to_string(&wrapped).map_err(|e| StoreError::Decode(e.to_string()))
 }
 
@@ -242,7 +263,7 @@ impl BeadStore for BdCli {
             args.extend(["--acceptance".into(), acceptance]);
         }
         if let Some(meta) = &new.meta {
-            args.extend(["--metadata".into(), meta_json(meta)?]);
+            args.extend(["--metadata".into(), bead_meta_json(meta)?]);
         }
         let borrowed: Vec<&str> = args.iter().map(String::as_str).collect();
         let created: Created = self.run_json(&borrowed).await?;

@@ -19,6 +19,7 @@ pub mod events;
 pub mod ports;
 pub mod steward;
 pub mod transition;
+pub mod verifier;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
@@ -26,6 +27,9 @@ pub mod testing;
 pub use bead::{Bead, BeadStatus, NewBead};
 pub use domain;
 pub use events::{EventKind, FactoryEvent};
-pub use ports::{BeadStore, Clock, EventSink, StoreError};
+pub use ports::{
+    BeadStore, Clock, EventSink, Repo, RepoError, RunError, RunOutput, Runner, StoreError, Worktree,
+};
 pub use steward::{StewardError, SweepReport, sweep};
 pub use transition::{TransitionError, apply_event, load_task};
+pub use verifier::{VerifierError, VerifyReport, verify_once};
