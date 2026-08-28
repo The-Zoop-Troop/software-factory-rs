@@ -16,6 +16,7 @@
 
 pub mod bead;
 pub mod events;
+pub mod integrator;
 pub mod ports;
 pub mod steward;
 pub mod transition;
@@ -27,6 +28,7 @@ pub mod testing;
 pub use bead::{Bead, BeadStatus, NewBead};
 pub use domain;
 pub use events::{EventKind, FactoryEvent};
+pub use integrator::{IntegrateConfig, IntegrateReport, IntegratorError, integrate_once};
 pub use ports::{
     BeadStore, Clock, EventSink, Repo, RepoError, RunError, RunOutput, Runner, StoreError, Worktree,
 };

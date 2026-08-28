@@ -16,6 +16,12 @@ pub enum EventKind {
     },
     /// Verifier ran a verify bead against a task.
     Verified { passed: bool, verify_bead: BeadId },
+    /// Integrator landed (or failed to land) a branch on main.
+    Integrated {
+        merge_bead: BeadId,
+        landed: Option<domain::Sha>,
+        detail: Option<String>,
+    },
     /// Steward reopened a task whose lease expired.
     LeaseReaped,
     /// Steward escalated a task to an incident.

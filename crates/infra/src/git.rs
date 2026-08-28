@@ -116,4 +116,58 @@ impl Repo for GitCli {
         .await?;
         Ok(())
     }
+
+    async fn rebase(&self, worktree: &Worktree, onto: &BranchName) -> Result<Sha, RepoError> {
+        match Self::git_in(&worktree.path, &["rebase", onto.as_ref()]).await {
+            Ok(_) => {}
+            Err(RepoError::Rejected(msg))
+                if msg.contains("CONFLICT") || msg.contains("could not apply") =>
+            {
+                let _ = Self::git_in(&worktree.path, &["rebase", "--abort"]).await;
+                return Err(RepoError::Conflict(msg));
+            }
+            Err(e) => {
+                let _ = Self::git_in(&worktree.path, &["rebase", "--abort"]).await;
+                return Err(e);
+            }
+        }
+        let out = Self::git_in(&worktree.path, &["rev-parse", "HEAD"]).await?;
+        Sha::try_new(out).map_err(|e| RepoError::Rejected(format!("rev-parse output: {e}")))
+    }
+
+    async fn fast_forward(&self, branch: &BranchName, to: &Sha) -> Result<(), RepoError> {
+        let current = self.rev_parse(branch.as_ref()).await?;
+        if self
+            .git(&["merge-base", "--is-ancestor", current.as_ref(), to.as_ref()])
+            .await
+            .is_err()
+        {
+            return Err(RepoError::NotFastForward {
+                branch: branch.to_string(),
+                to: to.clone(),
+            });
+        }
+        // Compare-and-swap on the ref so a concurrent mover makes this fail rather than clobber.
+        self.git(&[
+            "update-ref",
+            &format!("refs/heads/{branch}"),
+            to.as_ref(),
+            current.as_ref(),
+        ])
+        .await?;
+        // If `branch` is checked out in the main worktree, bring its index/tree along.
+        if let Ok(head) = self.git(&["symbolic-ref", "--short", "-q", "HEAD"]).await
+            && head == branch.as_ref()
+        {
+            self.git(&["reset", "--hard", "-q", to.as_ref()]).await?;
+        }
+        Ok(())
+    }
+
+    async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError> {
+        let refspec = format!("{branch}:{branch}");
+        self.git(&["push", "--quiet", remote, &refspec])
+            .await
+            .map(|_| ())
+    }
 }

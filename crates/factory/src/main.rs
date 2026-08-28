@@ -12,8 +12,8 @@ use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use infra::app::domain::{BeadId, TaskState};
-use infra::app::{Bead, BeadStore, verify_once};
+use infra::app::domain::{BeadId, BranchName, Duration, TaskState};
+use infra::app::{Bead, BeadStore, IntegrateConfig, integrate_once, verify_once};
 use infra::{BdCli, GitCli, JsonlSink, ShellRunner, SystemClock};
 
 #[derive(Debug, Parser)]
@@ -46,6 +46,33 @@ enum Command {
         /// Event log path (JSONL, appended).
         #[arg(long, default_value = ".factory/events.jsonl")]
         events: PathBuf,
+        /// Seconds between passes; omit to run once and exit.
+        #[arg(long)]
+        interval: Option<u64>,
+    },
+    /// Run the Integrator: land verified branches on main.
+    Integrate {
+        /// Path to the project clone.
+        #[arg(long, default_value = "repo")]
+        repo: PathBuf,
+        /// Directory for throwaway worktrees.
+        #[arg(long, default_value = ".factory/worktrees")]
+        worktrees: PathBuf,
+        /// Event log path (JSONL, appended).
+        #[arg(long, default_value = ".factory/events.jsonl")]
+        events: PathBuf,
+        /// Integration branch.
+        #[arg(long, default_value = "main")]
+        main: String,
+        /// Remote to push main to after landing (omit for local-only).
+        #[arg(long)]
+        remote: Option<String>,
+        /// Project-wide check to run on the rebased head before landing (repeatable).
+        #[arg(long = "check")]
+        checks: Vec<String>,
+        /// Timeout per check, seconds.
+        #[arg(long, default_value_t = 1200)]
+        check_timeout: u64,
         /// Seconds between passes; omit to run once and exit.
         #[arg(long)]
         interval: Option<u64>,
@@ -91,6 +118,44 @@ async fn main() -> anyhow::Result<()> {
                 let report =
                     verify_once(&store, &git, &ShellRunner, &SystemClock, &log, "verifier").await?;
                 tracing::info!(?report, "verify pass");
+                let Some(secs) = interval else { break };
+                tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
+            }
+        }
+        Command::Integrate {
+            repo,
+            worktrees,
+            events,
+            main,
+            remote,
+            checks,
+            check_timeout,
+            interval,
+        } => {
+            if let Some(dir) = events.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            let git = GitCli::new(&repo, &worktrees);
+            let log = JsonlSink::open(&events)?;
+            let store = BdCli::new(&cli.workdir).with_actor("integrator");
+            let cfg = IntegrateConfig {
+                main: BranchName::try_new(main)?,
+                remote,
+                checks,
+                check_timeout: Duration::from_seconds(check_timeout),
+            };
+            loop {
+                let report = integrate_once(
+                    &store,
+                    &git,
+                    &ShellRunner,
+                    &SystemClock,
+                    &log,
+                    &cfg,
+                    "integrator",
+                )
+                .await?;
+                tracing::info!(?report, "integrate pass");
                 let Some(secs) = interval else { break };
                 tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
             }

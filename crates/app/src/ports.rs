@@ -82,6 +82,10 @@ pub trait Clock: Send + Sync {
 pub enum RepoError {
     #[error("ref not found: {0}")]
     RefNotFound(String),
+    #[error("rebase conflict: {0}")]
+    Conflict(String),
+    #[error("not a fast-forward: {branch} is not an ancestor of {to}")]
+    NotFastForward { branch: String, to: Sha },
     #[error("git rejected the operation: {0}")]
     Rejected(String),
     #[error("git unavailable: {0}")]
@@ -110,6 +114,25 @@ pub trait Repo: Send + Sync {
     /// # Errors
     /// `Rejected`/`Unavailable`.
     async fn worktree_remove(&self, worktree: Worktree) -> Result<(), RepoError>;
+
+    /// Rebase the worktree's detached HEAD onto `onto`; returns the new head.
+    /// On conflict the rebase is aborted and the worktree left at its old head.
+    ///
+    /// # Errors
+    /// `Conflict` if the rebase cannot apply cleanly.
+    async fn rebase(&self, worktree: &Worktree, onto: &BranchName) -> Result<Sha, RepoError>;
+
+    /// Move `branch` to `to`, only if that is a fast-forward.
+    ///
+    /// # Errors
+    /// `NotFastForward` if `branch` is not an ancestor of `to`.
+    async fn fast_forward(&self, branch: &BranchName, to: &Sha) -> Result<(), RepoError>;
+
+    /// Push `branch` to `remote`.
+    ///
+    /// # Errors
+    /// `Rejected` if the remote refuses; `Unavailable` if unreachable.
+    async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError>;
 }
 
 /// Outcome of running a command.

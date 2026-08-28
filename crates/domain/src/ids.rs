@@ -52,7 +52,7 @@ pub struct AgentId(String);
 #[nutype(
     sanitize(trim),
     validate(not_empty, regex = r"^[A-Za-z0-9][A-Za-z0-9/_.-]*$", predicate = |s| !s.contains("..") && !s.ends_with('/')),
-    derive(Debug, Clone, PartialEq, Eq, Hash, Display, AsRef, TryFrom, Serialize, Deserialize)
+    derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Display, AsRef, TryFrom, Serialize, Deserialize)
 )]
 pub struct BranchName(String);
 
@@ -65,6 +65,8 @@ pub struct BranchName(String);
         Clone,
         PartialEq,
         Eq,
+        PartialOrd,
+        Ord,
         Hash,
         Display,
         AsRef,

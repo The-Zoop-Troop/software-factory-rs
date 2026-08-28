@@ -89,6 +89,17 @@ impl FakeStore {
         self.beads.lock().await.insert(bead.id.clone(), bead);
     }
 
+    /// Insert a merge bead for `task`.
+    pub async fn seed_merge(&self, id: BeadId, task: BeadId, branch: &str, head: Sha) {
+        let mut bead = plain(id, "merge", Some(BeadKind::Merge), None, BeadStatus::Open);
+        bead.merge = Some(domain::MergeMeta {
+            task,
+            branch: BranchName::try_new(branch).expect("test branch is valid"),
+            head,
+        });
+        self.beads.lock().await.insert(bead.id.clone(), bead);
+    }
+
     /// Insert a bead the factory does not own.
     pub async fn seed_plain(&self, id: BeadId, title: &str) {
         self.beads.lock().await.insert(
@@ -271,6 +282,14 @@ pub struct FakeRepo {
     pub removed: std::sync::Mutex<Vec<Worktree>>,
     /// Heads that `worktree_add` should reject as unknown.
     pub missing: Vec<Sha>,
+    /// Heads whose rebase should conflict.
+    pub conflicting: Vec<Sha>,
+    /// What `rebase` returns as the new head for a given old head (identity if absent).
+    pub rebased_to: BTreeMap<Sha, Sha>,
+    pub fast_forwards: std::sync::Mutex<Vec<(BranchName, Sha)>>,
+    pub pushes: std::sync::Mutex<Vec<(String, BranchName)>>,
+    /// Make every push fail with `Unavailable`.
+    pub push_fails: bool,
 }
 
 #[async_trait]
@@ -290,6 +309,39 @@ impl Repo for FakeRepo {
 
     async fn worktree_remove(&self, worktree: Worktree) -> Result<(), RepoError> {
         self.removed.lock().expect("test mutex").push(worktree);
+        Ok(())
+    }
+
+    async fn rebase(&self, worktree: &Worktree, _onto: &BranchName) -> Result<Sha, RepoError> {
+        if self.conflicting.contains(&worktree.head) {
+            return Err(RepoError::Conflict(format!(
+                "CONFLICT in {}",
+                worktree.branch
+            )));
+        }
+        Ok(self
+            .rebased_to
+            .get(&worktree.head)
+            .cloned()
+            .unwrap_or_else(|| worktree.head.clone()))
+    }
+
+    async fn fast_forward(&self, branch: &BranchName, to: &Sha) -> Result<(), RepoError> {
+        self.fast_forwards
+            .lock()
+            .expect("test mutex")
+            .push((branch.clone(), to.clone()));
+        Ok(())
+    }
+
+    async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError> {
+        if self.push_fails {
+            return Err(RepoError::Unavailable("remote down".into()));
+        }
+        self.pushes
+            .lock()
+            .expect("test mutex")
+            .push((remote.to_owned(), branch.clone()));
         Ok(())
     }
 }

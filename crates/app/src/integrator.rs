@@ -1,0 +1,511 @@
+//! The Integrator v0 (ARCHITECTURE.md §4.4): land verified branches on `main` one at a
+//! time — rebase, run the project's own check suite, fast-forward, push. The only
+//! component that pushes to the remote. Batch-then-bisect is Phase 1.
+
+use std::fmt::Write as _;
+
+use domain::{BeadId, BeadKind, BranchName, Duration, Event, MergeMeta, TaskState};
+
+use crate::events::{EventKind, FactoryEvent};
+use crate::ports::{BeadStore, Clock, EventSink, Repo, RepoError, Runner, StoreError};
+use crate::transition::{TransitionError, apply_event, load_task};
+
+/// How to integrate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IntegrateConfig {
+    pub main: BranchName,
+    /// Remote to push `main` to after landing; `None` for local-only rigs.
+    pub remote: Option<String>,
+    /// Project-wide checks run on the rebased head before it lands. Empty = trust the verify bead.
+    pub checks: Vec<String>,
+    pub check_timeout: Duration,
+}
+
+/// What one integration pass did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct IntegrateReport {
+    pub landed: usize,
+    pub failed: usize,
+    pub skipped: usize,
+    pub errors: usize,
+}
+
+/// Failure to list merge beads; per-bead failures are counted in the report.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum IntegratorError {
+    #[error(transparent)]
+    Store(#[from] StoreError),
+}
+
+/// Land every open merge bead whose task is `mergeable`, in listing order.
+///
+/// # Errors
+/// Only when the ledger cannot be listed.
+#[tracing::instrument(skip_all, err)]
+pub async fn integrate_once(
+    store: &dyn BeadStore,
+    repo: &dyn Repo,
+    runner: &dyn Runner,
+    clock: &dyn Clock,
+    log: &dyn EventSink,
+    cfg: &IntegrateConfig,
+    actor: &str,
+) -> Result<IntegrateReport, IntegratorError> {
+    let mut report = IntegrateReport::default();
+    for bead in store.list_active(BeadKind::Merge).await? {
+        let Some(meta) = bead.merge.clone() else {
+            report.skipped += 1;
+            continue;
+        };
+        let outcome = integrate_one(store, repo, runner, cfg, &bead.id, &meta).await;
+        let kind = match &outcome {
+            Ok(Some(Landed::Yes(sha))) => {
+                report.landed += 1;
+                EventKind::Integrated {
+                    merge_bead: bead.id.clone(),
+                    landed: Some(sha.clone()),
+                    detail: None,
+                }
+            }
+            Ok(Some(Landed::No(detail))) => {
+                report.failed += 1;
+                EventKind::Integrated {
+                    merge_bead: bead.id.clone(),
+                    landed: None,
+                    detail: Some(detail.clone()),
+                }
+            }
+            Ok(None) => {
+                report.skipped += 1;
+                continue;
+            }
+            Err(e) => {
+                report.errors += 1;
+                EventKind::Error {
+                    detail: e.to_string(),
+                }
+            }
+        };
+        log.record(&FactoryEvent {
+            at: clock.now(),
+            actor: actor.to_owned(),
+            bead: Some(meta.task.clone()),
+            kind,
+        });
+    }
+    Ok(report)
+}
+
+enum Landed {
+    Yes(domain::Sha),
+    No(String),
+}
+
+/// `None` if the task is no longer mergeable (stale merge bead — closed as such).
+async fn integrate_one(
+    store: &dyn BeadStore,
+    repo: &dyn Repo,
+    runner: &dyn Runner,
+    cfg: &IntegrateConfig,
+    merge_bead: &BeadId,
+    meta: &MergeMeta,
+) -> Result<Option<Landed>, TransitionError> {
+    let task = load_task(store, &meta.task).await?;
+    let TaskState::Mergeable { branch, head } = &task.state else {
+        store
+            .close(merge_bead, "task no longer mergeable; stale merge bead")
+            .await?;
+        return Ok(None);
+    };
+    if branch != &meta.branch || head != &meta.head {
+        store
+            .close(
+                merge_bead,
+                "merge bead does not match task's current branch/head",
+            )
+            .await?;
+        return Ok(None);
+    }
+
+    let worktree = repo
+        .worktree_add(branch, head)
+        .await
+        .map_err(|e| repo_err(&e))?;
+    let attempt = land(repo, runner, cfg, &worktree).await;
+    repo.worktree_remove(worktree)
+        .await
+        .map_err(|e| repo_err(&e))?;
+
+    match attempt {
+        Ok(new_head) => {
+            apply_event(
+                store,
+                &meta.task,
+                Event::Merged {
+                    merged: new_head.clone(),
+                },
+            )
+            .await?;
+            store
+                .close(merge_bead, &format!("landed on {} as {new_head}", cfg.main))
+                .await?;
+            Ok(Some(Landed::Yes(new_head)))
+        }
+        Err(LandError::Rejected(detail)) => {
+            apply_event(
+                store,
+                &meta.task,
+                Event::MergeFailed {
+                    detail: detail.clone(),
+                },
+            )
+            .await?;
+            store
+                .close(merge_bead, "integration failed; task reopened")
+                .await?;
+            Ok(Some(Landed::No(detail)))
+        }
+        // Infrastructure trouble (remote down, git broken): leave everything as it was and retry later.
+        Err(LandError::Infra(e)) => Err(repo_err(&e)),
+    }
+}
+
+enum LandError {
+    /// The branch itself is at fault: conflict or failing checks. Reopens the task.
+    Rejected(String),
+    /// Our side is at fault. Nothing changes; try again next pass.
+    Infra(RepoError),
+}
+
+/// Rebase → checks → fast-forward → push. Returns the sha now at the tip of `main`.
+async fn land(
+    repo: &dyn Repo,
+    runner: &dyn Runner,
+    cfg: &IntegrateConfig,
+    worktree: &crate::ports::Worktree,
+) -> Result<domain::Sha, LandError> {
+    let new_head = match repo.rebase(worktree, &cfg.main).await {
+        Ok(sha) => sha,
+        Err(RepoError::Conflict(detail)) => {
+            return Err(LandError::Rejected(format!(
+                "rebase onto {}: {detail}",
+                cfg.main
+            )));
+        }
+        Err(
+            e @ (RepoError::RefNotFound(_)
+            | RepoError::NotFastForward { .. }
+            | RepoError::Rejected(_)
+            | RepoError::Unavailable(_)),
+        ) => {
+            return Err(LandError::Infra(e));
+        }
+    };
+
+    for check in &cfg.checks {
+        let out = runner
+            .run(&worktree.path, check, cfg.check_timeout)
+            .await
+            .map_err(|e| LandError::Infra(RepoError::Unavailable(e.to_string())))?;
+        if !out.succeeded() {
+            let mut detail = format!("check `{check}` failed after rebase onto {}", cfg.main);
+            let _ = write!(
+                detail,
+                " (exit {:?}{})",
+                out.exit_code,
+                if out.timed_out { ", timed out" } else { "" }
+            );
+            let tail = out
+                .stderr
+                .chars()
+                .rev()
+                .take(2000)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .collect::<String>();
+            if !tail.is_empty() {
+                let _ = write!(detail, "\n{tail}");
+            }
+            return Err(LandError::Rejected(detail));
+        }
+    }
+
+    match repo.fast_forward(&cfg.main, &new_head).await {
+        Ok(()) => {}
+        // Someone else moved main between rebase and ff: not the branch's fault, retry next pass.
+        Err(e) => return Err(LandError::Infra(e)),
+    }
+    if let Some(remote) = &cfg.remote {
+        repo.push(remote, &cfg.main)
+            .await
+            .map_err(LandError::Infra)?;
+    }
+    Ok(new_head)
+}
+
+fn repo_err(e: &RepoError) -> TransitionError {
+    TransitionError::Store(StoreError::Unavailable(format!("repo: {e}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use domain::{AgentId, Budget, FactoryMeta, Sha, Timestamp, Usage};
+
+    use super::*;
+    use crate::testing::{FakeRepo, FakeRunner, FakeStore, FixedClock, MemorySink};
+
+    fn id(s: &str) -> BeadId {
+        BeadId::try_new(s).unwrap()
+    }
+    fn sha(c: char) -> Sha {
+        Sha::try_new(core::iter::repeat_n(c, 40).collect::<String>()).unwrap()
+    }
+    fn cfg(checks: &[&str], remote: Option<&str>) -> IntegrateConfig {
+        IntegrateConfig {
+            main: BranchName::try_new("main").unwrap(),
+            remote: remote.map(str::to_owned),
+            checks: checks.iter().map(|c| (*c).to_owned()).collect(),
+            check_timeout: Duration::from_seconds(10),
+        }
+    }
+
+    /// A task in `mergeable` at branch task/fac-t @ 'b', with a merge bead.
+    async fn store_mergeable(attempts: u32) -> FakeStore {
+        let store = FakeStore::default();
+        store
+            .seed_task(
+                id("fac-t"),
+                FactoryMeta {
+                    verify_bead: id("fac-v"),
+                    base: sha('a'),
+                    budget: Budget {
+                        attempts,
+                        ..Budget::default()
+                    },
+                    usage: Usage::default(),
+                    lease_expiries: 0,
+                    state: TaskState::Open,
+                },
+            )
+            .await;
+        store.seed_plain(id("fac-v"), "verify").await;
+        let now = Timestamp::from_unix_seconds(0);
+        let w = AgentId::try_new("w").unwrap();
+        apply_event(
+            &store,
+            &id("fac-t"),
+            Event::Claim {
+                holder: w.clone(),
+                now,
+                ttl: Duration::from_seconds(9),
+            },
+        )
+        .await
+        .unwrap();
+        apply_event(
+            &store,
+            &id("fac-t"),
+            Event::Submit {
+                holder: w,
+                branch: BranchName::try_new("task/fac-t").unwrap(),
+                head: sha('b'),
+                now,
+                tokens: 1,
+            },
+        )
+        .await
+        .unwrap();
+        apply_event(&store, &id("fac-t"), Event::VerifyPassed)
+            .await
+            .unwrap(); // creates the merge bead
+        store
+    }
+
+    #[tokio::test]
+    async fn lands_rebased_head_runs_checks_pushes_and_closes() {
+        let store = store_mergeable(3).await;
+        let mut repo = FakeRepo::default();
+        repo.rebased_to.insert(sha('b'), sha('c'));
+        let mut runner = FakeRunner::default();
+        runner
+            .script
+            .insert("cargo test".into(), FakeRunner::ok(""));
+        let log = MemorySink::default();
+        let report = integrate_once(
+            &store,
+            &repo,
+            &runner,
+            &FixedClock(Timestamp::from_unix_seconds(5)),
+            &log,
+            &cfg(&["cargo test"], Some("origin")),
+            "i",
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            report,
+            IntegrateReport {
+                landed: 1,
+                ..IntegrateReport::default()
+            }
+        );
+        assert_eq!(
+            load_task(&store, &id("fac-t")).await.unwrap().state,
+            TaskState::Closed { merged: sha('c') }
+        );
+        assert_eq!(
+            *repo.fast_forwards.lock().unwrap(),
+            vec![(BranchName::try_new("main").unwrap(), sha('c'))]
+        );
+        assert_eq!(repo.pushes.lock().unwrap().len(), 1);
+        assert!(
+            store.list_active(BeadKind::Merge).await.unwrap().is_empty(),
+            "merge bead closed"
+        );
+        assert_eq!(
+            store.show(&id("fac-v")).await.unwrap().status,
+            crate::BeadStatus::Closed,
+            "verify bead closed"
+        );
+        assert_eq!(repo.removed.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn conflict_reopens_task_with_detail_and_closes_merge_bead() {
+        let store = store_mergeable(3).await;
+        let mut repo = FakeRepo::default();
+        repo.conflicting.push(sha('b'));
+        let runner = FakeRunner::default();
+        let log = MemorySink::default();
+        let report = integrate_once(
+            &store,
+            &repo,
+            &runner,
+            &FixedClock(Timestamp::from_unix_seconds(5)),
+            &log,
+            &cfg(&[], None),
+            "i",
+        )
+        .await
+        .unwrap();
+        assert_eq!(report.failed, 1);
+        let task = load_task(&store, &id("fac-t")).await.unwrap();
+        assert_eq!(task.state, TaskState::Open);
+        assert_eq!(task.usage.attempts, 1);
+        assert!(
+            store
+                .show(&id("fac-t"))
+                .await
+                .unwrap()
+                .notes
+                .unwrap()
+                .contains("CONFLICT")
+        );
+        assert!(store.list_active(BeadKind::Merge).await.unwrap().is_empty());
+        assert!(repo.fast_forwards.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn failing_check_rejects_without_touching_main() {
+        let store = store_mergeable(3).await;
+        let repo = FakeRepo::default();
+        let mut runner = FakeRunner::default();
+        runner
+            .script
+            .insert("cargo test".into(), FakeRunner::fail(1, "test x FAILED"));
+        let log = MemorySink::default();
+        let report = integrate_once(
+            &store,
+            &repo,
+            &runner,
+            &FixedClock(Timestamp::from_unix_seconds(5)),
+            &log,
+            &cfg(&["cargo test"], None),
+            "i",
+        )
+        .await
+        .unwrap();
+        assert_eq!(report.failed, 1);
+        assert!(repo.fast_forwards.lock().unwrap().is_empty());
+        assert!(
+            store
+                .show(&id("fac-t"))
+                .await
+                .unwrap()
+                .notes
+                .unwrap()
+                .contains("test x FAILED")
+        );
+    }
+
+    #[tokio::test]
+    async fn push_failure_is_infra_error_and_leaves_task_mergeable() {
+        let store = store_mergeable(3).await;
+        let repo = FakeRepo {
+            push_fails: true,
+            ..FakeRepo::default()
+        };
+        let runner = FakeRunner::default();
+        let log = MemorySink::default();
+        let report = integrate_once(
+            &store,
+            &repo,
+            &runner,
+            &FixedClock(Timestamp::from_unix_seconds(5)),
+            &log,
+            &cfg(&[], Some("origin")),
+            "i",
+        )
+        .await
+        .unwrap();
+        assert_eq!(report.errors, 1);
+        assert!(matches!(
+            load_task(&store, &id("fac-t")).await.unwrap().state,
+            TaskState::Mergeable { .. }
+        ));
+        assert_eq!(
+            store.list_active(BeadKind::Merge).await.unwrap().len(),
+            1,
+            "merge bead kept for retry"
+        );
+    }
+
+    #[tokio::test]
+    async fn stale_merge_bead_is_closed() {
+        let store = FakeStore::default();
+        store
+            .seed_task(
+                id("fac-t"),
+                FactoryMeta {
+                    verify_bead: id("fac-v"),
+                    base: sha('a'),
+                    budget: Budget::default(),
+                    usage: Usage::default(),
+                    lease_expiries: 0,
+                    state: TaskState::Open,
+                },
+            )
+            .await;
+        store
+            .seed_merge(id("fac-m"), id("fac-t"), "task/fac-t", sha('b'))
+            .await;
+        let repo = FakeRepo::default();
+        let runner = FakeRunner::default();
+        let log = MemorySink::default();
+        let report = integrate_once(
+            &store,
+            &repo,
+            &runner,
+            &FixedClock(Timestamp::from_unix_seconds(5)),
+            &log,
+            &cfg(&[], None),
+            "i",
+        )
+        .await
+        .unwrap();
+        assert_eq!(report.skipped, 1);
+        assert!(store.list_active(BeadKind::Merge).await.unwrap().is_empty());
+        assert!(repo.added.lock().unwrap().is_empty());
+    }
+}
