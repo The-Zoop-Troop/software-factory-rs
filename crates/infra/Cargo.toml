@@ -1,0 +1,22 @@
+[package]
+name = "infra"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+description = "Adapters: bd CLI, git, claude headless, system clock, JSONL event log."
+
+[dependencies]
+app.workspace = true
+domain.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+
+[features]
+testing = ["app/testing"]
+
+[lints]
+workspace = true

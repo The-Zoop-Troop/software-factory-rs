@@ -1,0 +1,23 @@
+[package]
+name = "stewardd"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+description = "Steward daemon: lease sweep, budget enforcement, epic close, event log. No LLM."
+
+[[bin]]
+name = "stewardd"
+path = "src/main.rs"
+
+[dependencies]
+app.workspace = true
+infra.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

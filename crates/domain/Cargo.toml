@@ -1,0 +1,20 @@
+[package]
+name = "domain"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+description = "Factory domain: bead conventions, state machine, budgets, leases. Pure; no I/O."
+
+[dependencies]
+thiserror.workspace = true
+nutype.workspace = true
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest.workspace = true
+
+[features]
+default = ["serde"]
+
+[lints]
+workspace = true

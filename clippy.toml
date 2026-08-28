@@ -1,0 +1,15 @@
+disallowed-methods = [
+  { path = "std::time::SystemTime::now",  reason = "inject a Clock" },
+  { path = "std::option::Option::unwrap", reason = "match, or ok_or(..)? onto the error track" },
+  { path = "std::result::Result::unwrap", reason = "propagate with ?" },
+  { path = "std::option::Option::expect", reason = "expect is startup-wiring-only" },
+  { path = "std::result::Result::expect", reason = "expect is startup-wiring-only" },
+  { path = "std::process::exit",          reason = "return from main so Drop guards run" },
+  { path = "futures::future::join_all",     reason = "unbounded fan-out; use buffer_unordered(n)" },
+  { path = "tokio::sync::mpsc::unbounded_channel", reason = "unbounded queue = OOM; use channel(N)" },
+]
+disallowed-types = [
+  { path = "anyhow::Error",         reason = "named thiserror enums everywhere except main.rs" },
+  { path = "std::time::SystemTime", reason = "domain time is a newtype produced by the Clock" },
+  { path = "std::sync::Mutex",      reason = "prefer owning state in a task + channel" },
+]

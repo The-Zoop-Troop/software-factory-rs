@@ -1,0 +1,19 @@
+[package]
+name = "app"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+description = "Factory workflows (claim, verify, integrate, steward) and the service traits they need."
+
+[dependencies]
+domain.workspace = true
+thiserror.workspace = true
+futures.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+
+[features]
+testing = []
+
+[lints]
+workspace = true
