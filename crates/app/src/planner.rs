@@ -110,7 +110,9 @@ async fn materialize(
         })
         .await?;
     if let Some(reference) = &plan.reference {
-        store
+        // Reference beads are context, not work: created closed so they never show in `bd ready`
+        // and never hold the epic open. Workers read them via `children` regardless of status.
+        let reference_id = store
             .create(NewBead {
                 title: format!("reference: {}", plan.summary),
                 description: reference.clone(),
@@ -121,6 +123,9 @@ async fn materialize(
                 acceptance: None,
                 meta: None,
             })
+            .await?;
+        store
+            .close(&reference_id, "reference material, not work")
             .await?;
     }
 

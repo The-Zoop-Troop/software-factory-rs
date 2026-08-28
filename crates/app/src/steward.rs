@@ -168,7 +168,13 @@ async fn sweep_task(
 
 /// Close an epic when it has children and every one is closed. Returns the child count.
 async fn sweep_epic(store: &dyn BeadStore, epic: &Bead) -> Result<Option<usize>, StewardError> {
-    let children = store.children(&epic.id).await?;
+    let children: Vec<_> = store
+        .children(&epic.id)
+        .await?
+        .into_iter()
+        // Reference beads are context; they must never hold an epic open.
+        .filter(|c| c.kind != Some(BeadKind::Reference))
+        .collect();
     if children.is_empty() || children.iter().any(|c| c.status != BeadStatus::Closed) {
         return Ok(None);
     }
