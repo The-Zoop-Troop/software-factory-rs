@@ -11,9 +11,13 @@ thiserror.workspace = true
 futures.workspace = true
 tracing.workspace = true
 async-trait.workspace = true
+tokio = { workspace = true, optional = true, features = ["sync"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["sync", "rt", "macros"] }
 
 [features]
-testing = []
+testing = ["dep:tokio"]
 
 [lints]
 workspace = true

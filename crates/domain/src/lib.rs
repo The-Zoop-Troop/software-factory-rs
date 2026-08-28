@@ -4,18 +4,28 @@
 //! leases live here as types and total functions. No clock, no I/O, no async:
 //! timestamps and IDs arrive as parameters.
 #![forbid(unsafe_code)]
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::indexing_slicing))]
+#![cfg_attr(
+    test,
+    allow(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::indexing_slicing,
+        clippy::disallowed_methods
+    )
+)]
 
-/// Marker so the crate is non-empty until `fac-ec6.2` lands the conventions.
-#[must_use]
-pub const fn crate_name() -> &'static str {
-    "domain"
-}
+pub mod budget;
+pub mod ids;
+pub mod kind;
+pub mod lease;
+pub mod meta;
+pub mod task;
+pub mod time;
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn leaf_crate_compiles() {
-        assert_eq!(super::crate_name(), "domain");
-    }
-}
+pub use budget::{Budget, BudgetExceeded, Usage};
+pub use ids::{AgentId, BeadId, BranchName, Sha};
+pub use kind::BeadKind;
+pub use lease::Lease;
+pub use meta::{FactoryMeta, MetaParseError};
+pub use task::{Event, IllegalTransition, Task, TaskState, Transition};
+pub use time::{Duration, Timestamp};

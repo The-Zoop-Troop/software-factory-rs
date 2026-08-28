@@ -75,6 +75,7 @@ dependencies = [
  "domain",
  "futures",
  "thiserror",
+ "tokio",
  "tracing",
 ]
 
@@ -189,7 +190,9 @@ version = "0.1.0"
 dependencies = [
  "nutype",
  "proptest",
+ "regex",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 
@@ -479,6 +482,7 @@ dependencies = [
  "kinded",
  "proc-macro2",
  "quote",
+ "regex",
  "rustc_version",
  "syn 2.0.119",
  "urlencoding",
@@ -602,6 +606,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
 dependencies = [
  "rand_core",
+]
+
+[[package]]
+name = "regex"
+version = "1.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f020237b6c8eed93db2e2cb53c00c60a8e1bc73da7d073199a1180401450218d"
+dependencies = [
+ "aho-corasick",
+ "memchr",
+ "regex-automata",
+ "regex-syntax",
 ]
 
 [[package]]

@@ -7,11 +7,13 @@ description = "Factory domain: bead conventions, state machine, budgets, leases.
 
 [dependencies]
 thiserror.workspace = true
-nutype.workspace = true
+nutype = { workspace = true, features = ["regex", "serde"] }
+regex = "1"
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest.workspace = true
+serde_json.workspace = true
 
 [features]
 default = ["serde"]
