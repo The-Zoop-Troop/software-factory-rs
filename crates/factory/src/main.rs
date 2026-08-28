@@ -18,7 +18,9 @@ use infra::app::domain::{AgentId, BeadId, BranchName, Duration, PlanDefaults, Ta
 use infra::app::{
     Bead, BeadStore, IntegrateConfig, WorkerConfig, integrate_once, plan, verify_once, work_once,
 };
-use infra::{BdCli, ClaudeCli, GitCli, JsonlSink, OpencodeServer, ShellRunner, SystemClock};
+use infra::{
+    BdCli, ClaudeCli, CodexCli, GitCli, JsonlSink, OpencodeServer, ShellRunner, SystemClock,
+};
 
 #[derive(Debug, Parser)]
 #[command(name = "factory", version, about = "Autonomous AI software factory")]
@@ -150,6 +152,8 @@ enum HarnessKind {
     Claude,
     /// `OpenCode` headless server (`opencode serve`), any configured provider.
     Opencode,
+    /// Codex CLI headless (`codex exec --json`); needs `OPENAI_API_KEY` or a Codex login.
+    Codex,
 }
 
 /// The single place a harness is chosen and configured.
@@ -161,6 +165,13 @@ fn build_harness(
     Ok(match kind {
         HarnessKind::Claude => {
             let mut h = ClaudeCli::default().with_max_budget_usd(max_budget_usd);
+            if let Some(m) = model {
+                h = h.with_model(m);
+            }
+            Box::new(h)
+        }
+        HarnessKind::Codex => {
+            let mut h = CodexCli::default();
             if let Some(m) = model {
                 h = h.with_model(m);
             }

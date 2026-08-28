@@ -248,7 +248,7 @@ That's the whole packet. Small, deterministic, reproducible. If a task needs mor
 | Decision | Recommendation | Why |
 |---|---|---|
 | Language for Steward / factory CLI / A2A servers | **Rust** | Deterministic, small static binaries in the image, no runtime to secure; you already have a Rust FP skill set up. Go is the alternative for `bd` affinity. |
-| Harness behind the Worker card | Claude Code headless (`claude -p`) first | Already handles tool use, MCP, worktrees; swap later via the card. |
+| Harness behind the Worker card | Claude Code headless (`claude -p`) first; OpenCode (`opencode serve` HTTP API) and Codex (`codex exec --json`) implemented behind the same `Harness` port | Proven: OpenCode against a custom OpenAI-compatible provider completed an epic inside the rig. Codex needs a Responses-API endpoint (OpenAI). |
 | Beads backing store | Dolt (beads default) | Get branch/merge semantics on the ledger for free; revisit only if it's a pain in the container. |
 | Verifier LLM review | Off by default | Executable checks are the trust anchor; LLM review is advisory. |
 | One container per rig vs per agent | Per rig | See §2. Per-agent is Phase 3. |

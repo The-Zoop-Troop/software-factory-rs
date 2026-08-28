@@ -7,6 +7,10 @@ claude.ai
 github.com
 *.github.com
 *.githubusercontent.com
+# OpenAI (Codex):
+api.openai.com
+chatgpt.com
+*.chatgpt.com
 # custom OpenAI-compatible provider (OpenCode):
 openai.blueclaw.network
 # package registries the project toolchain needs:

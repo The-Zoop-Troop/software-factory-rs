@@ -43,6 +43,7 @@ if [ -n "${OPENCODE_PROVIDER_ID:-}" ]; then
 fi
 HARNESS_ARGS=(--harness "${RIG_HARNESS:-claude}")
 [ -n "${OPENCODE_MODEL:-}" ] && [ "${RIG_HARNESS:-claude}" = opencode ] && HARNESS_ARGS+=(--model "$OPENCODE_MODEL")
+[ -n "${CODEX_MODEL:-}" ] && [ "${RIG_HARNESS:-claude}" = codex ] && HARNESS_ARGS+=(--model "$CODEX_MODEL")
 
 role=${1:-shell}; shift || true
 case "$role" in

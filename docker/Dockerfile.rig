@@ -7,6 +7,7 @@ ARG RUST_VERSION=1.97.1
 ARG BD_VERSION=1.2.2
 ARG CLAUDE_VERSION=2.1.250
 ARG OPENCODE_VERSION=1.18.18
+ARG CODEX_VERSION=0.149.1
 
 FROM rust:${RUST_VERSION}-slim-bookworm AS build
 WORKDIR /src
@@ -22,6 +23,7 @@ FROM rust:${RUST_VERSION}-slim-bookworm AS runtime
 ARG BD_VERSION
 ARG CLAUDE_VERSION
 ARG OPENCODE_VERSION
+ARG CODEX_VERSION
 
 # Project toolchain + what the agents shell out to. Keep this list boring.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -53,6 +55,13 @@ RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_VERSION}" \
 RUN curl -fsSL https://opencode.ai/install | VERSION="${OPENCODE_VERSION}" bash \
     && ln -s /home/factory/.opencode/bin/opencode /home/factory/.local/bin/opencode \
     && opencode --version
+
+# codex: pinned static release binary (musl), no Node needed.
+RUN set -eu; cd /tmp; \
+    asset="codex-x86_64-unknown-linux-musl.tar.gz"; \
+    curl -fsSLO "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/${asset}"; \
+    tar -xzf "${asset}"; install -m 0755 codex-x86_64-unknown-linux-musl /home/factory/.local/bin/codex; \
+    rm -rf /tmp/*; codex --version
 
 COPY --from=build --chmod=0755 /out/factory /out/stewardd /usr/local/bin/
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/rig-entrypoint

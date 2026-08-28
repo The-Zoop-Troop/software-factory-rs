@@ -16,6 +16,7 @@
 pub mod bd;
 pub mod claude;
 pub mod clock;
+pub mod codex;
 pub mod git;
 pub mod jsonl;
 pub mod opencode;
@@ -25,6 +26,7 @@ pub use app;
 pub use bd::BdCli;
 pub use claude::ClaudeCli;
 pub use clock::SystemClock;
+pub use codex::CodexCli;
 pub use git::GitCli;
 pub use jsonl::JsonlSink;
 pub use opencode::OpencodeServer;
