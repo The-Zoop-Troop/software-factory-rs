@@ -157,6 +157,7 @@ async fn sweep_task(
         Event::Claim { .. }
         | Event::Heartbeat { .. }
         | Event::Submit { .. }
+        | Event::Release { .. }
         | Event::VerifyPassed
         | Event::VerifyFailed { .. }
         | Event::Merged { .. }

@@ -83,6 +83,13 @@ pub enum Event {
     LeaseExpired {
         now: Timestamp,
     },
+    /// Holder gives the task back without submitting (session errored, nothing produced).
+    /// Counts as an attempt.
+    Release {
+        holder: AgentId,
+        now: Timestamp,
+        note: String,
+    },
     VerifyPassed,
     VerifyFailed {
         note: String,
@@ -194,6 +201,7 @@ impl Event {
             Self::Heartbeat { .. } => "heartbeat",
             Self::Submit { .. } => "submit",
             Self::LeaseExpired { .. } => "lease_expired",
+            Self::Release { .. } => "release",
             Self::VerifyPassed => "verify_passed",
             Self::VerifyFailed { .. } => "verify_failed",
             Self::Merged { .. } => "merged",
@@ -386,6 +394,29 @@ impl Task {
                 }
             }
 
+            (TaskState::Leased { lease }, Event::Release { holder, now, note }) => {
+                Self::require_holder(&self.id, &lease, &holder)?;
+                let usage = self
+                    .usage
+                    .add_wall_clock(now.since(lease.claimed_at))
+                    .add_attempt();
+                let t = Task { usage, ..self };
+                match t.budget.check(usage) {
+                    Ok(()) => Ok(Transition {
+                        task: Task {
+                            state: TaskState::Open,
+                            ..t
+                        },
+                        effects: vec![Effect::AppendNote { task: id, note }],
+                    }),
+                    Err(exceeded) => {
+                        let mut tr = t.escalate(IncidentReason::Budget { exceeded });
+                        tr.effects.insert(0, Effect::AppendNote { task: id, note });
+                        Ok(tr)
+                    }
+                }
+            }
+
             // ---- escalate is allowed from every active state ---------------------------
             (
                 TaskState::Open
@@ -401,6 +432,7 @@ impl Task {
                 event @ (Event::Heartbeat { .. }
                 | Event::Submit { .. }
                 | Event::LeaseExpired { .. }
+                | Event::Release { .. }
                 | Event::VerifyPassed
                 | Event::VerifyFailed { .. }
                 | Event::Merged { .. }
@@ -420,6 +452,7 @@ impl Task {
                 | Event::Heartbeat { .. }
                 | Event::Submit { .. }
                 | Event::LeaseExpired { .. }
+                | Event::Release { .. }
                 | Event::Merged { .. }
                 | Event::MergeFailed { .. }),
             )
@@ -429,6 +462,7 @@ impl Task {
                 | Event::Heartbeat { .. }
                 | Event::Submit { .. }
                 | Event::LeaseExpired { .. }
+                | Event::Release { .. }
                 | Event::VerifyPassed
                 | Event::VerifyFailed { .. }),
             )
@@ -438,6 +472,7 @@ impl Task {
                 | Event::Heartbeat { .. }
                 | Event::Submit { .. }
                 | Event::LeaseExpired { .. }
+                | Event::Release { .. }
                 | Event::VerifyPassed
                 | Event::VerifyFailed { .. }
                 | Event::Merged { .. }
@@ -632,6 +667,32 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[test]
+    fn release_reopens_and_counts_attempt_then_escalates() {
+        let task = fresh().apply(claim(0)).unwrap().task;
+        let rel = |now: i64| Event::Release {
+            holder: agent("w1"),
+            now: t(now),
+            note: "harness error".into(),
+        };
+        let tr = task.apply(rel(5)).unwrap();
+        assert_eq!(tr.task.state, TaskState::Open);
+        assert_eq!(tr.task.usage.attempts, 1);
+        assert!(matches!(tr.effects.as_slice(), [Effect::AppendNote { .. }]));
+        let tr = tr
+            .task
+            .apply(claim(10))
+            .unwrap()
+            .task
+            .apply(rel(12))
+            .unwrap();
+        assert!(
+            matches!(tr.task.state, TaskState::Incident { .. }),
+            "attempts budget was 2"
+        );
+        assert!(fresh().apply(rel(0)).is_err(), "release needs a lease");
     }
 
     #[test]

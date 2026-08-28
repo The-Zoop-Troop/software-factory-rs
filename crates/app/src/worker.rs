@@ -54,6 +54,10 @@ pub enum WorkerError {
 /// Ledger, repo or harness infrastructure failures. Model-level failure is not an error:
 /// whatever the session produced is submitted and the Verifier judges it.
 #[tracing::instrument(skip_all, fields(agent = %cfg.agent), err)]
+#[allow(
+    clippy::too_many_lines,
+    reason = "one linear session; splitting would hide the order of effects"
+)]
 pub async fn work_once(
     store: &dyn BeadStore,
     repo: &dyn Repo,
@@ -112,6 +116,31 @@ pub async fn work_once(
     let outcome = outcome?;
 
     let now = clock.now();
+    // A session that errored and changed nothing has nothing to verify: give the task back
+    // (which costs an attempt) instead of burning a verify cycle on an empty branch.
+    if outcome.is_error && head == from {
+        let note = format!("released: harness error with no changes: {}", outcome.text);
+        apply_event(
+            store,
+            &id,
+            Event::Release {
+                holder: cfg.agent.clone(),
+                now,
+                note,
+            },
+        )
+        .await?;
+        log.record(&event(
+            clock,
+            &cfg.agent,
+            &id,
+            EventKind::Released {
+                holder: cfg.agent.to_string(),
+                detail: outcome.text.clone(),
+            },
+        ));
+        return Ok(None);
+    }
     apply_event(
         store,
         &id,
@@ -447,30 +476,6 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(out, None);
-    }
-
-    #[tokio::test]
-    async fn harness_error_still_submits_and_notes() {
-        let store = seeded().await;
-        let mut harness = harness_text("Not logged in");
-        harness.outcome.as_mut().unwrap().is_error = true;
-        let repo = FakeRepo::default();
-        work_once(
-            &store,
-            &repo,
-            &harness,
-            &FixedClock(Timestamp::from_unix_seconds(0)),
-            &MemorySink::default(),
-            &cfg(),
-        )
-        .await
-        .unwrap();
-        let bead = store.show(&id("fac-e.1")).await.unwrap();
-        assert!(matches!(
-            bead.meta.unwrap().state,
-            TaskState::InVerify { .. }
-        ));
-        assert!(bead.notes.unwrap().contains("Not logged in"));
     }
 
     #[tokio::test]

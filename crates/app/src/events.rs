@@ -23,6 +23,8 @@ pub enum EventKind {
         turns: u32,
         head: domain::Sha,
     },
+    /// A worker gave a task back without submitting (errored session, no changes).
+    Released { holder: String, detail: String },
     /// Verifier ran a verify bead against a task.
     Verified { passed: bool, verify_bead: BeadId },
     /// Integrator landed (or failed to land) a branch on main.
