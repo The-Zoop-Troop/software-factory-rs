@@ -6,6 +6,7 @@
 ARG RUST_VERSION=1.97.1
 ARG BD_VERSION=1.2.2
 ARG CLAUDE_VERSION=2.1.250
+ARG OPENCODE_VERSION=1.18.18
 
 FROM rust:${RUST_VERSION}-slim-bookworm AS build
 WORKDIR /src
@@ -20,6 +21,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 FROM rust:${RUST_VERSION}-slim-bookworm AS runtime
 ARG BD_VERSION
 ARG CLAUDE_VERSION
+ARG OPENCODE_VERSION
 
 # Project toolchain + what the agents shell out to. Keep this list boring.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -45,6 +47,12 @@ USER factory
 ENV HOME=/home/factory PATH=/home/factory/.local/bin:/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin
 RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_VERSION}" \
     && claude --version
+
+# opencode: pinned native installer (standalone binary; providers' npm packages are fetched
+# at runtime from registry.npmjs.org, which the egress allowlist permits).
+RUN curl -fsSL https://opencode.ai/install | VERSION="${OPENCODE_VERSION}" bash \
+    && ln -s /home/factory/.opencode/bin/opencode /home/factory/.local/bin/opencode \
+    && opencode --version
 
 COPY --from=build --chmod=0755 /out/factory /out/stewardd /usr/local/bin/
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/rig-entrypoint

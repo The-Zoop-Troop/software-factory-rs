@@ -7,6 +7,8 @@ claude.ai
 github.com
 *.github.com
 *.githubusercontent.com
+# custom OpenAI-compatible provider (OpenCode):
+openai.blueclaw.network
 # package registries the project toolchain needs:
 crates.io
 static.crates.io

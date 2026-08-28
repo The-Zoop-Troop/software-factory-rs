@@ -59,6 +59,17 @@ services:
     <<: *rig
     command: [work, --interval, "10"]
 
+  # Same image, different harness: OpenCode against the provider in docker/rig.env.
+  worker-opencode:
+    <<: *rig
+    environment:
+      HTTPS_PROXY: http://egress:8888
+      HTTP_PROXY: http://egress:8888
+      NO_PROXY: localhost,127.0.0.1,egress
+      RUST_LOG: info
+      RIG_HARNESS: opencode
+    command: [work, --interval, "10"]
+
   # One-shot roles; run with `docker compose run --rm <name> ...`.
   plan:
     <<: *rig
