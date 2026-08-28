@@ -338,8 +338,19 @@ mod tests {
             &vec![endpoint.id.clone()],
             "verify bead needs its task"
         );
+        assert!(
+            store
+                .list_active(BeadKind::Reference)
+                .await
+                .unwrap()
+                .is_empty(),
+            "reference is created closed"
+        );
+        let refs = store.children(&report.epic).await.unwrap();
         assert_eq!(
-            store.list_active(BeadKind::Reference).await.unwrap().len(),
+            refs.iter()
+                .filter(|c| c.kind == Some(BeadKind::Reference))
+                .count(),
             1
         );
         let req = &harness.requests.lock().unwrap()[0];
