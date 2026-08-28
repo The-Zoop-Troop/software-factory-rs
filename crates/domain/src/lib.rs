@@ -19,6 +19,7 @@ pub mod ids;
 pub mod kind;
 pub mod lease;
 pub mod meta;
+pub mod plan;
 pub mod task;
 pub mod time;
 
@@ -27,5 +28,6 @@ pub use ids::{AgentId, BeadId, BranchName, Sha};
 pub use kind::BeadKind;
 pub use lease::Lease;
 pub use meta::{BeadMeta, FactoryMeta, MergeMeta, MetaParseError, VerifyMeta};
+pub use plan::{Plan, PlanDefaults, PlanError, PlannedTask, RawPlan, RawPlannedTask, TaskKey};
 pub use task::{Event, IllegalTransition, Task, TaskState, Transition};
 pub use time::{Duration, Timestamp};

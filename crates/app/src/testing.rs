@@ -19,7 +19,8 @@ use tokio::sync::Mutex;
 use crate::bead::{Bead, BeadStatus, NewBead};
 use crate::events::FactoryEvent;
 use crate::ports::{
-    BeadStore, Clock, EventSink, Repo, RepoError, RunError, RunOutput, Runner, StoreError, Worktree,
+    BeadStore, Clock, EventSink, Harness, HarnessError, HarnessOutcome, HarnessRequest, Repo,
+    RepoError, RunError, RunOutput, Runner, StoreError, Worktree,
 };
 
 /// In-memory bead store. Ready == every active bead of the kind (no dependency graph).
@@ -27,6 +28,8 @@ use crate::ports::{
 pub struct FakeStore {
     beads: Mutex<BTreeMap<BeadId, Bead>>,
     next: Mutex<u32>,
+    /// `blocks` edges recorded at create time: dependent → blockers.
+    pub needs: Mutex<BTreeMap<BeadId, Vec<BeadId>>>,
 }
 
 impl FakeStore {
@@ -157,6 +160,28 @@ impl BeadStore for FakeStore {
         Ok(())
     }
 
+    async fn set_verify(&self, id: &BeadId, meta: &VerifyMeta) -> Result<(), StoreError> {
+        let mut beads = self.beads.lock().await;
+        let bead = beads
+            .get_mut(id)
+            .ok_or_else(|| StoreError::NotFound(id.clone()))?;
+        bead.verify = Some(meta.clone());
+        Ok(())
+    }
+
+    async fn add_needs(&self, dependent: &BeadId, blocker: &BeadId) -> Result<(), StoreError> {
+        if !self.beads.lock().await.contains_key(dependent) {
+            return Err(StoreError::NotFound(dependent.clone()));
+        }
+        self.needs
+            .lock()
+            .await
+            .entry(dependent.clone())
+            .or_default()
+            .push(blocker.clone());
+        Ok(())
+    }
+
     async fn note(&self, id: &BeadId, text: &str) -> Result<(), StoreError> {
         let mut beads = self.beads.lock().await;
         let bead = beads
@@ -174,6 +199,10 @@ impl BeadStore for FakeStore {
         *next += 1;
         let id = BeadId::try_new(format!("fake-{}", *next))
             .map_err(|e| StoreError::Rejected(e.to_string()))?;
+        self.needs
+            .lock()
+            .await
+            .insert(id.clone(), new.needs.clone());
         self.beads.lock().await.insert(
             id.clone(),
             Bead {
@@ -334,6 +363,10 @@ impl Repo for FakeRepo {
         Ok(())
     }
 
+    async fn head_of(&self, _branch: &BranchName) -> Result<Sha, RepoError> {
+        Sha::try_new("0".repeat(40)).map_err(|e| RepoError::Rejected(e.to_string()))
+    }
+
     async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError> {
         if self.push_fails {
             return Err(RepoError::Unavailable("remote down".into()));
@@ -391,5 +424,39 @@ impl Runner for FakeRunner {
             command: command.to_owned(),
             reason: "unscripted".into(),
         })
+    }
+}
+
+/// Returns a canned outcome for every request and records the requests.
+#[derive(Debug, Default)]
+pub struct FakeHarness {
+    pub outcome: Option<HarnessOutcome>,
+    pub requests: std::sync::Mutex<Vec<HarnessRequest>>,
+}
+
+impl FakeHarness {
+    #[must_use]
+    pub fn structured(value: serde_json::Value) -> Self {
+        Self {
+            outcome: Some(HarnessOutcome {
+                text: value.to_string(),
+                structured: Some(value),
+                tokens: 100,
+                cost_micro_usd: 1000,
+                turns: 1,
+                is_error: false,
+            }),
+            requests: std::sync::Mutex::default(),
+        }
+    }
+}
+
+#[async_trait]
+impl Harness for FakeHarness {
+    async fn run(&self, req: HarnessRequest) -> Result<HarnessOutcome, HarnessError> {
+        self.requests.lock().expect("test mutex").push(req);
+        self.outcome
+            .clone()
+            .ok_or_else(|| HarnessError::Spawn("unscripted".into()))
     }
 }

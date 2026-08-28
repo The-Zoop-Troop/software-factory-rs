@@ -17,6 +17,7 @@
 pub mod bead;
 pub mod events;
 pub mod integrator;
+pub mod planner;
 pub mod ports;
 pub mod steward;
 pub mod transition;
@@ -29,8 +30,10 @@ pub use bead::{Bead, BeadStatus, NewBead};
 pub use domain;
 pub use events::{EventKind, FactoryEvent};
 pub use integrator::{IntegrateConfig, IntegrateReport, IntegratorError, integrate_once};
+pub use planner::{PlanReport, PlannerError, plan};
 pub use ports::{
-    BeadStore, Clock, EventSink, Repo, RepoError, RunError, RunOutput, Runner, StoreError, Worktree,
+    BeadStore, Clock, EventSink, Harness, HarnessError, HarnessOutcome, HarnessRequest, Repo,
+    RepoError, RunError, RunOutput, Runner, StoreError, ToolPolicy, Worktree,
 };
 pub use steward::{StewardError, SweepReport, sweep};
 pub use transition::{TransitionError, apply_event, load_task};

@@ -225,6 +225,19 @@ impl BeadStore for BdCli {
             .map(|_| ())
     }
 
+    async fn set_verify(&self, id: &BeadId, meta: &VerifyMeta) -> Result<(), StoreError> {
+        let json = wrap_json(VERIFY_META_KEY, meta)?;
+        self.run(&["update", id.as_ref(), "--metadata", &json, "--json"])
+            .await
+            .map(|_| ())
+    }
+
+    async fn add_needs(&self, dependent: &BeadId, blocker: &BeadId) -> Result<(), StoreError> {
+        self.run(&["dep", "add", dependent.as_ref(), blocker.as_ref()])
+            .await
+            .map(|_| ())
+    }
+
     async fn note(&self, id: &BeadId, text: &str) -> Result<(), StoreError> {
         self.run(&["update", id.as_ref(), "--append-notes", text, "--json"])
             .await
@@ -248,16 +261,12 @@ impl BeadStore for BdCli {
             "--json".into(),
         ];
         if let Some(parent) = &new.parent {
-            args.extend(["--parent".into(), parent.to_string()]);
-        }
-        if !new.needs.is_empty() {
-            let deps = new
-                .needs
-                .iter()
-                .map(|d| format!("blocks:{d}"))
-                .collect::<Vec<_>>()
-                .join(",");
-            args.extend(["--deps".into(), deps]);
+            // Never inherit the epic's `fac:kind=epic` label; kind must be unambiguous.
+            args.extend([
+                "--parent".into(),
+                parent.to_string(),
+                "--no-inherit-labels".into(),
+            ]);
         }
         if let Some(acceptance) = new.acceptance {
             args.extend(["--acceptance".into(), acceptance]);
@@ -267,7 +276,13 @@ impl BeadStore for BdCli {
         }
         let borrowed: Vec<&str> = args.iter().map(String::as_str).collect();
         let created: Created = self.run_json(&borrowed).await?;
-        BeadId::try_new(created.id).map_err(|e| StoreError::Decode(e.to_string()))
+        let id = BeadId::try_new(created.id).map_err(|e| StoreError::Decode(e.to_string()))?;
+        // `--deps blocks:X` means "this bead blocks X" — the opposite of `needs` — so edges are
+        // added explicitly with `dep add <dependent> <blocker>`.
+        for blocker in &new.needs {
+            self.add_needs(&id, blocker).await?;
+        }
+        Ok(id)
     }
 
     async fn close(&self, id: &BeadId, reason: &str) -> Result<(), StoreError> {

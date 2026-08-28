@@ -5,16 +5,17 @@
     clippy::expect_used,
     clippy::panic,
     clippy::disallowed_methods,
-    clippy::unnecessary_wraps
+    clippy::unnecessary_wraps,
+    clippy::too_many_lines
 )]
 
 use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use infra::app::domain::{BeadId, BranchName, Duration, TaskState};
-use infra::app::{Bead, BeadStore, IntegrateConfig, integrate_once, verify_once};
-use infra::{BdCli, GitCli, JsonlSink, ShellRunner, SystemClock};
+use infra::app::domain::{BeadId, BranchName, Duration, PlanDefaults, TaskState};
+use infra::app::{Bead, BeadStore, IntegrateConfig, integrate_once, plan, verify_once};
+use infra::{BdCli, ClaudeCli, GitCli, JsonlSink, ShellRunner, SystemClock};
 
 #[derive(Debug, Parser)]
 #[command(name = "factory", version, about = "Autonomous AI software factory")]
@@ -34,6 +35,27 @@ enum Command {
     Bead {
         #[command(subcommand)]
         command: BeadCommand,
+    },
+    /// Run the Planner: turn a plan (text or file) into an epic of task + verify beads.
+    Plan {
+        /// Path to the project clone (the Planner reads it for context in later phases).
+        #[arg(long, default_value = "repo")]
+        repo: PathBuf,
+        /// Integration branch; tasks are cut from its current tip.
+        #[arg(long, default_value = "main")]
+        main: String,
+        /// Read the plan from this file instead of --text.
+        #[arg(long, conflicts_with = "text")]
+        file: Option<PathBuf>,
+        /// The plan, inline.
+        #[arg(long)]
+        text: Option<String>,
+        /// Model override for the planner run.
+        #[arg(long)]
+        model: Option<String>,
+        /// Spend cap for the planner run, USD.
+        #[arg(long, default_value_t = 2.0)]
+        max_budget_usd: f64,
     },
     /// Run the Verifier: check every task awaiting verification.
     Verify {
@@ -101,6 +123,45 @@ async fn main() -> anyhow::Result<()> {
             let id = BeadId::try_new(id)?;
             let bead = store.show(&id).await?;
             print!("{}", render(&bead));
+        }
+        Command::Plan {
+            repo,
+            main,
+            file,
+            text,
+            model,
+            max_budget_usd,
+        } => {
+            let plan_text = match (file, text) {
+                (Some(f), _) => std::fs::read_to_string(f)?,
+                (None, Some(t)) => t,
+                (None, None) => anyhow::bail!("give the plan with --text or --file"),
+            };
+            let mut harness = ClaudeCli::default().with_max_budget_usd(max_budget_usd);
+            if let Some(m) = model {
+                harness = harness.with_model(m);
+            }
+            let git = GitCli::new(&repo, repo.join(".factory-worktrees"));
+            let store = BdCli::new(&cli.workdir).with_actor("planner");
+            let report = plan(
+                &store,
+                &harness,
+                &git,
+                &repo,
+                &BranchName::try_new(main)?,
+                &plan_text,
+                PlanDefaults::default(),
+            )
+            .await?;
+            println!(
+                "epic {}  ({} tasks, {} tokens)",
+                report.epic,
+                report.tasks.len(),
+                report.tokens
+            );
+            for (key, id) in &report.tasks {
+                println!("  {id}  {key}");
+            }
         }
         Command::Verify {
             repo,

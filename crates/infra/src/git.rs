@@ -170,4 +170,8 @@ impl Repo for GitCli {
             .await
             .map(|_| ())
     }
+
+    async fn head_of(&self, branch: &BranchName) -> Result<Sha, RepoError> {
+        self.rev_parse(&format!("refs/heads/{branch}")).await
+    }
 }
