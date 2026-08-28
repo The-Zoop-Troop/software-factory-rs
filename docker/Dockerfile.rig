@@ -23,7 +23,7 @@ ARG CLAUDE_VERSION
 
 # Project toolchain + what the agents shell out to. Keep this list boring.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git ca-certificates curl jq openssl procps \
+        git ca-certificates curl jq openssl procps make \
     && rm -rf /var/lib/apt/lists/*
 
 # bd: pinned release tarball, checksum-verified (mirrors scripts/install.sh).
