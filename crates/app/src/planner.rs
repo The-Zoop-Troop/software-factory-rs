@@ -70,9 +70,14 @@ pub async fn plan(
     if outcome.is_error {
         return Err(PlannerError::ModelError(outcome.text));
     }
+    // Harnesses without native structured output (or that return it as text) fall back to
+    // the first JSON object in the reply.
+    let value = match outcome.structured {
+        Some(v) => v,
+        None => extract_json_object(&outcome.text).ok_or(PlannerError::NoStructuredOutput)?,
+    };
     let raw: RawPlan =
-        serde_json::from_value(outcome.structured.ok_or(PlannerError::NoStructuredOutput)?)
-            .map_err(|e| PlannerError::Shape(e.to_string()))?;
+        serde_json::from_value(value).map_err(|e| PlannerError::Shape(e.to_string()))?;
     let plan = raw.validate(defaults)?;
     let base = repo.head_of(main).await?;
     let mut report = materialize(store, &plan, &base).await?;
@@ -184,6 +189,46 @@ async fn materialize(
     })
 }
 
+/// The first balanced `{ … }` in `text` that parses as JSON, ignoring code fences.
+fn extract_json_object(text: &str) -> Option<serde_json::Value> {
+    let mut start = None;
+    let mut depth = 0usize;
+    let mut in_str = false;
+    let mut escape = false;
+    for (i, b) in text.bytes().enumerate() {
+        if in_str {
+            match (escape, b) {
+                (true, _) => escape = false,
+                (false, b'\\') => escape = true,
+                (false, b'"') => in_str = false,
+                (false, _) => {}
+            }
+            continue;
+        }
+        match b {
+            b'"' => in_str = true,
+            b'{' => {
+                if depth == 0 {
+                    start = Some(i);
+                }
+                depth += 1;
+            }
+            b'}' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0
+                    && let Some(s) = start
+                    && let Some(slice) = text.get(s..=i)
+                    && let Ok(v) = serde_json::from_str::<serde_json::Value>(slice)
+                {
+                    return Some(v);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
 const SYSTEM_PROMPT: &str = "\
 You are the Planner of an autonomous software factory. You receive a high-level plan for a \
 software project and decompose it into implementation tasks that stateless coding agents will \
@@ -293,6 +338,37 @@ mod tests {
         let req = &harness.requests.lock().unwrap()[0];
         assert_eq!(req.tools, ToolPolicy::None);
         assert!(req.schema.is_some());
+    }
+
+    #[test]
+    fn extracts_json_from_prose_and_fences() {
+        let t = "Here is the plan:\n```json\n{\"summary\":\"s\",\"tasks\":[{\"key\":\"a\"}]}\n```\nDone.";
+        let v = extract_json_object(t).unwrap();
+        assert_eq!(v["summary"], "s");
+        assert_eq!(extract_json_object("no json here"), None);
+        assert_eq!(extract_json_object("{\"a\":\"}\"}").unwrap()["a"], "}");
+    }
+
+    #[tokio::test]
+    async fn text_only_plan_is_accepted() {
+        let mut harness = FakeHarness::structured(serde_json::json!({}));
+        if let Some(o) = harness.outcome.as_mut() {
+            o.structured = None;
+            o.text = "{\"summary\":\"x\",\"reference\":\"\",\"tasks\":[{\"key\":\"a\",\"title\":\"A\",\"description\":\"\",\"acceptance\":[],\"verify\":[\"true\"],\"needs\":[]}]}".into();
+        }
+        let store = FakeStore::default();
+        let report = plan(
+            &store,
+            &harness,
+            &FakeRepo::default(),
+            Path::new("/repo"),
+            &main(),
+            "x",
+            PlanDefaults::default(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(report.tasks.len(), 1);
     }
 
     #[tokio::test]

@@ -284,18 +284,19 @@ async fn free_port() -> Result<u16, HarnessError> {
         .map_err(|e| HarnessError::Spawn(e.to_string()))
 }
 
+#[derive(Deserialize)]
+struct Created {
+    id: String,
+}
+
 #[async_trait]
 impl Harness for OpencodeServer {
     async fn run(&self, req: HarnessRequest) -> Result<HarnessOutcome, HarnessError> {
         tracing::info!(cwd = %req.cwd.display(), tools = ?req.tools, model = %format!("{}/{}", self.provider_id, self.model_id), "opencode serve");
         let server = Server::start(self, &req.cwd).await?;
+        tracing::debug!(base = %server.base, "opencode serve healthy");
         let client = reqwest::Client::new();
         let http = |e: reqwest::Error| HarnessError::Decode(e.to_string());
-
-        #[derive(Deserialize)]
-        struct Created {
-            id: String,
-        }
         let created: Created = client
             .post(format!("{}/session", server.base))
             .json(&serde_json::json!({ "title": "factory" }))
@@ -308,6 +309,7 @@ impl Harness for OpencodeServer {
             .await
             .map_err(http)?;
 
+        tracing::debug!(session = %created.id, "session created; sending prompt");
         let mut body = serde_json::json!({
             "model": { "providerID": self.provider_id, "modelID": self.model_id },
             "system": req.system_prompt,
@@ -335,6 +337,7 @@ impl Harness for OpencodeServer {
             }
         };
         let status = resp.status();
+        tracing::debug!(%status, "prompt answered");
         let text = resp.text().await.map_err(http)?;
         if !status.is_success() {
             return Err(HarnessError::Decode(format!(

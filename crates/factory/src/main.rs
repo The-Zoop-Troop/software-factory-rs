@@ -13,11 +13,12 @@ use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use infra::app::Harness;
 use infra::app::domain::{AgentId, BeadId, BranchName, Duration, PlanDefaults, TaskState};
 use infra::app::{
     Bead, BeadStore, IntegrateConfig, WorkerConfig, integrate_once, plan, verify_once, work_once,
 };
-use infra::{BdCli, ClaudeCli, GitCli, JsonlSink, ShellRunner, SystemClock};
+use infra::{BdCli, ClaudeCli, GitCli, JsonlSink, OpencodeServer, ShellRunner, SystemClock};
 
 #[derive(Debug, Parser)]
 #[command(name = "factory", version, about = "Autonomous AI software factory")]
@@ -52,10 +53,13 @@ enum Command {
         /// The plan, inline.
         #[arg(long)]
         text: Option<String>,
-        /// Model override for the planner run.
+        /// LLM harness behind the Planner.
+        #[arg(long, value_enum, default_value_t = HarnessKind::Claude)]
+        harness: HarnessKind,
+        /// Model: Claude model name, or `provider/model` for opencode.
         #[arg(long)]
         model: Option<String>,
-        /// Spend cap for the planner run, USD.
+        /// Spend cap for the planner run, USD (claude only).
         #[arg(long, default_value_t = 2.0)]
         max_budget_usd: f64,
     },
@@ -82,10 +86,13 @@ enum Command {
         /// Harness turn cap per task session.
         #[arg(long, default_value_t = 200)]
         max_turns: u32,
-        /// Spend cap per task session, USD.
+        /// Spend cap per task session, USD (claude only).
         #[arg(long, default_value_t = 5.0)]
         max_budget_usd: f64,
-        /// Model override.
+        /// LLM harness behind the Worker.
+        #[arg(long, value_enum, default_value_t = HarnessKind::Claude)]
+        harness: HarnessKind,
+        /// Model: Claude model name, or `provider/model` for opencode.
         #[arg(long)]
         model: Option<String>,
         /// Seconds to wait when nothing is ready; omit to run one task (or none) and exit.
@@ -136,6 +143,42 @@ enum Command {
     },
 }
 
+/// Which agent runner executes LLM sessions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+enum HarnessKind {
+    /// Claude Code headless (`claude -p`).
+    Claude,
+    /// `OpenCode` headless server (`opencode serve`), any configured provider.
+    Opencode,
+}
+
+/// The single place a harness is chosen and configured.
+fn build_harness(
+    kind: HarnessKind,
+    model: Option<String>,
+    max_budget_usd: f64,
+) -> anyhow::Result<Box<dyn Harness>> {
+    Ok(match kind {
+        HarnessKind::Claude => {
+            let mut h = ClaudeCli::default().with_max_budget_usd(max_budget_usd);
+            if let Some(m) = model {
+                h = h.with_model(m);
+            }
+            Box::new(h)
+        }
+        HarnessKind::Opencode => {
+            let spec = model.ok_or_else(|| {
+                anyhow::anyhow!("--harness opencode needs --model provider/model")
+            })?;
+            let mut h = OpencodeServer::from_model_spec(&spec).map_err(|e| anyhow::anyhow!(e))?;
+            if let Ok(cfg) = std::env::var("OPENCODE_CONFIG_CONTENT") {
+                h = h.with_config_content(cfg);
+            }
+            Box::new(h)
+        }
+    })
+}
+
 #[derive(Debug, Subcommand)]
 enum BeadCommand {
     /// Show a bead with its factory kind, state, budget and lease decoded.
@@ -164,6 +207,7 @@ async fn main() -> anyhow::Result<()> {
             main,
             file,
             text,
+            harness,
             model,
             max_budget_usd,
         } => {
@@ -172,15 +216,12 @@ async fn main() -> anyhow::Result<()> {
                 (None, Some(t)) => t,
                 (None, None) => anyhow::bail!("give the plan with --text or --file"),
             };
-            let mut harness = ClaudeCli::default().with_max_budget_usd(max_budget_usd);
-            if let Some(m) = model {
-                harness = harness.with_model(m);
-            }
+            let harness = build_harness(harness, model, max_budget_usd)?;
             let git = GitCli::new(&repo, repo.join(".factory-worktrees"));
             let store = BdCli::new(&cli.workdir).with_actor("planner");
             let report = plan(
                 &store,
-                &harness,
+                harness.as_ref(),
                 &git,
                 &repo,
                 &BranchName::try_new(main)?,
@@ -207,6 +248,7 @@ async fn main() -> anyhow::Result<()> {
             lease_ttl,
             max_turns,
             max_budget_usd,
+            harness,
             model,
             interval,
         } => {
@@ -216,10 +258,7 @@ async fn main() -> anyhow::Result<()> {
             let git = GitCli::new(&repo, &worktrees);
             let log = JsonlSink::open(&events)?;
             let store = BdCli::new(&cli.workdir).with_actor(&agent);
-            let mut harness = ClaudeCli::default().with_max_budget_usd(max_budget_usd);
-            if let Some(m) = model {
-                harness = harness.with_model(m);
-            }
+            let harness = build_harness(harness, model, max_budget_usd)?;
             let cfg = WorkerConfig {
                 agent: AgentId::try_new(agent)?,
                 main: BranchName::try_new(main)?,
@@ -227,7 +266,7 @@ async fn main() -> anyhow::Result<()> {
                 max_turns,
             };
             loop {
-                match work_once(&store, &git, &harness, &SystemClock, &log, &cfg).await {
+                match work_once(&store, &git, harness.as_ref(), &SystemClock, &log, &cfg).await {
                     Ok(Some(report)) => tracing::info!(?report, "task submitted"),
                     Ok(None) => tracing::info!("nothing ready"),
                     // Infrastructure trouble: log and keep polling; the lease will expire if needed.
