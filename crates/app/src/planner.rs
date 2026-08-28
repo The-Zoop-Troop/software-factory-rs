@@ -244,8 +244,9 @@ Rules:
 - Each task MUST include executable `verify` shell commands that prove the task is done when run \
 from the repository root of the task's branch (e.g. `cargo test -p auth`, `npm test -- login`, \
 `test -f docs/api.md`). A task with no verifiable outcome is not a task.
-- Verify commands are executed one per line by POSIX `/bin/sh` (dash), not bash: use `.` to source \
-files (never `source`), no `[[ ]]`, no arrays, no `set -o pipefail`. Each must exit 0 on success.
+- Verify commands are executed one per line by POSIX `/bin/sh` (dash), not bash, from the repo \
+root: source files with an explicit path (`. ./lib.sh` — never `source`, never `. lib.sh`, which \
+searches PATH), no `[[ ]]`, no arrays, no `set -o pipefail`. Each must exit 0 on success.
 - `acceptance` lists the human-readable criteria the verify commands check.
 - Use `needs` to express hard ordering only (B cannot start until A is merged). Independent tasks \
 must not be chained; they will run in parallel.

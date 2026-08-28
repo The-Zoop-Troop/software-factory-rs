@@ -274,6 +274,13 @@ impl BeadStore for BdCli {
         if let Some(meta) = &new.meta {
             args.extend(["--metadata".into(), bead_meta_json(meta)?]);
         }
+        // A bead is claimable the instant it exists, but its `needs` edges can only be added
+        // afterwards. Hide it from `bd ready` until the edges are in place, or a polling worker
+        // can grab a task whose blockers aren't closed.
+        let deferred = !new.needs.is_empty();
+        if deferred {
+            args.extend(["--defer".into(), "+1d".into()]);
+        }
         let borrowed: Vec<&str> = args.iter().map(String::as_str).collect();
         let created: Created = self.run_json(&borrowed).await?;
         let id = BeadId::try_new(created.id).map_err(|e| StoreError::Decode(e.to_string()))?;
@@ -281,6 +288,10 @@ impl BeadStore for BdCli {
         // added explicitly with `dep add <dependent> <blocker>`.
         for blocker in &new.needs {
             self.add_needs(&id, blocker).await?;
+        }
+        if deferred {
+            self.run(&["update", id.as_ref(), "--defer", "", "--json"])
+                .await?;
         }
         Ok(id)
     }
