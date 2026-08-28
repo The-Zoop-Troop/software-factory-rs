@@ -18,6 +18,7 @@ pub mod claude;
 pub mod clock;
 pub mod git;
 pub mod jsonl;
+pub mod opencode;
 pub mod shell;
 
 pub use app;
@@ -26,4 +27,5 @@ pub use claude::ClaudeCli;
 pub use clock::SystemClock;
 pub use git::GitCli;
 pub use jsonl::JsonlSink;
+pub use opencode::OpencodeServer;
 pub use shell::ShellRunner;
