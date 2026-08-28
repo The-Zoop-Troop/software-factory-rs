@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Rig entrypoint: bring up the ledger and clone if missing, then run one role.
-#   rig-entrypoint steward|verify|integrate|plan <args>|shell|<any command>
+#   rig-entrypoint steward|verify|integrate|work|plan <args>|shell|<any command>
 set -euo pipefail
 
 RIG_DIR=/work/rig
@@ -33,6 +33,7 @@ case "$role" in
   steward)   exec stewardd --workdir "$RIG_DIR" --events .factory/events.jsonl "$@" ;;
   verify)    exec factory --workdir "$RIG_DIR" verify    --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl "$@" ;;
   integrate) exec factory --workdir "$RIG_DIR" integrate --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl --main "${RIG_MAIN:-main}" "$@" ;;
+  work)      exec factory --workdir "$RIG_DIR" work      --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl --main "${RIG_MAIN:-main}" --agent "${RIG_AGENT:-worker-${HOSTNAME}}" "$@" ;;
   plan)      exec factory --workdir "$RIG_DIR" plan      --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" "$@" ;;
   shell)     exec bash ;;
   *)         exec "$role" "$@" ;;

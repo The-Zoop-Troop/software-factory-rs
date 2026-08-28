@@ -54,6 +54,11 @@ services:
     <<: *rig
     command: [integrate, --interval, "10"]
 
+  # Scale with `docker compose up -d --scale worker=3`; each gets a distinct lease holder.
+  worker:
+    <<: *rig
+    command: [work, --interval, "10"]
+
   # One-shot roles; run with `docker compose run --rm <name> ...`.
   plan:
     <<: *rig
