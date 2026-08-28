@@ -236,15 +236,15 @@ impl Server {
             .spawn()
             .map_err(|e| HarnessError::Spawn(e.to_string()))?;
         let base = format!("http://127.0.0.1:{port}");
-        let client = reqwest::Client::new();
+        let client = local_client()?;
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
         loop {
-            if client
+            let probe = client
                 .get(format!("{base}/global/health"))
+                .timeout(std::time::Duration::from_secs(3))
                 .send()
-                .await
-                .is_ok_and(|r| r.status().is_success())
-            {
+                .await;
+            if probe.is_ok_and(|r| r.status().is_success()) {
                 break;
             }
             if tokio::time::Instant::now() > deadline {
@@ -275,6 +275,18 @@ fn merge_permission(extra: &str) -> String {
     }
 }
 
+/// The server is always on loopback; never let `HTTP(S)_PROXY` env (set inside the rig)
+/// route these calls through the egress proxy.
+fn local_client() -> Result<reqwest::Client, HarnessError> {
+    reqwest::Client::builder()
+        .no_proxy()
+        .connect_timeout(std::time::Duration::from_secs(5))
+        // A connection accepted during server boot may never be serviced; don't reuse any.
+        .pool_max_idle_per_host(0)
+        .build()
+        .map_err(|e| HarnessError::Spawn(e.to_string()))
+}
+
 async fn free_port() -> Result<u16, HarnessError> {
     let l = tokio::net::TcpListener::bind(("127.0.0.1", 0))
         .await
@@ -295,7 +307,7 @@ impl Harness for OpencodeServer {
         tracing::info!(cwd = %req.cwd.display(), tools = ?req.tools, model = %format!("{}/{}", self.provider_id, self.model_id), "opencode serve");
         let server = Server::start(self, &req.cwd).await?;
         tracing::debug!(base = %server.base, "opencode serve healthy");
-        let client = reqwest::Client::new();
+        let client = local_client()?;
         let http = |e: reqwest::Error| HarnessError::Decode(e.to_string());
         let created: Created = client
             .post(format!("{}/session", server.base))
