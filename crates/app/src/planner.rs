@@ -273,11 +273,13 @@ fn plan_schema() -> serde_json::Value {
                         "verify": { "type": "array", "minItems": 1, "items": { "type": "string" } },
                         "needs": { "type": "array", "items": { "type": "string" } }
                     },
-                    "required": ["key", "title", "description", "acceptance", "verify", "needs"]
+                    "required": ["key", "title", "description", "acceptance", "verify", "needs"],
+                    "additionalProperties": false
                 }
             }
         },
-        "required": ["summary", "reference", "tasks"]
+        "required": ["summary", "reference", "tasks"],
+        "additionalProperties": false
     })
 }
 
