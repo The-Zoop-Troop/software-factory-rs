@@ -10,8 +10,8 @@ export BD_NON_INTERACTIVE=1
 if [ ! -d "$RIG_DIR/.beads" ]; then
   echo "[rig] initialising ledger in $RIG_DIR (prefix ${RIG_PREFIX:-rig})"
   (cd "$RIG_DIR" && bd init --prefix "${RIG_PREFIX:-rig}" --non-interactive --skip-hooks >/dev/null 2>&1)
-  bd metrics off >/dev/null 2>&1 || true
 fi
+bd metrics off >/dev/null 2>&1 || true
 
 if [ ! -d "$REPO_DIR/.git" ]; then
   if [ -n "${RIG_REPO_URL:-}" ]; then

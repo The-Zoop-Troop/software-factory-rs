@@ -63,12 +63,14 @@ services:
   plan:
     <<: *rig
     restart: "no"
-    command: [plan]
+    entrypoint: [rig-entrypoint, plan]   # `docker compose run --rm plan --text "..."`
+    command: []
     profiles: [tools]
 
   shell:
     <<: *rig
     restart: "no"
+    entrypoint: [rig-entrypoint]         # `docker compose run --rm shell bash -c "..."`
     command: [shell]
     profiles: [tools]
 
