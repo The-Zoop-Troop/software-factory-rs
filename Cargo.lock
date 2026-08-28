@@ -74,6 +74,7 @@ dependencies = [
  "async-trait",
  "domain",
  "futures",
+ "serde",
  "thiserror",
  "tokio",
  "tracing",

@@ -148,7 +148,9 @@ struct Created {
 }
 
 fn meta_json(meta: &FactoryMeta) -> Result<String, StoreError> {
-    let wrapped = serde_json::json!({ META_KEY: meta });
+    let value = serde_json::to_value(meta).map_err(|e| StoreError::Decode(e.to_string()))?;
+    let wrapped =
+        serde_json::Value::Object(std::iter::once((META_KEY.to_owned(), value)).collect());
     serde_json::to_string(&wrapped).map_err(|e| StoreError::Decode(e.to_string()))
 }
 
@@ -251,6 +253,21 @@ impl BeadStore for BdCli {
         self.run(&["close", id.as_ref(), "--reason", reason, "--json"])
             .await
             .map(|_| ())
+    }
+
+    async fn children(&self, id: &BeadId) -> Result<Vec<Bead>, StoreError> {
+        let raws: Vec<RawBead> = self
+            .run_json(&[
+                "list",
+                "--parent",
+                id.as_ref(),
+                "--all",
+                "--limit",
+                "0",
+                "--json",
+            ])
+            .await?;
+        raws.into_iter().map(Bead::try_from).collect()
     }
 }
 

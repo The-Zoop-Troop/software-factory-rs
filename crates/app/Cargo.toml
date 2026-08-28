@@ -11,12 +11,15 @@ thiserror.workspace = true
 futures.workspace = true
 tracing.workspace = true
 async-trait.workspace = true
+serde = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["sync"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["sync", "rt", "macros"] }
 
 [features]
+default = ["serde"]
+serde = ["dep:serde", "domain/serde"]
 testing = ["dep:tokio"]
 
 [lints]

@@ -15,7 +15,9 @@
 
 pub mod bd;
 pub mod clock;
+pub mod jsonl;
 
 pub use app;
 pub use bd::BdCli;
 pub use clock::SystemClock;
+pub use jsonl::JsonlSink;

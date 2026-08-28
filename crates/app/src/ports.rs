@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use domain::{BeadId, BeadKind, FactoryMeta, Timestamp};
 
 use crate::bead::{Bead, NewBead};
+use crate::events::FactoryEvent;
 
 /// Failures crossing the bead-store boundary, already translated from the adapter.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -56,6 +57,17 @@ pub trait BeadStore: Send + Sync {
     /// # Errors
     /// `NotFound` or transport failures.
     async fn close(&self, id: &BeadId, reason: &str) -> Result<(), StoreError>;
+
+    /// Direct children of `id` (any status).
+    ///
+    /// # Errors
+    /// Transport/decode failures.
+    async fn children(&self, id: &BeadId) -> Result<Vec<Bead>, StoreError>;
+}
+
+/// Where factory events go. Recording must never fail the caller; sinks log their own trouble.
+pub trait EventSink: Send + Sync {
+    fn record(&self, event: &FactoryEvent);
 }
 
 /// Wall-clock source. The only place `now` comes from.

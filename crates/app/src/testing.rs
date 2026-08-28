@@ -1,4 +1,10 @@
 //! Hand-written fakes for the ports. No mocking framework.
+#![allow(
+    clippy::disallowed_types,
+    clippy::missing_panics_doc,
+    clippy::unused_async,
+    reason = "test support: a leaf Mutex over a Vec is the simplest correct sink"
+)]
 
 use std::collections::BTreeMap;
 
@@ -7,7 +13,8 @@ use domain::{BeadId, BeadKind, FactoryMeta, Timestamp};
 use tokio::sync::Mutex;
 
 use crate::bead::{Bead, BeadStatus, NewBead};
-use crate::ports::{BeadStore, Clock, StoreError};
+use crate::events::FactoryEvent;
+use crate::ports::{BeadStore, Clock, EventSink, StoreError};
 
 /// In-memory bead store. Ready == every active bead of the kind (no dependency graph).
 #[derive(Debug, Default)]
@@ -34,6 +41,33 @@ impl FakeStore {
                 meta: Some(meta),
             },
         );
+    }
+
+    /// Insert an epic with children; each `(id, closed)` pair becomes a task child.
+    pub async fn seed_epic(&self, id: BeadId, children: &[(&str, bool)]) {
+        let mut beads = self.beads.lock().await;
+        beads.insert(
+            id.clone(),
+            plain(
+                id.clone(),
+                "epic",
+                Some(BeadKind::Epic),
+                None,
+                BeadStatus::Open,
+            ),
+        );
+        for (cid, closed) in children {
+            let cid = BeadId::try_new(*cid).expect("test ids are valid");
+            let status = if *closed {
+                BeadStatus::Closed
+            } else {
+                BeadStatus::Open
+            };
+            beads.insert(
+                cid.clone(),
+                plain(cid, "child", None, Some(id.clone()), status),
+            );
+        }
     }
 
     /// Insert a bead the factory does not own.
@@ -133,6 +167,56 @@ impl BeadStore for FakeStore {
             .ok_or_else(|| StoreError::NotFound(id.clone()))?;
         bead.status = BeadStatus::Closed;
         Ok(())
+    }
+
+    async fn children(&self, id: &BeadId) -> Result<Vec<Bead>, StoreError> {
+        Ok(self
+            .beads
+            .lock()
+            .await
+            .values()
+            .filter(|b| b.parent.as_ref() == Some(id))
+            .cloned()
+            .collect())
+    }
+}
+
+fn plain(
+    id: BeadId,
+    title: &str,
+    kind: Option<BeadKind>,
+    parent: Option<BeadId>,
+    status: BeadStatus,
+) -> Bead {
+    Bead {
+        id,
+        title: title.into(),
+        description: String::new(),
+        acceptance: None,
+        notes: None,
+        status,
+        labels: kind.map(BeadKind::label).into_iter().collect(),
+        parent,
+        kind,
+        meta: None,
+    }
+}
+
+/// Collects events in memory.
+#[derive(Debug, Default)]
+pub struct MemorySink(std::sync::Mutex<Vec<FactoryEvent>>);
+
+impl MemorySink {
+    pub async fn events(&self) -> Vec<FactoryEvent> {
+        self.0.lock().map(|g| g.clone()).unwrap_or_default()
+    }
+}
+
+impl EventSink for MemorySink {
+    fn record(&self, event: &FactoryEvent) {
+        if let Ok(mut g) = self.0.lock() {
+            g.push(event.clone());
+        }
     }
 }
 
