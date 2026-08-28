@@ -174,4 +174,54 @@ impl Repo for GitCli {
     async fn head_of(&self, branch: &BranchName) -> Result<Sha, RepoError> {
         self.rev_parse(&format!("refs/heads/{branch}")).await
     }
+
+    async fn branch_worktree(
+        &self,
+        branch: &BranchName,
+        from: &Sha,
+    ) -> Result<Worktree, RepoError> {
+        let path = self.worktree_path(branch);
+        tokio::fs::create_dir_all(&self.worktrees)
+            .await
+            .map_err(|e| RepoError::Unavailable(e.to_string()))?;
+        if path.exists() {
+            let _ = self
+                .git(&["worktree", "remove", "--force", &path.to_string_lossy()])
+                .await;
+            let _ = tokio::fs::remove_dir_all(&path).await;
+        }
+        let _ = self.git(&["worktree", "prune"]).await;
+        // `-B` resets a stale branch of the same name (a previous attempt) to the new base.
+        self.git(&[
+            "worktree",
+            "add",
+            "-B",
+            branch.as_ref(),
+            &path.to_string_lossy(),
+            from.as_ref(),
+        ])
+        .await?;
+        Ok(Worktree {
+            path,
+            branch: branch.clone(),
+            head: from.clone(),
+        })
+    }
+
+    async fn commit_all(&self, worktree: &Worktree, message: &str) -> Result<Sha, RepoError> {
+        // Never let the harness's scratch files or our own markers into the commit.
+        Self::git_in(
+            &worktree.path,
+            &["add", "-A", "--", ".", ":!.factory", ":!.beads"],
+        )
+        .await?;
+        let dirty = Self::git_in(&worktree.path, &["diff", "--cached", "--quiet"])
+            .await
+            .is_err();
+        if dirty {
+            Self::git_in(&worktree.path, &["commit", "-q", "-m", message]).await?;
+        }
+        let out = Self::git_in(&worktree.path, &["rev-parse", "HEAD"]).await?;
+        Sha::try_new(out).map_err(|e| RepoError::Rejected(format!("rev-parse output: {e}")))
+    }
 }

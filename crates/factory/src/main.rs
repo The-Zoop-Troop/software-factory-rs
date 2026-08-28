@@ -13,8 +13,10 @@ use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use infra::app::domain::{BeadId, BranchName, Duration, PlanDefaults, TaskState};
-use infra::app::{Bead, BeadStore, IntegrateConfig, integrate_once, plan, verify_once};
+use infra::app::domain::{AgentId, BeadId, BranchName, Duration, PlanDefaults, TaskState};
+use infra::app::{
+    Bead, BeadStore, IntegrateConfig, WorkerConfig, integrate_once, plan, verify_once, work_once,
+};
 use infra::{BdCli, ClaudeCli, GitCli, JsonlSink, ShellRunner, SystemClock};
 
 #[derive(Debug, Parser)]
@@ -56,6 +58,39 @@ enum Command {
         /// Spend cap for the planner run, USD.
         #[arg(long, default_value_t = 2.0)]
         max_budget_usd: f64,
+    },
+    /// Run a Worker: claim ready tasks and hand each to a fresh Claude Code session.
+    Work {
+        /// Path to the project clone.
+        #[arg(long, default_value = "repo")]
+        repo: PathBuf,
+        /// Directory for task worktrees.
+        #[arg(long, default_value = ".factory/worktrees")]
+        worktrees: PathBuf,
+        /// Event log path (JSONL, appended).
+        #[arg(long, default_value = ".factory/events.jsonl")]
+        events: PathBuf,
+        /// Integration branch tasks are cut from.
+        #[arg(long, default_value = "main")]
+        main: String,
+        /// This worker's identity (lease holder).
+        #[arg(long, default_value = "worker-1")]
+        agent: String,
+        /// Lease TTL, seconds; heartbeats renew at a third of this.
+        #[arg(long, default_value_t = 300)]
+        lease_ttl: u64,
+        /// Harness turn cap per task session.
+        #[arg(long, default_value_t = 200)]
+        max_turns: u32,
+        /// Spend cap per task session, USD.
+        #[arg(long, default_value_t = 5.0)]
+        max_budget_usd: f64,
+        /// Model override.
+        #[arg(long)]
+        model: Option<String>,
+        /// Seconds to wait when nothing is ready; omit to run one task (or none) and exit.
+        #[arg(long)]
+        interval: Option<u64>,
     },
     /// Run the Verifier: check every task awaiting verification.
     Verify {
@@ -161,6 +196,45 @@ async fn main() -> anyhow::Result<()> {
             );
             for (key, id) in &report.tasks {
                 println!("  {id}  {key}");
+            }
+        }
+        Command::Work {
+            repo,
+            worktrees,
+            events,
+            main,
+            agent,
+            lease_ttl,
+            max_turns,
+            max_budget_usd,
+            model,
+            interval,
+        } => {
+            if let Some(dir) = events.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            let git = GitCli::new(&repo, &worktrees);
+            let log = JsonlSink::open(&events)?;
+            let store = BdCli::new(&cli.workdir).with_actor(&agent);
+            let mut harness = ClaudeCli::default().with_max_budget_usd(max_budget_usd);
+            if let Some(m) = model {
+                harness = harness.with_model(m);
+            }
+            let cfg = WorkerConfig {
+                agent: AgentId::try_new(agent)?,
+                main: BranchName::try_new(main)?,
+                lease_ttl: Duration::from_seconds(lease_ttl),
+                max_turns,
+            };
+            loop {
+                match work_once(&store, &git, &harness, &SystemClock, &log, &cfg).await {
+                    Ok(Some(report)) => tracing::info!(?report, "task submitted"),
+                    Ok(None) => tracing::info!("nothing ready"),
+                    // Infrastructure trouble: log and keep polling; the lease will expire if needed.
+                    Err(e) => tracing::error!(error = %e, "work failed"),
+                }
+                let Some(secs) = interval else { break };
+                tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
             }
         }
         Command::Verify {

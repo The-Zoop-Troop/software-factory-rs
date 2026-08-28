@@ -7,3 +7,6 @@
 
 # Rust
 /target
+
+# rig secrets
+docker/rig.env

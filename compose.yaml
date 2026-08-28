@@ -1,0 +1,77 @@
+# One rig. `docker compose up -d` starts the egress proxy and the three deterministic roles;
+# `docker compose run --rm plan --text "..."` submits a plan; workers come with fac-ec6.5.
+# Requires rootless Docker (ARCHITECTURE.md §6).
+
+x-rig: &rig
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.rig
+  image: factory-rig:dev
+  env_file:
+    - path: docker/rig.env
+      required: false
+  environment:
+    HTTPS_PROXY: http://egress:8888
+    HTTP_PROXY: http://egress:8888
+    NO_PROXY: localhost,127.0.0.1,egress
+    RUST_LOG: info
+  volumes:
+    - ledger:/work/rig
+    - repo:/work/rig/repo
+  networks: [rig]
+  # Blast-radius limits: the realistic failure is a runaway build, not an exploit.
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 2048
+  mem_limit: 6g
+  cpus: 4
+  tmpfs: [/tmp:size=1g]
+  depends_on: [egress]
+  restart: unless-stopped
+
+services:
+  egress:
+    build:
+      context: docker
+      dockerfile: Dockerfile.egress
+    image: factory-egress:dev
+    networks: [rig, outside]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 256
+    mem_limit: 128m
+    restart: unless-stopped
+
+  steward:
+    <<: *rig
+    command: [steward, --interval, "15"]
+
+  verifier:
+    <<: *rig
+    command: [verify, --interval, "10"]
+
+  integrator:
+    <<: *rig
+    command: [integrate, --interval, "10"]
+
+  # One-shot roles; run with `docker compose run --rm <name> ...`.
+  plan:
+    <<: *rig
+    restart: "no"
+    command: [plan]
+    profiles: [tools]
+
+  shell:
+    <<: *rig
+    restart: "no"
+    command: [shell]
+    profiles: [tools]
+
+networks:
+  rig:
+    internal: true          # no default route: only `egress` can reach outside
+  outside: {}
+
+volumes:
+  ledger: {}
+  repo: {}

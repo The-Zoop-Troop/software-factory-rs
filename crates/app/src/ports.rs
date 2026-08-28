@@ -84,9 +84,12 @@ pub trait EventSink: Send + Sync {
     fn record(&self, event: &FactoryEvent);
 }
 
-/// Wall-clock source. The only place `now` comes from.
+/// Wall-clock source. The only place `now` and waiting come from.
+#[async_trait]
 pub trait Clock: Send + Sync {
     fn now(&self) -> Timestamp;
+    /// Wait for `d`. Fakes return immediately (after yielding) so tests never sleep.
+    async fn sleep(&self, d: Duration);
 }
 
 /// Failures from the git adapter, already translated.
@@ -120,6 +123,20 @@ pub trait Repo: Send + Sync {
     /// # Errors
     /// `RefNotFound` if `head` is unknown; `Rejected`/`Unavailable` otherwise.
     async fn worktree_add(&self, branch: &BranchName, head: &Sha) -> Result<Worktree, RepoError>;
+
+    /// Create `branch` at `from` (replacing any stale branch of that name) and check it out
+    /// in a worktree. The Worker's starting point.
+    ///
+    /// # Errors
+    /// `RefNotFound` if `from` is unknown; `Rejected`/`Unavailable` otherwise.
+    async fn branch_worktree(&self, branch: &BranchName, from: &Sha)
+    -> Result<Worktree, RepoError>;
+
+    /// Stage everything and commit if there are changes. Returns HEAD afterwards either way.
+    ///
+    /// # Errors
+    /// `Rejected`/`Unavailable`.
+    async fn commit_all(&self, worktree: &Worktree, message: &str) -> Result<Sha, RepoError>;
 
     /// Remove a worktree created by `worktree_add`, discarding any changes.
     ///

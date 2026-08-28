@@ -22,6 +22,7 @@ pub mod ports;
 pub mod steward;
 pub mod transition;
 pub mod verifier;
+pub mod worker;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
@@ -38,3 +39,4 @@ pub use ports::{
 pub use steward::{StewardError, SweepReport, sweep};
 pub use transition::{TransitionError, apply_event, load_task};
 pub use verifier::{VerifierError, VerifyReport, verify_once};
+pub use worker::{WorkReport, WorkerConfig, WorkerError, work_once};

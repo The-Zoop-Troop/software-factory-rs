@@ -1,0 +1,55 @@
+# syntax=docker/dockerfile:1.7
+# The rig: one container per project. Everything inside is untrusted (ARCHITECTURE.md §6).
+#
+# Stage 1 builds the factory binaries; stage 2 is the runtime the agents live in.
+
+ARG RUST_VERSION=1.97.1
+ARG BD_VERSION=1.2.2
+ARG CLAUDE_VERSION=2.1.250
+
+FROM rust:${RUST_VERSION}-slim-bookworm AS build
+WORKDIR /src
+COPY Cargo.toml Cargo.lock rust-toolchain.toml clippy.toml rustfmt.toml ./
+COPY crates ./crates
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/src/target \
+    cargo build --release --locked -p factory -p stewardd \
+    && install -D target/release/factory /out/factory \
+    && install -D target/release/stewardd /out/stewardd
+
+FROM rust:${RUST_VERSION}-slim-bookworm AS runtime
+ARG BD_VERSION
+ARG CLAUDE_VERSION
+
+# Project toolchain + what the agents shell out to. Keep this list boring.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git ca-certificates curl jq openssl procps \
+    && rm -rf /var/lib/apt/lists/*
+
+# bd: pinned release tarball, checksum-verified (mirrors scripts/install.sh).
+RUN set -eu; cd /tmp; \
+    base="https://github.com/gastownhall/beads/releases/download/v${BD_VERSION}"; \
+    asset="beads_${BD_VERSION}_linux_amd64.tar.gz"; \
+    curl -fsSLO "${base}/${asset}"; curl -fsSLO "${base}/checksums.txt"; \
+    expected=$(awk -v t="${asset}" '{n=$2; sub(/^\*/,"",n); if (n==t) {print $1; exit}}' checksums.txt); \
+    echo "${expected}  ${asset}" | sha256sum -c -; \
+    tar -xzf "${asset}"; install -m 0755 bd /usr/local/bin/bd; rm -rf /tmp/*; \
+    bd version
+
+# claude: the native installer, pinned. Installs to $HOME/.local/bin for the invoking user,
+# so run it as the runtime user below.
+RUN groupadd -g 10001 factory && useradd -m -u 10001 -g factory -s /bin/bash factory \
+    # Pre-create the volume mount points so fresh named volumes inherit factory's ownership.
+    && mkdir -p /work/rig/repo && chown -R factory:factory /work
+USER factory
+ENV HOME=/home/factory PATH=/home/factory/.local/bin:/usr/local/cargo/bin:/usr/local/bin:/usr/bin:/bin
+RUN curl -fsSL https://claude.ai/install.sh | bash -s "${CLAUDE_VERSION}" \
+    && claude --version
+
+COPY --from=build --chmod=0755 /out/factory /out/stewardd /usr/local/bin/
+COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/rig-entrypoint
+
+# /work/rig holds .beads + .factory (ledger volume); /work/rig/repo is the project clone (repo volume).
+WORKDIR /work/rig
+ENTRYPOINT ["rig-entrypoint"]
+CMD ["shell"]

@@ -103,6 +103,26 @@ impl FakeStore {
         self.beads.lock().await.insert(bead.id.clone(), bead);
     }
 
+    /// Re-parent an existing bead (tests only).
+    pub async fn set_parent(&self, id: &BeadId, parent: &BeadId) {
+        if let Some(b) = self.beads.lock().await.get_mut(id) {
+            b.parent = Some(parent.clone());
+        }
+    }
+
+    /// Insert a reference bead under `parent`.
+    pub async fn seed_reference(&self, id: BeadId, parent: BeadId, text: &str) {
+        let mut bead = plain(
+            id,
+            "reference",
+            Some(BeadKind::Reference),
+            Some(parent),
+            BeadStatus::Open,
+        );
+        bead.description = text.to_owned();
+        self.beads.lock().await.insert(bead.id.clone(), bead);
+    }
+
     /// Insert a bead the factory does not own.
     pub async fn seed_plain(&self, id: BeadId, title: &str) {
         self.beads.lock().await.insert(
@@ -294,13 +314,18 @@ impl EventSink for MemorySink {
     }
 }
 
-/// A clock that returns whatever it was set to.
+/// A clock that returns whatever it was set to; `sleep` just yields.
 #[derive(Debug)]
 pub struct FixedClock(pub Timestamp);
 
+#[async_trait]
 impl Clock for FixedClock {
     fn now(&self) -> Timestamp {
         self.0
+    }
+
+    async fn sleep(&self, _d: Duration) {
+        tokio::task::yield_now().await;
     }
 }
 
@@ -319,6 +344,9 @@ pub struct FakeRepo {
     pub pushes: std::sync::Mutex<Vec<(String, BranchName)>>,
     /// Make every push fail with `Unavailable`.
     pub push_fails: bool,
+    /// What `commit_all` reports as HEAD (the fake never has real changes).
+    pub commit_head: Option<Sha>,
+    pub commits: std::sync::Mutex<Vec<String>>,
 }
 
 #[async_trait]
@@ -339,6 +367,25 @@ impl Repo for FakeRepo {
     async fn worktree_remove(&self, worktree: Worktree) -> Result<(), RepoError> {
         self.removed.lock().expect("test mutex").push(worktree);
         Ok(())
+    }
+
+    async fn branch_worktree(
+        &self,
+        branch: &BranchName,
+        from: &Sha,
+    ) -> Result<Worktree, RepoError> {
+        self.worktree_add(branch, from).await
+    }
+
+    async fn commit_all(&self, worktree: &Worktree, message: &str) -> Result<Sha, RepoError> {
+        self.commits
+            .lock()
+            .expect("test mutex")
+            .push(message.to_owned());
+        Ok(self
+            .commit_head
+            .clone()
+            .unwrap_or_else(|| worktree.head.clone()))
     }
 
     async fn rebase(&self, worktree: &Worktree, _onto: &BranchName) -> Result<Sha, RepoError> {

@@ -1,0 +1,503 @@
+//! The Worker (ARCHITECTURE.md §4.2, §8): stateless. Claim one ready task, cut a branch,
+//! hand a fresh harness a curated context packet, commit whatever it did, submit for
+//! verification. It never decides it is done; the Verifier does.
+
+use std::fmt::Write as _;
+
+use domain::{AgentId, BeadId, BeadKind, BranchName, Duration, Event, Task, TaskState};
+use futures::FutureExt as _;
+use futures::future::{Either, select};
+
+use crate::bead::Bead;
+use crate::events::{EventKind, FactoryEvent};
+use crate::ports::{
+    BeadStore, Clock, EventSink, Harness, HarnessRequest, Repo, RepoError, StoreError, ToolPolicy,
+};
+use crate::transition::{TransitionError, apply_event};
+
+/// How this worker behaves.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkerConfig {
+    pub agent: AgentId,
+    pub main: BranchName,
+    pub lease_ttl: Duration,
+    /// Harness turn cap per session.
+    pub max_turns: u32,
+}
+
+/// What one session did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkReport {
+    pub task: BeadId,
+    pub branch: BranchName,
+    pub head: domain::Sha,
+    pub tokens: u64,
+    pub turns: u32,
+}
+
+/// Worker failures. A claimed task is released (lease left to expire) on any error after claim.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum WorkerError {
+    #[error(transparent)]
+    Store(#[from] StoreError),
+    #[error(transparent)]
+    Transition(#[from] TransitionError),
+    #[error("repo: {0}")]
+    Repo(#[from] RepoError),
+    #[error("harness: {0}")]
+    Harness(#[from] crate::ports::HarnessError),
+}
+
+/// Claim and work one task. `Ok(None)` when nothing is ready.
+///
+/// # Errors
+/// Ledger, repo or harness infrastructure failures. Model-level failure is not an error:
+/// whatever the session produced is submitted and the Verifier judges it.
+#[tracing::instrument(skip_all, fields(agent = %cfg.agent), err)]
+pub async fn work_once(
+    store: &dyn BeadStore,
+    repo: &dyn Repo,
+    harness: &dyn Harness,
+    clock: &dyn Clock,
+    log: &dyn EventSink,
+    cfg: &WorkerConfig,
+) -> Result<Option<WorkReport>, WorkerError> {
+    let Some(bead) = pick(store).await? else {
+        return Ok(None);
+    };
+    let id = bead.id.clone();
+    let now = clock.now();
+    let tr = apply_event(
+        store,
+        &id,
+        Event::Claim {
+            holder: cfg.agent.clone(),
+            now,
+            ttl: cfg.lease_ttl,
+        },
+    )
+    .await?;
+    log.record(&event(
+        clock,
+        &cfg.agent,
+        &id,
+        EventKind::Claimed {
+            holder: cfg.agent.to_string(),
+        },
+    ));
+
+    let packet = ContextPacket::build(store, &bead, &tr.task).await?;
+    let branch = BranchName::for_task(&id).map_err(|e| RepoError::Rejected(e.to_string()))?;
+    let from = repo.head_of(&cfg.main).await?;
+    let worktree = repo.branch_worktree(&branch, &from).await?;
+
+    let remaining = remaining_wall_clock(&tr.task);
+    let session = harness.run(HarnessRequest {
+        cwd: worktree.path.clone(),
+        system_prompt: WORKER_SYSTEM_PROMPT.to_owned(),
+        prompt: packet.render(),
+        schema: None,
+        tools: ToolPolicy::Full,
+        max_turns: cfg.max_turns,
+        timeout: remaining,
+    });
+    let outcome = run_with_heartbeats(store, clock, cfg, &id, session).await;
+
+    // Whatever happened, tidy the worktree; the branch (and any commits) survive.
+    let commit = repo
+        .commit_all(&worktree, &format!("{}: {}", id, bead.title))
+        .await;
+    let _ = repo.worktree_remove(worktree).await;
+    let head = commit?;
+    let outcome = outcome?;
+
+    let now = clock.now();
+    apply_event(
+        store,
+        &id,
+        Event::Submit {
+            holder: cfg.agent.clone(),
+            branch: branch.clone(),
+            head: head.clone(),
+            now,
+            tokens: outcome.tokens,
+        },
+    )
+    .await?;
+    if outcome.is_error {
+        store
+            .note(&id, &format!("harness reported an error: {}", outcome.text))
+            .await?;
+    }
+    log.record(&event(
+        clock,
+        &cfg.agent,
+        &id,
+        EventKind::Submitted {
+            holder: cfg.agent.to_string(),
+            tokens: outcome.tokens,
+            turns: outcome.turns,
+            head: head.clone(),
+        },
+    ));
+    Ok(Some(WorkReport {
+        task: id,
+        branch,
+        head,
+        tokens: outcome.tokens,
+        turns: outcome.turns,
+    }))
+}
+
+/// First ready task bead in `Open` state.
+async fn pick(store: &dyn BeadStore) -> Result<Option<Bead>, StoreError> {
+    Ok(store
+        .ready(BeadKind::Task)
+        .await?
+        .into_iter()
+        .find(|b| matches!(b.meta.as_ref().map(|m| &m.state), Some(TaskState::Open))))
+}
+
+fn remaining_wall_clock(task: &Task) -> Duration {
+    Duration::from_seconds(
+        task.budget
+            .wall_clock
+            .seconds()
+            .saturating_sub(task.usage.wall_clock.seconds())
+            .max(60),
+    )
+}
+
+/// Drive the harness while renewing the lease every `ttl / 3`.
+async fn run_with_heartbeats<F>(
+    store: &dyn BeadStore,
+    clock: &dyn Clock,
+    cfg: &WorkerConfig,
+    id: &BeadId,
+    session: F,
+) -> Result<crate::ports::HarnessOutcome, crate::ports::HarnessError>
+where
+    F: Future<Output = Result<crate::ports::HarnessOutcome, crate::ports::HarnessError>> + Send,
+{
+    let interval =
+        Duration::from_seconds(cfg.lease_ttl.seconds() / 3).max(Duration::from_seconds(1));
+    let mut session = Box::pin(session);
+    loop {
+        let tick = Box::pin(clock.sleep(interval).fuse());
+        match select(session, tick).await {
+            Either::Left((outcome, _)) => return outcome,
+            Either::Right(((), s)) => {
+                session = s;
+                let hb = Event::Heartbeat {
+                    holder: cfg.agent.clone(),
+                    now: clock.now(),
+                };
+                if let Err(e) = apply_event(store, id, hb).await {
+                    // A lost lease means the Steward reassigned us; stop feeding a zombie session.
+                    tracing::warn!(error = %e, "heartbeat failed; abandoning session");
+                    return Err(crate::ports::HarnessError::Spawn(format!(
+                        "lease lost: {e}"
+                    )));
+                }
+            }
+        }
+    }
+}
+
+/// Everything the harness gets to see (ARCHITECTURE.md §8). Small, deterministic.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ContextPacket {
+    task_id: BeadId,
+    title: String,
+    description: String,
+    acceptance: Option<String>,
+    verify_commands: Vec<String>,
+    prior_notes: Option<String>,
+    references: Vec<String>,
+    attempt: u32,
+    attempts_allowed: u32,
+}
+
+impl ContextPacket {
+    async fn build(store: &dyn BeadStore, bead: &Bead, task: &Task) -> Result<Self, StoreError> {
+        let verify_commands = store
+            .show(&task.verify_bead)
+            .await?
+            .verify
+            .map(|v| v.commands)
+            .unwrap_or_default();
+        let references = match &bead.parent {
+            Some(epic) => store
+                .children(epic)
+                .await?
+                .into_iter()
+                .filter(|c| c.kind == Some(BeadKind::Reference))
+                .map(|c| c.description)
+                .collect(),
+            None => vec![],
+        };
+        Ok(Self {
+            task_id: bead.id.clone(),
+            title: bead.title.clone(),
+            description: bead.description.clone(),
+            acceptance: bead.acceptance.clone(),
+            verify_commands,
+            prior_notes: bead.notes.clone(),
+            references,
+            attempt: task.usage.attempts.saturating_add(1),
+            attempts_allowed: task.budget.attempts,
+        })
+    }
+
+    fn render(&self) -> String {
+        let mut p = String::new();
+        let _ = writeln!(p, "# Task {}: {}\n", self.task_id, self.title);
+        let _ = writeln!(p, "{}\n", self.description);
+        if let Some(a) = &self.acceptance {
+            let _ = writeln!(p, "## Acceptance criteria\n{a}\n");
+        }
+        if !self.verify_commands.is_empty() {
+            let _ = writeln!(
+                p,
+                "## Verification (run from the repo root; all must exit 0)"
+            );
+            for c in &self.verify_commands {
+                let _ = writeln!(p, "    {c}");
+            }
+            p.push('\n');
+        }
+        if !self.references.is_empty() {
+            let _ = writeln!(p, "## Project reference");
+            for r in &self.references {
+                let _ = writeln!(p, "{r}\n");
+            }
+        }
+        if let Some(n) = &self.prior_notes {
+            let _ = writeln!(
+                p,
+                "## Previous attempts (this is attempt {} of {})\nRead this before touching anything:\n{n}\n",
+                self.attempt, self.attempts_allowed
+            );
+        }
+        p
+    }
+}
+
+const WORKER_SYSTEM_PROMPT: &str = "\
+You are a worker in an autonomous software factory. You are in a fresh git worktree on your \
+own branch; nothing outside this directory matters and no one else is editing it. Complete the \
+task described in the message, then stop.
+
+Rules:
+- Do exactly the task. Do not refactor unrelated code, add features, or change tooling.
+- Before you stop, run the listed verification commands yourself from the repo root and make them pass.
+- Do not commit, push, or create branches; the factory commits your working tree when you exit.
+- If the task is impossible as written or you are missing information, write a short file named \
+FACTORY_BLOCKED.md at the repo root explaining exactly what is needed, then stop.
+- Do not read or modify anything under .factory/ or .beads/.";
+
+fn event(clock: &dyn Clock, actor: &AgentId, bead: &BeadId, kind: EventKind) -> FactoryEvent {
+    FactoryEvent {
+        at: clock.now(),
+        actor: actor.to_string(),
+        bead: Some(bead.clone()),
+        kind,
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::disallowed_types, reason = "test doubles use a leaf std Mutex")]
+mod tests {
+    use crate::transition::load_task;
+    use domain::{Budget, FactoryMeta, Sha, Timestamp, Usage};
+
+    use super::*;
+    use crate::testing::{FakeHarness, FakeRepo, FakeStore, FixedClock, MemorySink};
+
+    fn id(s: &str) -> BeadId {
+        BeadId::try_new(s).unwrap()
+    }
+    fn sha(c: char) -> Sha {
+        Sha::try_new(core::iter::repeat_n(c, 40).collect::<String>()).unwrap()
+    }
+    fn cfg() -> WorkerConfig {
+        WorkerConfig {
+            agent: AgentId::try_new("worker-1").unwrap(),
+            main: BranchName::try_new("main").unwrap(),
+            lease_ttl: Duration::from_seconds(30),
+            max_turns: 10,
+        }
+    }
+    fn harness_text(text: &str) -> FakeHarness {
+        FakeHarness {
+            outcome: Some(crate::ports::HarnessOutcome {
+                text: text.into(),
+                structured: None,
+                tokens: 5000,
+                cost_micro_usd: 10,
+                turns: 7,
+                is_error: false,
+            }),
+            requests: std::sync::Mutex::default(),
+        }
+    }
+
+    async fn seeded() -> FakeStore {
+        let store = FakeStore::default();
+        store.seed_epic(id("fac-e"), &[]).await;
+        store
+            .seed_reference(id("fac-e.0"), id("fac-e"), "Use POSIX sh only.")
+            .await;
+        store
+            .seed_task(
+                id("fac-e.1"),
+                FactoryMeta {
+                    verify_bead: id("fac-e.2"),
+                    base: sha('a'),
+                    budget: Budget {
+                        wall_clock: Duration::from_minutes(10),
+                        ..Budget::default()
+                    },
+                    usage: Usage::default(),
+                    lease_expiries: 0,
+                    state: TaskState::Open,
+                },
+            )
+            .await;
+        store.set_parent(&id("fac-e.1"), &id("fac-e")).await;
+        store
+            .note(&id("fac-e.1"), "verify FAILED: missing farewell()")
+            .await
+            .unwrap();
+        store
+            .seed_verify(id("fac-e.2"), id("fac-e.1"), &["sh tests/run.sh"])
+            .await;
+        store
+    }
+
+    #[tokio::test]
+    async fn claims_runs_commits_and_submits() {
+        let store = seeded().await;
+        let repo = FakeRepo {
+            commit_head: Some(sha('b')),
+            ..FakeRepo::default()
+        };
+        let harness = harness_text("done");
+        let log = MemorySink::default();
+        let report = work_once(
+            &store,
+            &repo,
+            &harness,
+            &FixedClock(Timestamp::from_unix_seconds(100)),
+            &log,
+            &cfg(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert_eq!(report.task, id("fac-e.1"));
+        assert_eq!(report.branch.as_ref(), "task/fac-e.1");
+        assert_eq!(report.head, sha('b'));
+        let task = load_task(&store, &id("fac-e.1")).await.unwrap();
+        assert!(matches!(task.state, TaskState::InVerify { ref head, .. } if *head == sha('b')));
+        assert_eq!(task.usage.tokens, 5000);
+        assert_eq!(repo.commits.lock().unwrap().len(), 1);
+        assert_eq!(repo.removed.lock().unwrap().len(), 1);
+
+        let req = harness.requests.lock().unwrap()[0].clone();
+        assert_eq!(req.tools, ToolPolicy::Full);
+        assert!(
+            req.prompt.contains("sh tests/run.sh"),
+            "verify commands in packet"
+        );
+        assert!(
+            req.prompt.contains("Use POSIX sh only."),
+            "reference in packet"
+        );
+        assert!(
+            req.prompt.contains("missing farewell()"),
+            "prior notes in packet"
+        );
+        assert!(req.prompt.contains("attempt 1 of 3"));
+        assert!(req.timeout <= Duration::from_minutes(10));
+
+        let kinds: Vec<_> = log.events().await.into_iter().map(|e| e.kind).collect();
+        assert!(matches!(kinds[0], EventKind::Claimed { .. }));
+        assert!(matches!(
+            kinds.last().unwrap(),
+            EventKind::Submitted {
+                tokens: 5000,
+                turns: 7,
+                ..
+            }
+        ));
+    }
+
+    #[tokio::test]
+    async fn nothing_ready_is_none() {
+        let store = FakeStore::default();
+        let out = work_once(
+            &store,
+            &FakeRepo::default(),
+            &harness_text(""),
+            &FixedClock(Timestamp::from_unix_seconds(0)),
+            &MemorySink::default(),
+            &cfg(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(out, None);
+    }
+
+    #[tokio::test]
+    async fn harness_error_still_submits_and_notes() {
+        let store = seeded().await;
+        let mut harness = harness_text("Not logged in");
+        harness.outcome.as_mut().unwrap().is_error = true;
+        let repo = FakeRepo::default();
+        work_once(
+            &store,
+            &repo,
+            &harness,
+            &FixedClock(Timestamp::from_unix_seconds(0)),
+            &MemorySink::default(),
+            &cfg(),
+        )
+        .await
+        .unwrap();
+        let bead = store.show(&id("fac-e.1")).await.unwrap();
+        assert!(matches!(
+            bead.meta.unwrap().state,
+            TaskState::InVerify { .. }
+        ));
+        assert!(bead.notes.unwrap().contains("Not logged in"));
+    }
+
+    #[tokio::test]
+    async fn skips_tasks_not_open() {
+        let store = seeded().await;
+        // Move it to leased by someone else; ready() in the fake still lists it.
+        apply_event(
+            &store,
+            &id("fac-e.1"),
+            Event::Claim {
+                holder: AgentId::try_new("other").unwrap(),
+                now: Timestamp::from_unix_seconds(0),
+                ttl: Duration::from_seconds(99),
+            },
+        )
+        .await
+        .unwrap();
+        let out = work_once(
+            &store,
+            &FakeRepo::default(),
+            &harness_text(""),
+            &FixedClock(Timestamp::from_unix_seconds(1)),
+            &MemorySink::default(),
+            &cfg(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(out, None);
+    }
+}

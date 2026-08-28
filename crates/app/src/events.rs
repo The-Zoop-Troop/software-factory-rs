@@ -14,6 +14,15 @@ pub enum EventKind {
         event: &'static str,
         to: &'static str,
     },
+    /// A worker claimed a task.
+    Claimed { holder: String },
+    /// A worker finished a session and submitted a branch.
+    Submitted {
+        holder: String,
+        tokens: u64,
+        turns: u32,
+        head: domain::Sha,
+    },
     /// Verifier ran a verify bead against a task.
     Verified { passed: bool, verify_bead: BeadId },
     /// Integrator landed (or failed to land) a branch on main.

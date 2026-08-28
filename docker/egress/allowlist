@@ -1,0 +1,14 @@
+# One fnmatch pattern per line. Everything not listed is refused.
+# LLM API (Claude Code):
+api.anthropic.com
+*.anthropic.com
+claude.ai
+# git hosting — narrow this to your remote:
+github.com
+*.github.com
+*.githubusercontent.com
+# package registries the project toolchain needs:
+crates.io
+static.crates.io
+index.crates.io
+registry.npmjs.org
