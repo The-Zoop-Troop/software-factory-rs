@@ -1,0 +1,41 @@
+# Deployment
+
+- **Status:** accepted · **Verified:** 2026-08-29 on Linux, rootless Docker 29.x, Compose v5
+
+## Prerequisites
+- Linux host with **rootless** Docker (`docker info | grep rootless`) and Compose v2+.
+- One credential per harness you intend to run (see `docs/SECURITY.md` for scope):
+  `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) or `ANTHROPIC_API_KEY`; `OPENCODE_*` for an OpenAI-compatible provider; `OPENAI_API_KEY` for Codex.
+- Outbound access from the host to the allowlisted domains in `docker/egress/allowlist` (edit it for your git remote and registries).
+
+## First run
+```sh
+cp docker/rig.env.example docker/rig.env   # fill in; gitignored
+docker compose build                        # rig image (~1.4 GB) + egress proxy
+docker compose up -d                        # egress, steward, verifier, integrator, worker (claude)
+docker compose run --rm shell bash -c 'factory doctor'   # (planned) or: claude --version && bd ready
+```
+Bring your project in: set `RIG_REPO_URL` in `rig.env` (cloned on first start), or seed the `repo` volume via `docker compose run --rm shell`.
+
+## Operate
+```sh
+docker compose run --rm -e RIG_HARNESS=opencode plan --text "…"      # submit a plan
+docker compose up -d worker-opencode                                  # OpenCode worker
+docker compose --profile codex up -d worker-codex                     # Codex worker
+docker compose up -d --scale worker=3                                 # more Claude workers
+docker compose exec steward bd ready                                  # the ledger
+docker compose exec steward tail -f .factory/events.jsonl             # the event log
+```
+Landing on a remote: pass `--remote origin` to `integrate` (edit the service command) and protect `main` on the remote so only the rig's deploy key can fast-forward it.
+
+## Upgrade
+`git pull && docker compose build && docker compose up -d --force-recreate`. Ledger and repo volumes persist; the image is stateless.
+
+## Backup / restore
+Volumes `ledger` and `repo` are the state: `docker run --rm -v <project>_ledger:/v -v $PWD:/b alpine tar czf /b/ledger.tgz -C /v .` (same for `repo`). Restore by extracting into a fresh volume before `up`.
+
+## Troubleshooting
+- A role logs `nothing ready` forever → `bd ready` in the rig; check `blocked` and incidents.
+- Harness returns `401`/`revoked` → the credential in `rig.env` is stale; recreate the affected service after fixing it.
+- A `plan` run hangs → `docker ps` for stale `plan-run-*` containers (a killed client does not kill the container) and remove them.
+- Verify fails with `command not found` → the rig image lacks the tool; add it to `docker/Dockerfile.rig` (debt: per-project toolchain layer).

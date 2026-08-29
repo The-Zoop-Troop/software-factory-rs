@@ -1,0 +1,19 @@
+[package]
+name = "xtask"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Repository lints and tasks: lint-docs, lint-taste, coverage."
+publish = false
+
+[[bin]]
+name = "xtask"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+toml = "0.8"
+
+[lints]
+workspace = true

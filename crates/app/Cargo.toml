@@ -3,6 +3,7 @@ name = "app"
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
+license.workspace = true
 description = "Factory workflows (claim, verify, integrate, steward) and the service traits they need."
 
 [dependencies]

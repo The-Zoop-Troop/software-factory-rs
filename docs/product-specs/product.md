@@ -1,6 +1,6 @@
 # Product spec
 
-- **Status:** verified against the running system on 2026-08-29 · **Owner:** product
+- **Status:** accepted · **Verified:** against the running system, 2026-08-29 · **Owner:** product
 - See `vision.md` for why; this is what.
 
 ## Inputs and outputs

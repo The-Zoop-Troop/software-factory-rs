@@ -3,6 +3,7 @@ name = "stewardd"
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
+license.workspace = true
 description = "Steward daemon: lease sweep, budget enforcement, epic close, event log. No LLM."
 
 [[bin]]

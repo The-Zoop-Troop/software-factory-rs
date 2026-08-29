@@ -3,6 +3,7 @@ name = "factory"
 edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
+license.workspace = true
 description = "Operator CLI: plan, watch, inbox, run-worker/verifier/integrator."
 
 [[bin]]

@@ -23,7 +23,7 @@ the working Rust or breaking the rig.
 2. **knowledge-base** — `AGENTS.md` as table of contents; `docs/` per the layout below; product
    vision + product spec; design docs with `status`/`verified` headers; references for every
    external tool (bd, A2A, Claude headless, OpenCode server API, Codex exec); `DEPLOYMENT.md`,
-   `SECURITY.md`, `RELIABILITY.md`, `QUALITY_SCORE.md`, `tech-debt-tracker.md`.
+   `SECURITY.md`, `RELIABILITY.md`, `QUALITY_SCORE.md`, `docs/exec-plans/tech-debt-tracker.md`.
 3. **enforcement** — CI (fmt, clippy deny tier, deny, nextest, llvm-cov `--fail-under-lines 85`,
    docs lint, compose config, image build); `xtask lint-docs` (reachability from `AGENTS.md`,
    no dangling links, required headers); structural tests for crate layering with
