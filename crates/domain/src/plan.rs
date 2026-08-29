@@ -266,10 +266,11 @@ mod tests {
             plan(vec![raw("", &[])]).validate(PlanDefaults::default()),
             Err(PlanError::BadKey(_))
         ));
-        assert!(matches!(
-            plan(vec![raw("ok-key_1", &[])]).validate(PlanDefaults::default()),
-            Ok(_)
-        ));
+        assert!(
+            plan(vec![raw("ok-key_1", &[])])
+                .validate(PlanDefaults::default())
+                .is_ok()
+        );
     }
 
     #[test]

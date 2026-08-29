@@ -229,13 +229,10 @@ fn heartbeat_renews_from_now() {
             now: t(40),
         })
         .unwrap();
-    match &tr.task.state {
-        TaskState::Leased { lease } => {
-            assert_eq!(lease.expires, t(100), "renewed to now + ttl");
-            assert_eq!(lease.claimed_at, t(0));
-        }
-        other => panic!("expected leased, got {}", other.name()),
-    }
+    assert!(matches!(
+        &tr.task.state,
+        TaskState::Leased { lease } if lease.expires == t(100) && lease.claimed_at == t(0)
+    ));
 }
 
 #[test]
