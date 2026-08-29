@@ -1,6 +1,6 @@
 # Exec plan: rescaffold for harness engineering
 
-- **Status:** active · **Owner:** human steers, agents execute · **Started:** 2026-08-29
+- **Status:** completed 2026-08-29 · **Owner:** human steers, agents execute · **Started:** 2026-08-29
 - **Source of the approach:** `docs/references/harness-engineering.md` (OpenAI, Feb 2026)
 - **Beads epic:** `fac-2qi` (see `bd dep tree`)
 
@@ -50,6 +50,10 @@ docs/
   DEPLOYMENT.md  SECURITY.md  RELIABILITY.md  QUALITY_SCORE.md  PLANS.md
 ```
 
+## Outcome
+
+All acceptance items met locally on 2026-08-29: AGENTS.md 52 lines, 29 docs reachable, coverage 90.8% (gate 85), domain mutation score 96%, CI workflow + weekly gardening defined (not yet executed on GitHub — no remote). Remaining debt is tracked in `docs/exec-plans/tech-debt-tracker.md`.
+
 ## Acceptance
 
 - `AGENTS.md` ≤ 100 lines and every `docs/**/*.md` reachable from it (lint-enforced).
@@ -75,4 +79,4 @@ docs/
 - [x] enforcement (xtask lint-docs/lint-taste, CI workflow, deny policy, layering test); coverage gate deliberately not yet green — see coverage-85
 - [x] coverage-85 (91.6% lines excl. xtask; domain mutation score 96%; real git/bd + fake-binary adapter tests; bins extracted) — 2026-08-29
 - [x] legibility (factory doctor/watch/inbox, JSON logs, per-worktree compose, docs/generated via gen-docs --check; OTel export filed as debt) — 2026-08-29
-- [ ] gardening
+- [x] gardening (golden principles enforced list, `xtask quality --check` with 30-day doc freshness + measured block, weekly gardening workflow, merge policy doc; harness skills: AGENTS.md is read natively by all three) — 2026-08-29

@@ -48,7 +48,7 @@ merged code out). This file is a table of contents, not a manual. Read what the 
 
 ```
 cargo build && cargo test && cargo clippy --all-targets --all-features
-cargo xtask lint-docs | lint-taste | coverage | gen-docs [--check]
+cargo xtask lint-docs | lint-taste | coverage | gen-docs [--check] | quality [--check]
 docker compose build && docker compose up -d      # a rig; see docs/DEPLOYMENT.md
 factory doctor && factory watch && factory inbox     # health, progress, what needs a human
 factory plan --harness opencode --model provider/model --text "..."

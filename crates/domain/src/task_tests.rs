@@ -460,7 +460,7 @@ fn escalate_from_any_active_state() {
 
 #[test]
 fn name_tables_match_the_types() {
-    let sha = sha('a');
+    let a = sha('a');
     let states = [
         TaskState::Open,
         TaskState::Leased {
@@ -468,13 +468,13 @@ fn name_tables_match_the_types() {
         },
         TaskState::InVerify {
             branch: BranchName::try_new("b").unwrap(),
-            head: sha.clone(),
+            head: a.clone(),
         },
         TaskState::Mergeable {
             branch: BranchName::try_new("b").unwrap(),
-            head: sha.clone(),
+            head: a.clone(),
         },
-        TaskState::Closed { merged: sha },
+        TaskState::Closed { merged: a },
         TaskState::Incident {
             reason: IncidentReason::Manual {
                 detail: String::new(),

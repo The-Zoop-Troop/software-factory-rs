@@ -10,6 +10,28 @@
 use std::collections::{BTreeSet, VecDeque};
 use std::path::{Path, PathBuf};
 
+/// Docs that must carry `Status`/`Verified` markers: top-level `docs/*.md` plus design docs,
+/// references and product specs (index files, PLANS.md and the archived source post exempt).
+pub(crate) fn scoped_docs(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
+    Ok(walk(&root.join("docs"))?
+        .into_iter()
+        .filter(|doc| {
+            let name = doc.file_name().and_then(|n| n.to_str()).unwrap_or("");
+            let in_scope = doc.parent().is_some_and(|p| {
+                p == root.join("docs")
+                    || p.ends_with("design-docs")
+                    || p.ends_with("references")
+                    || p.ends_with("product-specs")
+            });
+            doc.extension().is_some_and(|e| e == "md")
+                && in_scope
+                && name != "index.md"
+                && name != "PLANS.md"
+                && name != "harness-engineering.md"
+        })
+        .collect())
+}
+
 pub(crate) fn lint(root: &Path) -> anyhow::Result<()> {
     let mut errors = Vec::new();
     let agents = root.join("AGENTS.md");

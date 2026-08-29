@@ -1,0 +1,17 @@
+name: gardening
+# Weekly garbage collection: stale docs, stale generated files, coverage drift, quality block.
+on:
+  schedule: [{ cron: "0 6 * * 1" }]
+  workflow_dispatch:
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: llvm-tools-preview }
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with: { tool: cargo-nextest,cargo-llvm-cov }
+      - run: cargo xtask gen-docs --check
+      - run: cargo xtask quality --check

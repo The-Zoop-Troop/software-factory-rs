@@ -9,7 +9,9 @@
 | No `unwrap`/`expect`/`panic` outside binaries and tests | Totality; a factory must not die on a bad row | clippy deny tier |
 | Time, randomness, and IDs are injected (`Clock`, parameters) | Determinism; tests never sleep | `clippy.toml` bans `SystemTime::now` |
 | Exhaustive matches over domain enums | Adding a variant breaks the build, not production | clippy `wildcard_enum_match_arm` deny |
-| Ports, not mocks: hand-written fakes in `app::testing` | Tests document the contract | manual |
+| Ports, not mocks: hand-written fakes in `app::testing` | Tests document the contract | review |
+| Docs are re-verified within 30 days or marked superseded | Stale guidance is worse than none | `xtask quality --check` (weekly `gardening` workflow) |
+| `docs/generated` is never hand-edited | It is derived from code | `xtask gen-docs --check` in CI |
 | Layering `domain ← app ← infra ← bins` | Cargo enforces the onion | structural test (`xtask lint-taste`) |
 | Every `Effect` the domain emits is executed by exactly one place (`transition::run_effect`) | One imperative shell | manual |
 | Custom lint messages tell the reader how to fix it | The reader is usually an agent | convention in `xtask` |
