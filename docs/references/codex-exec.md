@@ -6,4 +6,5 @@
 - JSON lines: `thread.started`, `turn.started`, `item.completed {item:{type:"agent_message", text}}`, `turn.completed {usage:{input_tokens, cached_input_tokens, cache_write_input_tokens, output_tokens, reasoning_output_tokens}}`, `turn.failed {error}`, `error {message}`.
 - With `--output-schema`, the schema must be OpenAI-strict (`additionalProperties: false` on every object, all properties required); the validated answer is written to the `-o` file.
 - Providers: only the Responses API (`wire_api = "responses"`); chat-completions-only gateways are not usable. Custom provider via `-c 'model_providers.<id>.base_url=…' -c 'model_providers.<id>.env_key=VAR' -c 'model_provider="<id>"'`.
+- File editing runs through a separate `codex-code-mode-host` binary (same release, `codex-code-mode-host-x86_64-unknown-linux-musl.tar.gz`) on `PATH`; without it `codex exec` only talks ("No files were changed").
 - Static musl binary: `codex-x86_64-unknown-linux-musl.tar.gz` from the `rust-v<ver>` GitHub release.

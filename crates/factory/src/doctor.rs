@@ -142,8 +142,11 @@ pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
     let creds = [
         "CLAUDE_CODE_OAUTH_TOKEN",
         "ANTHROPIC_API_KEY",
+        "CLAUDE_AUTH_JSON",
         "OPENCODE_API_KEY",
         "OPENAI_API_KEY",
+        "CODEX_AUTH_JSON",
+        "CODEX_OAUTH_TOKEN",
     ]
     .into_iter()
     .filter(|k| std::env::var(k).is_ok_and(|v| !v.is_empty()))

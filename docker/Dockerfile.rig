@@ -61,7 +61,10 @@ RUN set -eu; cd /tmp; \
     asset="codex-x86_64-unknown-linux-musl.tar.gz"; \
     curl -fsSLO "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/${asset}"; \
     tar -xzf "${asset}"; install -m 0755 codex-x86_64-unknown-linux-musl /home/factory/.local/bin/codex; \
-    rm -rf /tmp/*; codex --version
+    host="codex-code-mode-host-x86_64-unknown-linux-musl.tar.gz"; \
+    curl -fsSLO "https://github.com/openai/codex/releases/download/rust-v${CODEX_VERSION}/${host}"; \
+    tar -xzf "${host}"; install -m 0755 codex-code-mode-host-x86_64-unknown-linux-musl /home/factory/.local/bin/codex-code-mode-host; \
+    rm -rf /tmp/*; codex --version && test -x /home/factory/.local/bin/codex-code-mode-host
 
 COPY --from=build --chmod=0755 /out/factory /out/stewardd /usr/local/bin/
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/rig-entrypoint

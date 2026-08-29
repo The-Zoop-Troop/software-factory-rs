@@ -124,10 +124,18 @@ pub async fn work_once(
     let outcome = outcome?;
 
     let now = clock.now();
-    // A session that errored and changed nothing has nothing to verify: give the task back
-    // (which costs an attempt) instead of burning a verify cycle on an empty branch.
-    if outcome.is_error && head == from {
-        let note = format!("released: harness error with no changes: {}", outcome.text);
+    // A session that changed nothing has nothing to verify — whether it errored or merely talked.
+    // Give the task back (an attempt) and keep the model's reply so the incident is legible.
+    if head == from {
+        let why = if outcome.is_error {
+            "harness error"
+        } else {
+            "no changes made"
+        };
+        let note = format!(
+            "released: {why}: {}",
+            outcome.text.chars().take(600).collect::<String>()
+        );
         apply_event(
             store,
             &id,
@@ -144,7 +152,7 @@ pub async fn work_once(
             &id,
             EventKind::Released {
                 holder: cfg.agent.to_string(),
-                detail: outcome.text.clone(),
+                detail: outcome.text.chars().take(200).collect(),
             },
         ));
         return Ok(None);
