@@ -1,0 +1,27 @@
+--- crates/domain/src/task.rs
++++ replace Task::require_holder -> Result<(), IllegalTransition> with Ok(())
+@@ -495,23 +495,15 @@
+         }
+     }
+ 
+     fn require_holder(
+         id: &BeadId,
+         lease: &Lease,
+         actor: &AgentId,
+     ) -> Result<(), IllegalTransition> {
+-        if &lease.holder == actor {
+-            Ok(())
+-        } else {
+-            Err(IllegalTransition::NotHolder {
+-                id: id.clone(),
+-                actor: actor.clone(),
+-                holder: lease.holder.clone(),
+-            })
+-        }
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ #[path = "task_tests.rs"]
+ mod tests;

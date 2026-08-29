@@ -127,6 +127,36 @@ mod tests {
     }
 
     #[test]
+    fn limits_are_inclusive_for_tokens_and_wall_clock() {
+        let b = Budget {
+            tokens: 10,
+            wall_clock: Duration::from_seconds(10),
+            attempts: 5,
+        };
+        let at = Usage {
+            tokens: 10,
+            wall_clock: Duration::from_seconds(10),
+            attempts: 0,
+        };
+        assert_eq!(b.check(at), Ok(()), "exactly at the limit is fine");
+        assert_eq!(
+            b.check(at.add_tokens(1)),
+            Err(BudgetExceeded::Tokens {
+                used: 11,
+                limit: 10
+            })
+        );
+        assert_eq!(
+            b.check(at.add_wall_clock(Duration::from_seconds(1))),
+            Err(BudgetExceeded::WallClock {
+                used: 11,
+                limit: 10
+            })
+        );
+        assert_eq!(b.check(Usage { attempts: 4, ..at }), Ok(()));
+    }
+
+    #[test]
     fn within_budget_is_ok() {
         assert_eq!(Budget::default().check(Usage::default()), Ok(()));
     }

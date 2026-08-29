@@ -148,6 +148,121 @@ fn lease_expiry_reopens_and_storms() {
 }
 
 #[test]
+fn terminal_flags_and_state_names() {
+    assert!(!TaskState::Open.is_terminal());
+    let leased = fresh().apply(claim(0)).unwrap().task;
+    assert!(!leased.state.is_terminal());
+    assert_eq!(leased.state.name(), "leased");
+    assert!(TaskState::Closed { merged: sha('c') }.is_terminal());
+    assert!(
+        TaskState::Incident {
+            reason: IncidentReason::Manual {
+                detail: String::new()
+            }
+        }
+        .is_terminal()
+    );
+}
+
+#[test]
+fn lease_expiry_updates_usage_and_counter() {
+    let task = fresh().apply(claim(0)).unwrap().task;
+    let tr = task.apply(Event::LeaseExpired { now: t(90) }).unwrap();
+    assert_eq!(tr.task.lease_expiries, 1);
+    assert_eq!(tr.task.usage.wall_clock, Duration::from_seconds(90));
+    assert_eq!(tr.task.state, TaskState::Open);
+    assert!(
+        matches!(tr.effects.as_slice(), [Effect::AppendNote { note, .. }] if note.contains("expired"))
+    );
+}
+
+#[test]
+fn verify_failure_and_merge_failure_accumulate_usage() {
+    let tr = fresh()
+        .apply(claim(0))
+        .unwrap()
+        .task
+        .apply(submit(20))
+        .unwrap();
+    assert_eq!(tr.task.usage.wall_clock, Duration::from_seconds(20));
+    let tr = tr
+        .task
+        .apply(Event::VerifyFailed { note: "n".into() })
+        .unwrap();
+    assert_eq!(
+        tr.task.usage,
+        Usage {
+            tokens: 1000,
+            wall_clock: Duration::from_seconds(20),
+            attempts: 1
+        }
+    );
+    let task = Task {
+        budget: Budget {
+            attempts: 5,
+            ..Budget::default()
+        },
+        ..fresh()
+    };
+    let tr = task
+        .apply(claim(0))
+        .unwrap()
+        .task
+        .apply(submit(5))
+        .unwrap()
+        .task
+        .apply(Event::VerifyPassed)
+        .unwrap()
+        .task
+        .apply(Event::MergeFailed { detail: "c".into() })
+        .unwrap();
+    assert_eq!(tr.task.usage.attempts, 1);
+    assert_eq!(tr.task.usage.tokens, 1000);
+}
+
+#[test]
+fn heartbeat_renews_from_now() {
+    let task = fresh().apply(claim(0)).unwrap().task;
+    let tr = task
+        .apply(Event::Heartbeat {
+            holder: agent("w1"),
+            now: t(40),
+        })
+        .unwrap();
+    match &tr.task.state {
+        TaskState::Leased { lease } => {
+            assert_eq!(lease.expires, t(100), "renewed to now + ttl");
+            assert_eq!(lease.claimed_at, t(0));
+        }
+        other => panic!("expected leased, got {}", other.name()),
+    }
+}
+
+#[test]
+fn lease_storm_incident_keeps_usage_and_counter() {
+    let mut task = fresh();
+    for i in 0..MAX_LEASE_EXPIRIES {
+        let base = i64::from(i) * 100;
+        task = task.apply(claim(base)).unwrap().task;
+        task = task
+            .apply(Event::LeaseExpired { now: t(base + 60) })
+            .unwrap()
+            .task;
+    }
+    assert_eq!(task.lease_expiries, MAX_LEASE_EXPIRIES);
+    assert_eq!(
+        task.usage.wall_clock,
+        Duration::from_seconds(60 * u64::from(MAX_LEASE_EXPIRIES))
+    );
+    assert!(matches!(
+        task.state,
+        TaskState::Incident {
+            reason: IncidentReason::LeaseStorm { .. }
+        }
+    ));
+}
+
+#[test]
 fn lease_expiry_before_expiry_is_illegal() {
     let task = fresh().apply(claim(0)).unwrap().task;
     let err = task.apply(Event::LeaseExpired { now: t(10) }).unwrap_err();

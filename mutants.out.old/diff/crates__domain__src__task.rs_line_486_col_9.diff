@@ -1,0 +1,30 @@
+--- crates/domain/src/task.rs
++++ replace Task::escalate -> Transition with Default::default()
+@@ -478,26 +478,17 @@
+                 | Event::Merged { .. }
+                 | Event::MergeFailed { .. }
+                 | Event::Escalate { .. }),
+             ) => Err(illegal(&state, &event)),
+         }
+     }
+ 
+     fn escalate(self, reason: IncidentReason) -> Transition {
+-        let id = self.id.clone();
+-        Transition {
+-            task: Task {
+-                state: TaskState::Incident {
+-                    reason: reason.clone(),
+-                },
+-                ..self
+-            },
+-            effects: vec![Effect::OpenIncidentBead { task: id, reason }],
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     fn require_holder(
+         id: &BeadId,
+         lease: &Lease,
+         actor: &AgentId,
+     ) -> Result<(), IllegalTransition> {
+         if &lease.holder == actor {

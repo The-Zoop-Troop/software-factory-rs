@@ -1,0 +1,21 @@
+--- crates/domain/src/meta.rs
++++ delete ! in <impl TryFrom<RawVerifyMeta> for VerifyMeta>::try_from
+@@ -167,17 +167,17 @@
+             return Err(VerifyMetaParseError::NoCommands);
+         }
+         Ok(Self {
+             task: BeadId::try_new(raw.task)
+                 .map_err(|e| VerifyMetaParseError::Task(e.to_string()))?,
+             commands: raw
+                 .commands
+                 .into_iter()
+-                .filter(|c| !c.trim().is_empty())
++                .filter(|c|  /* ~ changed by cargo-mutants ~ */c.trim().is_empty())
+                 .collect(),
+             timeout: raw.timeout,
+         })
+     }
+ }
+ 
+ impl From<VerifyMeta> for RawVerifyMeta {
+     fn from(m: VerifyMeta) -> Self {

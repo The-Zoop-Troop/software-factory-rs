@@ -1,0 +1,22 @@
+--- crates/domain/src/time.rs
++++ replace <impl Add<Duration> for Timestamp>::add -> Self with Default::default()
+@@ -55,18 +55,17 @@
+         self.0
+     }
+ }
+ 
+ impl Add<Duration> for Timestamp {
+     type Output = Self;
+ 
+     fn add(self, rhs: Duration) -> Self {
+-        let secs = i64::try_from(rhs.0).unwrap_or(i64::MAX);
+-        Self(self.0.saturating_add(secs))
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     #[test]

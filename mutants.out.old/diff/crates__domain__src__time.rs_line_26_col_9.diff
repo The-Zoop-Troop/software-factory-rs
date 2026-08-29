@@ -1,0 +1,21 @@
+--- crates/domain/src/time.rs
++++ replace Timestamp::since -> Duration with Default::default()
+@@ -18,17 +18,17 @@
+     #[must_use]
+     pub const fn unix_seconds(self) -> i64 {
+         self.0
+     }
+ 
+     /// Elapsed time from `earlier` to `self`; zero if `earlier` is later.
+     #[must_use]
+     pub fn since(self, earlier: Self) -> Duration {
+-        Duration::from_seconds(u64::try_from(self.0.saturating_sub(earlier.0)).unwrap_or(0))
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl fmt::Display for Timestamp {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         write!(f, "{}", self.0)
+     }
+ }

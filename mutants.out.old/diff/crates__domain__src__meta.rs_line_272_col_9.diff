@@ -1,0 +1,25 @@
+--- crates/domain/src/meta.rs
++++ replace BeadMeta::key -> &'static str with ""
+@@ -264,21 +264,17 @@
+     Verify(VerifyMeta),
+     Merge(MergeMeta),
+ }
+ 
+ impl BeadMeta {
+     /// The metadata key this variant is stored under.
+     #[must_use]
+     pub const fn key(&self) -> &'static str {
+-        match self {
+-            Self::Task(_) => META_KEY,
+-            Self::Verify(_) => VERIFY_META_KEY,
+-            Self::Merge(_) => MERGE_META_KEY,
+-        }
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl From<Task> for FactoryMeta {
+     fn from(t: Task) -> Self {
+         Self {
+             verify_bead: t.verify_bead,
+             base: t.base,

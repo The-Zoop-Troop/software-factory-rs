@@ -73,6 +73,6 @@ docs/
 - [x] repo split, `main`, beads moved, builds/tests green standalone
 - [x] knowledge-base (AGENTS.md map, docs/ tree, references, ops docs) — 2026-08-29
 - [x] enforcement (xtask lint-docs/lint-taste, CI workflow, deny policy, layering test); coverage gate deliberately not yet green — see coverage-85
-- [x] coverage-85 (91.6% lines excl. xtask; real git/bd + fake-binary adapter tests; bins extracted) — 2026-08-29
+- [x] coverage-85 (91.6% lines excl. xtask; domain mutation score 96%; real git/bd + fake-binary adapter tests; bins extracted) — 2026-08-29
 - [ ] legibility
 - [ ] gardening

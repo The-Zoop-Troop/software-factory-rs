@@ -1,0 +1,28 @@
+--- crates/domain/src/task.rs
++++ replace TaskState::name -> &'static str with ""
+@@ -167,24 +167,17 @@
+     },
+     #[error("task {id}: lease already expired at {expires}")]
+     LeaseExpired { id: BeadId, expires: Timestamp },
+ }
+ 
+ impl TaskState {
+     #[must_use]
+     pub const fn name(&self) -> &'static str {
+-        match self {
+-            Self::Open => "open",
+-            Self::Leased { .. } => "leased",
+-            Self::InVerify { .. } => "in_verify",
+-            Self::Mergeable { .. } => "mergeable",
+-            Self::Closed { .. } => "closed",
+-            Self::Incident { .. } => "incident",
+-        }
++        "" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     #[must_use]
+     pub const fn is_terminal(&self) -> bool {
+         match self {
+             Self::Closed { .. } | Self::Incident { .. } => true,
+             Self::Open | Self::Leased { .. } | Self::InVerify { .. } | Self::Mergeable { .. } => {
+                 false

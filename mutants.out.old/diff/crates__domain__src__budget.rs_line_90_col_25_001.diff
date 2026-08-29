@@ -1,0 +1,21 @@
+--- crates/domain/src/budget.rs
++++ replace > with < in Budget::check
+@@ -82,17 +82,17 @@
+     /// Returns the exceeded limit.
+     pub fn check(self, usage: Usage) -> Result<(), BudgetExceeded> {
+         if usage.attempts >= self.attempts {
+             return Err(BudgetExceeded::Attempts {
+                 used: usage.attempts,
+                 limit: self.attempts,
+             });
+         }
+-        if usage.tokens > self.tokens {
++        if usage.tokens < /* ~ changed by cargo-mutants ~ */ self.tokens {
+             return Err(BudgetExceeded::Tokens {
+                 used: usage.tokens,
+                 limit: self.tokens,
+             });
+         }
+         if usage.wall_clock > self.wall_clock {
+             return Err(BudgetExceeded::WallClock {
+                 used: usage.wall_clock.seconds(),

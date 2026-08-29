@@ -1,0 +1,24 @@
+--- crates/domain/src/budget.rs
++++ replace Usage::add_attempt -> Self with Default::default()
+@@ -49,20 +49,17 @@
+                 self.wall_clock.seconds().saturating_add(d.seconds()),
+             ),
+             ..self
+         }
+     }
+ 
+     #[must_use]
+     pub fn add_attempt(self) -> Self {
+-        Self {
+-            attempts: self.attempts.saturating_add(1),
+-            ..self
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Which limit was blown. Reported on the incident bead.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+ #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+ #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+ pub enum BudgetExceeded {

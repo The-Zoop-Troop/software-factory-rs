@@ -1,0 +1,21 @@
+--- crates/domain/src/plan.rs
++++ replace == with != in topo_sort
+@@ -193,17 +193,17 @@
+         .iter()
+         .map(|t| (t.key.clone(), t.needs.len()))
+         .collect();
+     let mut pending: Vec<PlannedTask> = tasks;
+     let mut ordered = Vec::with_capacity(pending.len());
+     while !pending.is_empty() {
+         let Some(pos) = pending
+             .iter()
+-            .position(|t| indegree.get(&t.key).copied() == Some(0))
++            .position(|t| indegree.get(&t.key).copied() != /* ~ changed by cargo-mutants ~ */ Some(0))
+         else {
+             let stuck = pending
+                 .first()
+                 .map(|t| t.key.to_string())
+                 .unwrap_or_default();
+             return Err(PlanError::Cycle(stuck));
+         };
+         let done = pending.remove(pos);

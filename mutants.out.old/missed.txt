@@ -1,0 +1,19 @@
+crates/domain/src/budget.rs:90:25: replace > with == in Budget::check
+crates/domain/src/budget.rs:90:25: replace > with >= in Budget::check
+crates/domain/src/budget.rs:96:29: replace > with == in Budget::check
+crates/domain/src/budget.rs:96:29: replace > with >= in Budget::check
+crates/domain/src/kind.rs:88:9: replace <impl fmt::Display for BeadKind>::fmt -> fmt::Result with Ok(Default::default())
+crates/domain/src/meta.rs:175:29: delete ! in <impl TryFrom<RawVerifyMeta> for VerifyMeta>::try_from
+crates/domain/src/plan.rs:25:9: replace <impl core::fmt::Display for TaskKey>::fmt -> core::fmt::Result with Ok(Default::default())
+crates/domain/src/plan.rs:156:50: delete ! in RawPlan::validate
+crates/domain/src/plan.rs:183:60: replace || with && in parse_key
+crates/domain/src/task.rs:187:9: replace TaskState::is_terminal -> bool with true
+crates/domain/src/task.rs:269:25: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:314:25: delete field usage from struct Task expression in Task::apply
+crates/domain/src/task.rs:315:25: delete field lease_expiries from struct Task expression in Task::apply
+crates/domain/src/task.rs:322:25: delete field usage from struct Task expression in Task::apply
+crates/domain/src/task.rs:381:32: delete field usage from struct Task expression in Task::apply
+crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with 0
+crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with 1
+crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with -1
+crates/domain/src/time.rs:32:9: replace <impl fmt::Display for Timestamp>::fmt -> fmt::Result with Ok(Default::default())

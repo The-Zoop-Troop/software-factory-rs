@@ -13,3 +13,6 @@ docker/rig.env
 
 # IDE / local agent config
 .idea/
+
+# cargo-mutants output
+/mutants.out

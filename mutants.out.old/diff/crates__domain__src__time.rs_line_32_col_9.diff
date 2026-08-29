@@ -1,0 +1,21 @@
+--- crates/domain/src/time.rs
++++ replace <impl fmt::Display for Timestamp>::fmt -> fmt::Result with Ok(Default::default())
+@@ -24,17 +24,17 @@
+     #[must_use]
+     pub fn since(self, earlier: Self) -> Duration {
+         Duration::from_seconds(u64::try_from(self.0.saturating_sub(earlier.0)).unwrap_or(0))
+     }
+ }
+ 
+ impl fmt::Display for Timestamp {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        write!(f, "{}", self.0)
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// A non-negative span of whole seconds.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+ #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+ #[cfg_attr(feature = "serde", serde(transparent))]
+ pub struct Duration(u64);

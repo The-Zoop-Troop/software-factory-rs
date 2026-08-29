@@ -1,0 +1,21 @@
+--- crates/domain/src/task.rs
++++ delete field lease_expiries from struct Task expression in Task::apply
+@@ -315,17 +315,17 @@
+                         lease_expiries: expiries,
+                         ..self
+                     };
+                     return Ok(t.escalate(IncidentReason::LeaseStorm { expiries }));
+                 }
+                 Ok(Transition {
+                     task: Task {
+                         usage,
+-                        lease_expiries: expiries,
++                         /* ~ changed by cargo-mutants ~ */
+                         state: TaskState::Open,
+                         ..self
+                     },
+                     effects: vec![Effect::AppendNote { task: id, note }],
+                 })
+             }
+ 
+             // ---- in_verify ------------------------------------------------------------

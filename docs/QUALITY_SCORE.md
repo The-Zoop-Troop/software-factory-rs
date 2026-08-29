@@ -4,7 +4,7 @@
 
 | Area | Tests | Coverage | Docs | Lints | Grade | Notes |
 |---|---|---|---|---|---|---|
-| `domain` | 32 | 97% | state-machine.md | deny tier | A | tests split into `task_tests.rs`; mutants run pending |
+| `domain` | 32 | 97% | state-machine.md | deny tier | A | `cargo mutants`: 79/82 viable caught (96%) |
 | `app` | 27 | high | design-docs | deny tier | A- | fakes in `testing.rs` |
 | `infra` | 19 + 5 integration + 3 live | 85%+ | harness-port.md, references | deny tier | A- | real `git`/`bd` tests; fake `claude`/`codex`/`opencode` binaries in `tests/fakebin` |
 | `factory` / `stewardd` bins | 6 | cli 68% / run 98% | README | allow list | B | logic lives in `cli.rs`/`run.rs`; `main.rs` is a shim |

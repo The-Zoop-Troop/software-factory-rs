@@ -1,0 +1,23 @@
+--- crates/domain/src/task.rs
++++ delete field state from struct Task expression in Task::escalate
+@@ -481,19 +481,17 @@
+             ) => Err(illegal(&state, &event)),
+         }
+     }
+ 
+     fn escalate(self, reason: IncidentReason) -> Transition {
+         let id = self.id.clone();
+         Transition {
+             task: Task {
+-                state: TaskState::Incident {
+-                    reason: reason.clone(),
+-                },
++                 /* ~ changed by cargo-mutants ~ */
+                 ..self
+             },
+             effects: vec![Effect::OpenIncidentBead { task: id, reason }],
+         }
+     }
+ 
+     fn require_holder(
+         id: &BeadId,

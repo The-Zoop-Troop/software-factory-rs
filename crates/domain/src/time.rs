@@ -78,6 +78,14 @@ mod tests {
     }
 
     #[test]
+    fn unix_seconds_and_display_roundtrip() {
+        let t = Timestamp::from_unix_seconds(1_700_000_123);
+        assert_eq!(t.unix_seconds(), 1_700_000_123);
+        assert_eq!(t.to_string(), "1700000123");
+        assert_eq!(Timestamp::from_unix_seconds(-5).unix_seconds(), -5);
+    }
+
+    #[test]
     fn add_duration() {
         let a = Timestamp::from_unix_seconds(100);
         assert_eq!(

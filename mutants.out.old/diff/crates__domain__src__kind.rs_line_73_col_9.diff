@@ -1,0 +1,30 @@
+--- crates/domain/src/kind.rs
++++ replace <impl FromStr for BeadKind>::from_str -> Result<Self, Self::Err> with Ok(Default::default())
+@@ -65,26 +65,17 @@
+ #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+ #[error("unknown bead kind `{0}`")]
+ pub struct UnknownKind(pub String);
+ 
+ impl FromStr for BeadKind {
+     type Err = UnknownKind;
+ 
+     fn from_str(s: &str) -> Result<Self, Self::Err> {
+-        match s {
+-            "epic" => Ok(Self::Epic),
+-            "task" => Ok(Self::Task),
+-            "verify" => Ok(Self::Verify),
+-            "merge" => Ok(Self::Merge),
+-            "question" => Ok(Self::Question),
+-            "incident" => Ok(Self::Incident),
+-            "reference" => Ok(Self::Reference),
+-            other => Err(UnknownKind(other.to_owned())),
+-        }
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl fmt::Display for BeadKind {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+         f.write_str(self.as_str())
+     }
+ }

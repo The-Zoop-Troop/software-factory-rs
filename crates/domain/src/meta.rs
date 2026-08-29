@@ -332,9 +332,10 @@ mod tests {
     fn verify_meta_rejects_empty_commands() {
         let bad = r#"{"version":1,"task":"fac-1","commands":["  "]}"#;
         assert!(serde_json::from_str::<VerifyMeta>(bad).is_err());
-        let ok = r#"{"version":1,"task":"fac-1","commands":["cargo test"]}"#;
+        let ok = r#"{"version":1,"task":"fac-1","commands":["  ","cargo test",""]}"#;
         let m: VerifyMeta = serde_json::from_str(ok).unwrap();
         assert_eq!(m.timeout, crate::time::Duration::from_minutes(20));
+        assert_eq!(m.commands, vec!["cargo test"], "blank commands are dropped");
     }
 
     #[test]

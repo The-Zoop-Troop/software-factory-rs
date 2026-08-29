@@ -1,0 +1,32 @@
+--- crates/domain/src/task.rs
++++ replace Event::name -> &'static str with "xyzzy"
+@@ -191,28 +191,17 @@
+             }
+         }
+     }
+ }
+ 
+ impl Event {
+     #[must_use]
+     pub const fn name(&self) -> &'static str {
+-        match self {
+-            Self::Claim { .. } => "claim",
+-            Self::Heartbeat { .. } => "heartbeat",
+-            Self::Submit { .. } => "submit",
+-            Self::LeaseExpired { .. } => "lease_expired",
+-            Self::Release { .. } => "release",
+-            Self::VerifyPassed => "verify_passed",
+-            Self::VerifyFailed { .. } => "verify_failed",
+-            Self::Merged { .. } => "merged",
+-            Self::MergeFailed { .. } => "merge_failed",
+-            Self::Escalate { .. } => "escalate",
+-        }
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl Task {
+     /// A fresh task in `Open` with default budget and no usage.
+     #[must_use]
+     pub fn new(id: BeadId, verify_bead: BeadId, base: Sha, budget: Budget) -> Self {
+         Self {

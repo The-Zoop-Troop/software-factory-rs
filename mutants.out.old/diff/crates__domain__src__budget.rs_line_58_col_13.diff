@@ -1,0 +1,21 @@
+--- crates/domain/src/budget.rs
++++ delete field attempts from struct Self expression in Usage::add_attempt
+@@ -50,17 +50,17 @@
+             ),
+             ..self
+         }
+     }
+ 
+     #[must_use]
+     pub fn add_attempt(self) -> Self {
+         Self {
+-            attempts: self.attempts.saturating_add(1),
++             /* ~ changed by cargo-mutants ~ */
+             ..self
+         }
+     }
+ }
+ 
+ /// Which limit was blown. Reported on the incident bead.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+ #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

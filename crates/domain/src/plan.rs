@@ -251,6 +251,28 @@ mod tests {
     }
 
     #[test]
+    fn blank_reference_is_none_and_keys_display() {
+        let mut p = plan(vec![raw("a", &[])]);
+        p.reference = Some("   ".into());
+        let v = p.validate(PlanDefaults::default()).unwrap();
+        assert_eq!(v.reference, None);
+        assert_eq!(v.tasks[0].key.to_string(), "a");
+        assert_eq!(v.tasks[0].key.as_str(), "a");
+        assert!(matches!(
+            plan(vec![raw("has space", &[])]).validate(PlanDefaults::default()),
+            Err(PlanError::BadKey(_))
+        ));
+        assert!(matches!(
+            plan(vec![raw("", &[])]).validate(PlanDefaults::default()),
+            Err(PlanError::BadKey(_))
+        ));
+        assert!(matches!(
+            plan(vec![raw("ok-key_1", &[])]).validate(PlanDefaults::default()),
+            Ok(_)
+        ));
+    }
+
+    #[test]
     fn rejects_cycle_dangling_dup_self_empty() {
         let d = PlanDefaults::default();
         assert!(matches!(

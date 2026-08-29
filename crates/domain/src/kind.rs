@@ -110,6 +110,12 @@ mod tests {
     }
 
     #[test]
+    fn display_matches_as_str() {
+        assert_eq!(BeadKind::Verify.to_string(), "verify");
+        assert_eq!(format!("{}", BeadKind::Reference), "reference");
+    }
+
+    #[test]
     fn ambiguous_or_missing_is_none() {
         assert_eq!(BeadKind::from_labels(["x"]), None);
         assert_eq!(

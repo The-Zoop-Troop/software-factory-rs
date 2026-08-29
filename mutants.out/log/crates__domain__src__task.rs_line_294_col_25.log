@@ -26,20 +26,17 @@
 
 
 *** /home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=domain@0.1.0
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
        Fresh unicode-ident v1.0.24
        Fresh proc-macro2 v1.0.107
        Fresh cfg-if v1.0.4
        Fresh quote v1.0.47
        Fresh libc v0.2.189
        Fresh memchr v2.8.3
-       Fresh semver v1.0.28
        Fresh unicode-segmentation v1.13.3
+       Fresh semver v1.0.28
        Fresh regex-syntax v0.8.11
-       Fresh convert_case v0.11.0
        Fresh rustc_version v0.4.1
+       Fresh convert_case v0.11.0
        Fresh getrandom v0.3.4
        Fresh aho-corasick v1.1.5
        Fresh syn v2.0.119
@@ -47,45 +44,45 @@
        Fresh kinded_macros v0.5.0
        Fresh regex-automata v0.4.18
        Fresh rand_core v0.9.5
-       Fresh linux-raw-sys v0.12.1
-       Fresh bitflags v2.13.1
        Fresh autocfg v1.5.1
-       Fresh rustix v1.1.4
+       Fresh bitflags v2.13.1
+       Fresh linux-raw-sys v0.12.1
        Fresh regex v1.13.1
+       Fresh rustix v1.1.4
        Fresh kinded v0.5.0
-       Fresh zerocopy v0.8.56
        Fresh serde_core v1.0.229
        Fresh getrandom v0.4.3
+       Fresh zerocopy v0.8.56
        Fresh once_cell v1.21.4
-       Fresh urlencoding v2.1.3
        Fresh fastrand v2.5.0
+       Fresh urlencoding v2.1.3
+       Fresh ppv-lite86 v0.2.21
+       Fresh thiserror-impl v2.0.20
        Fresh nutype_macros v0.7.0
        Fresh tempfile v3.27.0
-       Fresh ppv-lite86 v0.2.21
        Fresh serde_derive v1.0.229
-       Fresh thiserror-impl v2.0.20
        Fresh wait-timeout v0.2.1
-       Fresh bit-vec v0.8.0
        Fresh quick-error v1.2.3
        Fresh fnv v1.0.7
-       Fresh bit-set v0.8.0
-       Fresh rusty-fork v0.3.1
+       Fresh bit-vec v0.8.0
+       Fresh zmij v1.0.23
        Fresh serde v1.0.229
        Fresh thiserror v2.0.20
-       Fresh rand_chacha v0.9.0
-       Fresh num-traits v0.2.19
-       Fresh zmij v1.0.23
        Fresh nutype v0.7.0
+       Fresh rusty-fork v0.3.1
+       Fresh bit-set v0.8.0
+       Fresh num-traits v0.2.19
+       Fresh rand_chacha v0.9.0
        Fresh rand_xorshift v0.4.0
        Fresh rand v0.9.5
        Fresh unarray v0.1.4
        Fresh itoa v1.0.18
-       Dirty domain v0.1.0 (/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/crates/domain): couldn't read metadata for file `target/debug/deps/libdomain-f589de76ff73657e.rlib`
-   Compiling domain v0.1.0 (/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/crates/domain)
-       Fresh proptest v1.11.0
        Fresh serde_json v1.0.151
-     Running `/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/rustc --crate-name domain --edition=2024 crates/domain/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 '--warn=clippy::pedantic' '--deny=clippy::wildcard_enum_match_arm' '--deny=clippy::unwrap_used' --forbid=unsafe_code --warn=unreachable_pub '--deny=clippy::unreachable' '--deny=clippy::unimplemented' '--deny=clippy::todo' '--warn=clippy::result_large_err' '--deny=clippy::panic' '--deny=clippy::must_use_candidate' '--deny=clippy::missing_panics_doc' '--deny=clippy::missing_errors_doc' --warn=missing_debug_implementations '--deny=clippy::match_wildcard_for_single_variants' '--deny=clippy::indexing_slicing' '--deny=clippy::float_arithmetic' '--deny=clippy::expect_used' '--deny=clippy::cast_sign_loss' '--deny=clippy::cast_possible_truncation' '--deny=clippy::as_conversions' --cfg 'feature="default"' --cfg 'feature="serde"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "serde"))' -C metadata=8df85095dbee77dc -C extra-filename=-f589de76ff73657e --out-dir /tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps --extern nutype=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/libnutype-b7082041131f3d4d.rmeta --extern regex=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/libregex-1bab32067722757b.rmeta --extern serde=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/libserde-0f04babe2b5427d9.rmeta --extern thiserror=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/libthiserror-7d88433474753d69.rmeta`
-     Running `/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/rustc --crate-name domain --edition=2024 crates/domain/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 '--warn=clippy::pedantic' '--deny=clippy::wildcard_enum_match_arm' '--deny=clippy::unwrap_used' --forbid=unsafe_code --warn=unreachable_pub '--deny=clippy::unreachable' '--deny=clippy::unimplemented' '--deny=clippy::todo' '--warn=clippy::result_large_err' '--deny=clippy::panic' '--deny=clippy::must_use_candidate' '--deny=clippy::missing_panics_doc' '--deny=clippy::missing_errors_doc' --warn=missing_debug_implementations '--deny=clippy::match_wildcard_for_single_variants' '--deny=clippy::indexing_slicing' '--deny=clippy::float_arithmetic' '--deny=clippy::expect_used' '--deny=clippy::cast_sign_loss' '--deny=clippy::cast_possible_truncation' '--deny=clippy::as_conversions' --test --cfg 'feature="default"' --cfg 'feature="serde"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "serde"))' -C metadata=79946f0ea3b784d7 -C extra-filename=-f20da561f0e8e4a2 --out-dir /tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps --extern nutype=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/libnutype-b7082041131f3d4d.rlib --extern proptest=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/libproptest-a5424e25ae7094d1.rlib --extern regex=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/libregex-1bab32067722757b.rlib --extern serde=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/libserde-0f04babe2b5427d9.rlib --extern serde_json=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/libserde_json-1f53e1b7a8e26068.rlib --extern thiserror=/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/libthiserror-7d88433474753d69.rlib`
+       Fresh proptest v1.11.0
+       Dirty domain v0.1.0 (/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/crates/domain): couldn't read metadata for file `target/debug/deps/libdomain-f589de76ff73657e.rlib`
+   Compiling domain v0.1.0 (/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/crates/domain)
+     Running `/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/rustc --crate-name domain --edition=2024 crates/domain/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --emit=dep-info,link -C embed-bitcode=no -C debuginfo=2 '--warn=clippy::pedantic' '--deny=clippy::wildcard_enum_match_arm' '--deny=clippy::unwrap_used' --forbid=unsafe_code --warn=unreachable_pub '--deny=clippy::unreachable' '--deny=clippy::unimplemented' '--deny=clippy::todo' '--warn=clippy::result_large_err' '--deny=clippy::panic' '--deny=clippy::must_use_candidate' '--deny=clippy::missing_panics_doc' '--deny=clippy::missing_errors_doc' --warn=missing_debug_implementations '--deny=clippy::match_wildcard_for_single_variants' '--deny=clippy::indexing_slicing' '--deny=clippy::float_arithmetic' '--deny=clippy::expect_used' '--deny=clippy::cast_sign_loss' '--deny=clippy::cast_possible_truncation' '--deny=clippy::as_conversions' --test --cfg 'feature="default"' --cfg 'feature="serde"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "serde"))' -C metadata=79946f0ea3b784d7 -C extra-filename=-f20da561f0e8e4a2 --out-dir /tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps --extern nutype=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/libnutype-b7082041131f3d4d.rlib --extern proptest=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/libproptest-a5424e25ae7094d1.rlib --extern regex=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/libregex-1bab32067722757b.rlib --extern serde=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/libserde-0f04babe2b5427d9.rlib --extern serde_json=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/libserde_json-1f53e1b7a8e26068.rlib --extern thiserror=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/libthiserror-7d88433474753d69.rlib`
+     Running `/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/rustc --crate-name domain --edition=2024 crates/domain/src/lib.rs --error-format=json --json=diagnostic-rendered-ansi,artifacts,future-incompat --crate-type lib --emit=dep-info,metadata,link -C embed-bitcode=no -C debuginfo=2 '--warn=clippy::pedantic' '--deny=clippy::wildcard_enum_match_arm' '--deny=clippy::unwrap_used' --forbid=unsafe_code --warn=unreachable_pub '--deny=clippy::unreachable' '--deny=clippy::unimplemented' '--deny=clippy::todo' '--warn=clippy::result_large_err' '--deny=clippy::panic' '--deny=clippy::must_use_candidate' '--deny=clippy::missing_panics_doc' '--deny=clippy::missing_errors_doc' --warn=missing_debug_implementations '--deny=clippy::match_wildcard_for_single_variants' '--deny=clippy::indexing_slicing' '--deny=clippy::float_arithmetic' '--deny=clippy::expect_used' '--deny=clippy::cast_sign_loss' '--deny=clippy::cast_possible_truncation' '--deny=clippy::as_conversions' --cfg 'feature="default"' --cfg 'feature="serde"' --check-cfg 'cfg(docsrs,test)' --check-cfg 'cfg(feature, values("default", "serde"))' -C metadata=8df85095dbee77dc -C extra-filename=-f589de76ff73657e --out-dir /tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps -C incremental=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/incremental -L dependency=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps --extern nutype=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/libnutype-b7082041131f3d4d.rmeta --extern regex=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/libregex-1bab32067722757b.rmeta --extern serde=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/libserde-0f04babe2b5427d9.rmeta --extern thiserror=/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/libthiserror-7d88433474753d69.rmeta`
 warning: unused variable: `usage`
    --> crates/domain/src/task.rs:288:21
     |
@@ -96,66 +93,67 @@ warning: unused variable: `usage`
 
 warning: `domain` (lib) generated 1 warning (run `cargo fix --lib -p domain` to apply 1 suggestion)
 warning: `domain` (lib test) generated 1 warning (1 duplicate)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.81s
-  Executable `/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/domain-f20da561f0e8e4a2`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.92s
+  Executable `/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/domain-f20da561f0e8e4a2`
 
 *** result: Success
 
 *** /home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo test --verbose --package=domain@0.1.0
     Blocking waiting for file lock on package cache
     Blocking waiting for file lock on package cache
-    Blocking waiting for file lock on package cache
        Fresh unicode-ident v1.0.24
        Fresh proc-macro2 v1.0.107
        Fresh cfg-if v1.0.4
        Fresh quote v1.0.47
+       Fresh libc v0.2.189
        Fresh memchr v2.8.3
-       Fresh semver v1.0.28
        Fresh regex-syntax v0.8.11
        Fresh unicode-segmentation v1.13.3
-       Fresh aho-corasick v1.1.5
+       Fresh semver v1.0.28
        Fresh rustc_version v0.4.1
-       Fresh syn v3.0.4
        Fresh convert_case v0.11.0
+       Fresh getrandom v0.3.4
+       Fresh aho-corasick v1.1.5
        Fresh syn v2.0.119
-       Fresh libc v0.2.189
+       Fresh syn v3.0.4
        Fresh kinded_macros v0.5.0
        Fresh regex-automata v0.4.18
-       Fresh bitflags v2.13.1
-       Fresh linux-raw-sys v0.12.1
-       Fresh getrandom v0.3.4
-       Fresh autocfg v1.5.1
-       Fresh kinded v0.5.0
-       Fresh regex v1.13.1
-       Fresh getrandom v0.4.3
-       Fresh serde_core v1.0.229
-       Fresh zerocopy v0.8.56
-       Fresh rustix v1.1.4
        Fresh rand_core v0.9.5
-       Fresh urlencoding v2.1.3
-       Fresh once_cell v1.21.4
+       Fresh bitflags v2.13.1
+       Fresh autocfg v1.5.1
+       Fresh linux-raw-sys v0.12.1
+       Fresh rustix v1.1.4
+       Fresh regex v1.13.1
+       Fresh kinded v0.5.0
+       Fresh serde_core v1.0.229
+       Fresh getrandom v0.4.3
+       Fresh zerocopy v0.8.56
        Fresh fastrand v2.5.0
-       Fresh ppv-lite86 v0.2.21
-       Fresh wait-timeout v0.2.1
+       Fresh once_cell v1.21.4
+       Fresh urlencoding v2.1.3
        Fresh nutype_macros v0.7.0
        Fresh tempfile v3.27.0
-       Fresh thiserror-impl v2.0.20
+       Fresh ppv-lite86 v0.2.21
        Fresh serde_derive v1.0.229
-       Fresh quick-error v1.2.3
-       Fresh fnv v1.0.7
+       Fresh thiserror-impl v2.0.20
+       Fresh wait-timeout v0.2.1
        Fresh bit-vec v0.8.0
-       Fresh zmij v1.0.23
-       Fresh thiserror v2.0.20
-       Fresh num-traits v0.2.19
+       Fresh fnv v1.0.7
+       Fresh quick-error v1.2.3
        Fresh rusty-fork v0.3.1
-       Fresh serde v1.0.229
-       Fresh nutype v0.7.0
-       Fresh rand_chacha v0.9.0
-       Fresh rand v0.9.5
        Fresh bit-set v0.8.0
+       Fresh thiserror v2.0.20
+       Fresh serde v1.0.229
+       Fresh num-traits v0.2.19
+       Fresh rand_chacha v0.9.0
+       Fresh zmij v1.0.23
+       Fresh nutype v0.7.0
        Fresh rand_xorshift v0.4.0
-       Fresh itoa v1.0.18
+       Fresh rand v0.9.5
        Fresh unarray v0.1.4
+       Fresh itoa v1.0.18
+       Fresh serde_json v1.0.151
+       Fresh proptest v1.11.0
 warning: unused variable: `usage`
    --> crates/domain/src/task.rs:288:21
     |
@@ -165,62 +163,75 @@ warning: unused variable: `usage`
     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
 
 warning: `domain` (lib) generated 1 warning (run `cargo fix --lib -p domain` to apply 1 suggestion)
-       Fresh proptest v1.11.0
-       Fresh serde_json v1.0.151
-       Fresh domain v0.1.0 (/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/crates/domain)
+       Fresh domain v0.1.0 (/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/crates/domain)
 warning: `domain` (lib test) generated 1 warning (1 duplicate)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
-     Running `/tmp/cargo-mutants-software-factory-rs-b4IEm6.tmp/target/debug/deps/domain-f20da561f0e8e4a2`
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.21s
+     Running `/tmp/cargo-mutants-software-factory-rs-KPgyE4.tmp/target/debug/deps/domain-f20da561f0e8e4a2`
 
-running 32 tests
-test budget::tests::attempts_take_precedence ... ok
+running 39 tests
 test budget::tests::within_budget_is_ok ... ok
-test lease::tests::expires_at_boundary ... ok
-test ids::tests::sha_normalizes ... ok
-test meta::tests::missing_budget_defaults ... ok
-test meta::tests::rejects_bad_version_and_sha ... ok
 test ids::tests::bead_ids_parse ... ok
-test meta::tests::verify_and_merge_meta_reject_bad_versions_and_ids ... ok
-test ids::tests::branch_for_task ... ok
-test kind::tests::ambiguous_or_missing_is_none ... ok
+test budget::tests::attempts_take_precedence ... ok
 test kind::tests::label_roundtrip ... ok
+test ids::tests::branch_for_task ... ok
+test budget::tests::limits_are_inclusive_for_tokens_and_wall_clock ... ok
+test lease::tests::expires_at_boundary ... ok
+test kind::tests::ambiguous_or_missing_is_none ... ok
+test kind::tests::display_matches_as_str ... ok
+test meta::tests::bead_meta_keys_and_task_roundtrip ... ok
 test lease::tests::renew_is_from_now ... ok
 test meta::tests::json_roundtrip_leased ... ok
-test meta::tests::bead_meta_keys_and_task_roundtrip ... ok
-test meta::tests::merge_meta_roundtrip ... ok
 test meta::tests::verify_meta_rejects_empty_commands ... ok
+test plan::tests::blank_reference_is_none_and_keys_display ... ok
 test plan::tests::orders_needs_first ... ok
+test task::tests::heartbeat_after_expiry_is_rejected ... ok
+test task::tests::happy_path ... FAILED
+test task::tests::lease_expiry_before_expiry_is_illegal ... ok
+test ids::tests::sha_normalizes ... ok
+test task::tests::illegal_pairs_in_active_states ... ok
+test meta::tests::missing_budget_defaults ... ok
+test meta::tests::rejects_bad_version_and_sha ... ok
+test meta::tests::verify_and_merge_meta_reject_bad_versions_and_ids ... ok
 test plan::tests::rejects_cycle_dangling_dup_self_empty ... ok
 test task::tests::escalate_from_any_active_state ... ok
-test task::tests::happy_path ... FAILED
-test task::tests::release_reopens_and_counts_attempt_then_escalates ... ok
+test task::tests::lease_expiry_reopens_and_storms ... ok
+test meta::tests::merge_meta_roundtrip ... ok
 test budget::tests::check_is_monotone_in_usage ... ok
-test task::tests::terminal_states_reject_everything ... ok
-test task::tests::heartbeat_after_expiry_is_rejected ... ok
-test task::tests::illegal_pairs_in_active_states ... ok
-test task::tests::lease_expiry_before_expiry_is_illegal ... ok
+test task::tests::lease_expiry_updates_usage_and_counter ... ok
+test task::tests::terminal_flags_and_state_names ... ok
+test task::tests::merge_failure_reopens_with_note ... ok
+test task::tests::release_reopens_and_counts_attempt_then_escalates ... ok
 test task::tests::verify_failure_reopens_then_escalates ... ok
 test task::tests::wrong_holder_cannot_submit_or_heartbeat ... ok
 test time::tests::add_duration ... ok
-test task::tests::lease_expiry_reopens_and_storms ... ok
 test time::tests::since_is_saturating ... ok
-test task::tests::merge_failure_reopens_with_note ... ok
+test time::tests::unix_seconds_and_display_roundtrip ... ok
+test task::tests::terminal_states_reject_everything ... ok
+test task::tests::verify_failure_and_merge_failure_accumulate_usage ... FAILED
 
 failures:
 
 ---- task::tests::happy_path stdout ----
 
-thread 'task::tests::happy_path' (2250260) panicked at crates/domain/src/task_tests.rs:64:5:
+thread 'task::tests::happy_path' (2297094) panicked at crates/domain/src/task_tests.rs:64:5:
 assertion `left == right` failed
   left: 0
  right: 1000
 note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 
+---- task::tests::verify_failure_and_merge_failure_accumulate_usage stdout ----
+
+thread 'task::tests::verify_failure_and_merge_failure_accumulate_usage' (2297113) panicked at crates/domain/src/task_tests.rs:187:5:
+assertion `left == right` failed
+  left: Duration(0)
+ right: Duration(20)
+
 
 failures:
     task::tests::happy_path
+    task::tests::verify_failure_and_merge_failure_accumulate_usage
 
-test result: FAILED. 31 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+test result: FAILED. 37 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
 error: test failed, to rerun pass `-p domain --lib`
 
