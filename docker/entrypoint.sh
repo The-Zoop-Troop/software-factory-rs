@@ -75,10 +75,14 @@ case "$role" in
   planner)   exec factory --workdir "$RIG_DIR" plan      --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" "${HARNESS_ARGS[@]}" --queue --interval "${PLANNER_INTERVAL:-10}" "$@" ;;
   console)
     # Registry for this one rig, generated unless the operator mounted their own.
-    mkdir -p /work/console
-    [ -f /work/console/rigs.toml ] || printf '[[rig]]\nname = "%s"\nledger = "%s"\nevents = "%s/.factory/events.jsonl"\n' "${RIG_NAME:-toy}" "$RIG_DIR" "$RIG_DIR" > /work/console/rigs.toml
+    # /work/console is a read-only host mount (tokens); a generated single-rig registry goes to /tmp.
+    registry=/work/console/rigs.toml
+    if [ ! -f "$registry" ]; then
+      registry=/tmp/rigs.toml
+      printf '[[rig]]\nname = "%s"\nledger = "%s"\nevents = "%s/.factory/events.jsonl"\n' "${RIG_NAME:-toy}" "$RIG_DIR" "$RIG_DIR" > "$registry"
+    fi
     [ -f /work/console/tokens.toml ] || { echo "[rig] console needs /work/console/tokens.toml (see docker/console/tokens.toml.example)"; exit 2; }
-    exec console serve --registry /work/console/rigs.toml --tokens /work/console/tokens.toml --listen 0.0.0.0:7700 --public-url "${CONSOLE_URL:-http://127.0.0.1:7700}" "$@" ;;
+    exec console serve --registry "$registry" --tokens /work/console/tokens.toml --listen 0.0.0.0:7700 --public-url "${CONSOLE_URL:-http://127.0.0.1:7700}" "$@" ;;
   telegram)
     # Chat bot over the console; TELEGRAM_CHATS is a comma-separated allowlist of chat ids.
     chats=(); IFS=, read -ra ids <<< "${TELEGRAM_CHATS:-}"; for c in "${ids[@]}"; do [ -n "$c" ] && chats+=(--chat "$c"); done

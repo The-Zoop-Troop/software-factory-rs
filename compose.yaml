@@ -101,7 +101,10 @@ services:
       RUST_LOG: ${RUST_LOG:-info}
     volumes:
       - ledger:/work/rig
-      - ./docker/console:/work/console
+      - ./docker/console:/work/console:ro
+    # Published ports do not work on an internal-only network, so the console also joins
+    # `outside`; it reaches nothing it needs there (no proxy env, no credentials).
+    networks: [rig, outside]
     ports:
       - "127.0.0.1:${CONSOLE_PORT:-7700}:7700"
 

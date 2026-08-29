@@ -31,7 +31,7 @@ docker compose exec steward tail -f .factory/events.jsonl             # the even
 Landing on a remote: pass `--remote origin` to `integrate` (edit the service command) and protect `main` on the remote so only the rig's deploy key can fast-forward it.
 
 ## Remote control (console)
-The `console` service exposes the rig over A2A on `127.0.0.1:7700` (`CONSOLE_PORT`); put TLS and a real hostname in front of it (`CONSOLE_URL` goes into the Agent Card). It shares only the `ledger` volume with the rig and gets no `rig.env`.
+The `console` service exposes the rig over A2A on `127.0.0.1:7700` (`CONSOLE_PORT`); put TLS and a real hostname in front of it (`CONSOLE_URL` goes into the Agent Card). It shares only the `ledger` volume with the rig, mounts `docker/console` read-only for tokens, gets no `rig.env`, and sits on the `outside` network as well as `rig` only because Docker cannot publish a port on an internal-only network.
 ```sh
 openssl rand -hex 32 > phone.token
 docker compose run --rm console console hash-token < phone.token    # → sha256 for tokens.toml

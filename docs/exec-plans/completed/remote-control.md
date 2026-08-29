@@ -101,6 +101,7 @@ The Agent Card lists skills per rig (`plan`, `watch`, `inbox`, `resolve`, `docto
 - 2026-08-29 — Alerts are a console sweep over `ListTasks` (plus one fetch for each epic that vanished from the listing) posted to a generic JSON webhook; no per-integration code. Closed epics drop out of `ListTasks`, so watchers that saw them fetch them once (`list_tasks_with_vanished`).
 - 2026-08-29 — OTLP over HTTP with the exporter's own client (opentelemetry-http pins reqwest 0.13 while the workspace is on 0.12); traces only — metrics stay in `events.jsonl` until a dashboard needs counters.
 - 2026-08-29 — The web console is the A2UI surface plus a ~120-line renderer, not a separate front end: one read model, one action path, agent-drivable by construction. The board is re-sent whole on every refresh (idempotent `updateComponents`) instead of diffed; the payload is small and the protocol makes incrementality emergent.
+- 2026-08-29 — Verified live: `docker compose up console` over the toy rig; card, 401, ListTasks, `/ui`, `/`, and `factory --rig doctor|watch` all answer. Two rig-level fixes came out of it: the generated single-rig registry is written to `/tmp` (the tokens mount is read-only for uid 10001), and the console joins `outside` because published ports need a non-internal network.
 
 ## Progress
 
