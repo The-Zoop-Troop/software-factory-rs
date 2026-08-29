@@ -64,6 +64,10 @@ docs/
 - 2026-08-29 — Keep existing crate layering; scaffolding refactor only, shipped as small PRs.
 - 2026-08-29 — Human rule is "no undocumented decisions", not "no human code".
 
+- 2026-08-29 — Audience: open-source project. Positioning: the three inversions (no orchestrator,
+  done-means-verified, YOLO only inside a rig). **No references to prior-art tools by name anywhere
+  in the repo** (user). License: MIT.
+
 ## Progress
 
 - [x] repo split, `main`, beads moved, builds/tests green standalone

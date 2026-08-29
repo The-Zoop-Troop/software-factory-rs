@@ -4,23 +4,22 @@
 > Output: a completed, verified, merged codebase.
 > Core substrate: **Beads** (state), **A2A** (agent interface), **rootless Docker** (blast radius).
 
-Gastown is the prior art. We borrow three of its lessons and reject its shape.
+Three inversions define the design, each stated positively:
 
-| Lesson kept from Gastown | What we do differently |
+| Inversion | What it means here |
 |---|---|
-| Git-backed work ledger (Beads) is the durable memory | Beads is the **only** coordination surface — no separate mail, no tmux session state, no watchdog tree |
-| Git worktrees give cheap parallel isolation | Worktrees are **ephemeral** per bead, never per agent; agents own nothing |
-| YOLO-mode agents are far more productive than permission-gated ones | YOLO is only permitted **inside** a rootless container with default-deny egress |
-| Mayor → Polecat push dispatch | **Pull-based** scheduling: the beads dependency graph *is* the scheduler |
-| Witness / Deacon / Dogs supervision hierarchy | **Leases + budgets on the bead**; dead work returns to `ready` on its own |
-| Refinery agent merges | **Integrator** runs a batch-then-bisect merge queue against verify gates |
+| **No orchestrator** | Work is pulled, never assigned. The beads dependency graph *is* the scheduler; idle workers claim `ready` beads with a lease. Nothing is a single point of failure or bottleneck. |
+| **Done means verified** | A task cannot close on a model's word. Every task carries an executable verify check; only the Verifier advances it, and only the Integrator lands it. |
+| **YOLO only inside a rig** | Agents run with full tool access, but only inside a rootless container with default-deny egress. The container is the blast radius; the worktree is the unit of concurrency. |
+
+Supporting choices: the ledger (Beads) is the only coordination surface; worktrees are ephemeral per task, never per agent; supervision is leases and budgets on the bead, not a watchdog hierarchy; agents start every task from zero with a curated context packet.
 
 ---
 
 ## 1. Design principles
 
 1. **The ledger is the truth.** If it isn't in beads, it didn't happen. Agent context windows are cache, not state. Any agent can die at any time and the factory loses nothing but the in-flight turn.
-2. **Pull, don't push.** No orchestrator assigns work. Work becomes `ready` when its dependencies close; idle workers claim it with a lease. This removes the single point of failure and the single point of bottleneck (Gastown's Mayor).
+2. **Pull, don't push.** No orchestrator assigns work. Work becomes `ready` when its dependencies close; idle workers claim it with a lease. This removes the single point of failure and the single point of bottleneck that a central orchestrator creates.
 3. **Every agent is an A2A server.** Planner, Worker, Verifier, Integrator, Steward are all opaque A2A endpoints with Agent Cards. The harness behind the card (Claude Code, Codex, a Rust program, a human) is swappable without touching the factory.
 4. **Done means verified.** A bead cannot close on the worker's word. Every implementation bead has a paired verify bead with an executable check. Trust is placed in verification, not in the model.
 5. **The container is the trust boundary; everything inside is untrusted.** No host mounts except the project volume, no Docker socket, no SSH keys, default-deny network, credentials injected at start and scoped to the session.
@@ -151,7 +150,7 @@ A small program, not an agent-with-a-prompt. Responsibilities:
 - Serve the **human inbox**: all `question` and `incident` beads, exposed over A2A as `INPUT_REQUIRED` tasks so the console can render and answer them.
 - Emit a structured event log (JSONL) of every state transition — this is the observability pipeline. Nothing fancier is needed in v0.
 
-This replaces Witness/Deacon/Dogs with ~500 lines of deterministic code. The insight: agent supervision doesn't need an agent, it needs a lease and a clock.
+This is ~500 lines of deterministic code in place of a supervisor hierarchy. The insight: agent supervision doesn't need an agent, it needs a lease and a clock.
 
 ---
 
@@ -201,7 +200,7 @@ Start as a CLI (`factory plan`, `factory watch`, `factory inbox`). A web console
 
 ## 8. Context engineering (why workers are stateless)
 
-Gastown lets agents accumulate context and relies on supervisors to notice when they drift. We invert it: **every task starts from zero** with a curated packet:
+Long-lived agent sessions accumulate context and drift, and then need supervisors to notice. We invert it: **every task starts from zero** with a curated packet:
 
 1. The bead (description, acceptance, prior failure notes).
 2. The epic's `reference` beads (architecture survey, decisions).
@@ -257,4 +256,4 @@ That's the whole packet. Small, deterministic, reproducible. If a task needs mor
 
 ## 11. Naming
 
-Avoid the Mad Max vocabulary — it signals "copy of Gastown" and hides what things do. Roles are named by function: Planner, Worker, Verifier, Integrator, Steward. A project instance is a **rig** (borrowed, but it's just a good word). The whole thing is **the factory**.
+Roles are named by function so a reader knows what a thing does: Planner, Worker, Verifier, Integrator, Steward. A project instance is a **rig**. The whole thing is **the factory**.
