@@ -3,7 +3,6 @@
 
 use super::*;
 
-use clap::Parser as _;
 use infra::app::domain::{
     AgentId, Budget, Duration, FactoryMeta, Lease, Sha, TaskState, Timestamp, Usage,
 };

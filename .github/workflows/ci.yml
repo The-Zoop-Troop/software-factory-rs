@@ -19,6 +19,7 @@ jobs:
       - run: cargo llvm-cov nextest --workspace --exclude xtask --all-features --fail-under-lines 85
       - run: cargo xtask lint-docs
       - run: cargo xtask lint-taste
+      - run: cargo xtask gen-docs --check
   rig:
     runs-on: ubuntu-latest
     steps:

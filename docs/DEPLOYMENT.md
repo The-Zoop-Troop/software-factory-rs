@@ -13,7 +13,7 @@
 cp docker/rig.env.example docker/rig.env   # fill in; gitignored
 docker compose build                        # rig image (~1.4 GB) + egress proxy
 docker compose up -d                        # egress, steward, verifier, integrator, worker (claude)
-docker compose run --rm shell bash -c 'factory doctor'   # (planned) or: claude --version && bd ready
+docker compose run --rm shell doctor           # tools, ledger, repo, credentials — with fixes
 ```
 Bring your project in: set `RIG_REPO_URL` in `rig.env` (cloned on first start), or seed the `repo` volume via `docker compose run --rm shell`.
 
@@ -23,10 +23,22 @@ docker compose run --rm -e RIG_HARNESS=opencode plan --text "…"      # submit 
 docker compose up -d worker-opencode                                  # OpenCode worker
 docker compose --profile codex up -d worker-codex                     # Codex worker
 docker compose up -d --scale worker=3                                 # more Claude workers
+docker compose exec steward factory watch                             # progress per epic
+docker compose exec steward factory inbox [--resolve <id> --note …]   # incidents/questions
 docker compose exec steward bd ready                                  # the ledger
 docker compose exec steward tail -f .factory/events.jsonl             # the event log
 ```
 Landing on a remote: pass `--remote origin` to `integrate` (edit the service command) and protect `main` on the remote so only the rig's deploy key can fast-forward it.
+
+## One rig per worktree
+Compose names volumes and containers after the project name, so an isolated factory per branch is one variable away:
+```sh
+COMPOSE_PROJECT_NAME=factory-$(git branch --show-current | tr '/' '-') docker compose up -d
+```
+Each project gets its own `ledger`/`repo` volumes and network; tear it down with the same variable and `down -v`.
+
+## Logs
+Every role logs via `tracing` to stderr (`RUST_LOG=info` by default). Set `FACTORY_LOG_FORMAT=json` for one JSON object per line (`docker compose logs --no-log-prefix steward | jq`). State transitions are additionally appended to `.factory/events.jsonl` in the `ledger` volume.
 
 ## Upgrade
 `git pull && docker compose build && docker compose up -d --force-recreate`. Ledger and repo volumes persist; the image is stateless.

@@ -457,3 +457,55 @@ fn escalate_from_any_active_state() {
         TaskState::Incident { .. }
     ));
 }
+
+#[test]
+fn name_tables_match_the_types() {
+    let sha = sha('a');
+    let states = [
+        TaskState::Open,
+        TaskState::Leased {
+            lease: Lease::grant(agent("w"), t(0), Duration::from_seconds(1)),
+        },
+        TaskState::InVerify {
+            branch: BranchName::try_new("b").unwrap(),
+            head: sha.clone(),
+        },
+        TaskState::Mergeable {
+            branch: BranchName::try_new("b").unwrap(),
+            head: sha.clone(),
+        },
+        TaskState::Closed { merged: sha },
+        TaskState::Incident {
+            reason: IncidentReason::Manual {
+                detail: String::new(),
+            },
+        },
+    ];
+    assert_eq!(states.map(|s| s.name()), STATE_NAMES);
+    let events = [
+        claim(0),
+        Event::Heartbeat {
+            holder: agent("w"),
+            now: t(0),
+        },
+        submit(0),
+        Event::LeaseExpired { now: t(0) },
+        Event::Release {
+            holder: agent("w"),
+            now: t(0),
+            note: String::new(),
+        },
+        Event::VerifyPassed,
+        Event::VerifyFailed {
+            note: String::new(),
+        },
+        Event::Merged { merged: sha('c') },
+        Event::MergeFailed {
+            detail: String::new(),
+        },
+        Event::Escalate {
+            detail: String::new(),
+        },
+    ];
+    assert_eq!(events.map(|e| e.name()), EVENT_NAMES);
+}

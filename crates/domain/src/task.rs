@@ -117,6 +117,29 @@ pub struct Task {
     pub state: TaskState,
 }
 
+/// Every state name, in lifecycle order (for generated docs and console rendering).
+pub const STATE_NAMES: [&str; 6] = [
+    "open",
+    "leased",
+    "in_verify",
+    "mergeable",
+    "closed",
+    "incident",
+];
+/// Every event name (for generated docs).
+pub const EVENT_NAMES: [&str; 10] = [
+    "claim",
+    "heartbeat",
+    "submit",
+    "lease_expired",
+    "release",
+    "verify_passed",
+    "verify_failed",
+    "merged",
+    "merge_failed",
+    "escalate",
+];
+
 /// Maximum times a lease may expire before the task is treated as a lease storm.
 pub const MAX_LEASE_EXPIRIES: u32 = 3;
 

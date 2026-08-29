@@ -1990,6 +1990,8 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "domain",
+ "serde_json",
  "toml",
 ]
 

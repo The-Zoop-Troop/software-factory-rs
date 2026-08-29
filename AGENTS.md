@@ -23,7 +23,7 @@ merged code out). This file is a table of contents, not a manual. Read what the 
 | How good each part is right now | `docs/QUALITY_SCORE.md` |
 | Known debt | `docs/exec-plans/tech-debt-tracker.md` |
 | External tools' exact contracts | `docs/references/` (bd, A2A, Claude headless, OpenCode server, Codex exec) |
-| Facts derived from code | `docs/generated/` (regenerate, never hand-edit) |
+| Facts derived from code | `docs/generated/index.md` (regenerate with `cargo xtask gen-docs`, never hand-edit) |
 
 ## Rules that are enforced mechanically (CI fails otherwise)
 
@@ -48,7 +48,8 @@ merged code out). This file is a table of contents, not a manual. Read what the 
 
 ```
 cargo build && cargo test && cargo clippy --all-targets --all-features
-cargo xtask lint-docs | lint-taste | coverage
+cargo xtask lint-docs | lint-taste | coverage | gen-docs [--check]
 docker compose build && docker compose up -d      # a rig; see docs/DEPLOYMENT.md
+factory doctor && factory watch && factory inbox     # health, progress, what needs a human
 factory plan --harness opencode --model provider/model --text "..."
 ```
