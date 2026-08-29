@@ -16,6 +16,7 @@ FROM rust:${RUST_VERSION}-slim-bookworm AS build
 WORKDIR /src
 COPY Cargo.toml Cargo.lock rust-toolchain.toml clippy.toml rustfmt.toml ./
 COPY crates ./crates
+COPY docker/console/tokens.toml.example ./docker/console/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     cargo build --release --locked -p factory -p stewardd -p console \
