@@ -5,13 +5,7 @@
     clippy::panic,
     clippy::disallowed_methods,
     clippy::unnecessary_wraps,
-    clippy::missing_errors_doc
-)]
-#![allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::disallowed_methods,
-    clippy::unnecessary_wraps,
+    clippy::missing_errors_doc,
     clippy::too_many_lines
 )]
 
