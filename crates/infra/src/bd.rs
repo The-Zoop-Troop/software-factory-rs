@@ -6,7 +6,7 @@ use std::process::Stdio;
 
 use app::domain::meta::{MERGE_META_KEY, META_KEY, VERIFY_META_KEY};
 use app::domain::{BeadId, BeadKind, BeadMeta, FactoryMeta, MergeMeta, VerifyMeta};
-use app::{Bead, BeadStatus, BeadStore, NewBead, StoreError};
+use app::{Bead, BeadStatus, BeadStore, NewBead, StoreError, StoreOp, Unavailable};
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::process::Command;
@@ -46,7 +46,7 @@ impl BdCli {
         }
     }
 
-    async fn run(&self, args: &[&str]) -> Result<Vec<u8>, StoreError> {
+    async fn run(&self, op: StoreOp, args: &[&str]) -> Result<Vec<u8>, StoreError> {
         let mut cmd = Command::new(&self.bin);
         cmd.current_dir(&self.workdir)
             .args(args)
@@ -55,34 +55,84 @@ impl BdCli {
             cmd.arg("--actor").arg(actor);
         }
         tracing::debug!(args = ?args, "bd");
-        let out = cmd
-            .output()
-            .await
-            .map_err(|e| StoreError::Unavailable(e.to_string()))?;
+        let out = cmd.output().await.map_err(|e| StoreError::Unavailable {
+            op,
+            cause: crate::classify_io(e.kind()),
+            detail: e.to_string(),
+        })?;
         if out.status.success() {
             Ok(out.stdout)
         } else {
             let stderr = String::from_utf8_lossy(&out.stderr).trim().to_owned();
-            Err(classify(&stderr))
+            Err(parse_bd_stderr(op, &stderr))
         }
     }
 
-    async fn run_json<T: for<'de> Deserialize<'de>>(&self, args: &[&str]) -> Result<T, StoreError> {
-        let bytes = self.run(args).await?;
-        serde_json::from_slice(&bytes).map_err(|e| StoreError::Decode(e.to_string()))
+    async fn run_json<T: for<'de> Deserialize<'de>>(
+        &self,
+        op: StoreOp,
+        args: &[&str],
+    ) -> Result<T, StoreError> {
+        let bytes = self.run(op, args).await?;
+        serde_json::from_slice(&bytes).map_err(|e| StoreError::Decode {
+            op,
+            field: "json",
+            detail: e.to_string(),
+        })
     }
 }
 
-fn classify(stderr: &str) -> StoreError {
-    let lower = stderr.to_ascii_lowercase();
-    if lower.contains("not found") || lower.contains("no issue") {
-        // We don't have the id here; callers with an id map this themselves.
-        StoreError::Rejected(stderr.to_owned())
-    } else if lower.contains("database") || lower.contains("dolt") || lower.contains("lock") {
-        StoreError::Unavailable(stderr.to_owned())
-    } else {
-        StoreError::Rejected(stderr.to_owned())
+/// Parse `bd`'s stderr once into a typed error. This is the only place its wording is read.
+fn parse_bd_stderr(op: StoreOp, stderr: &str) -> StoreError {
+    let lower = stderr.to_ascii_lowercase(); // fp-allow: boundary parse of CLI stderr, done once here
+    if let Some(blocked) = parse_blocked(stderr) {
+        return blocked;
     }
+    // fp-allow: boundary parse of CLI stderr, done once here
+    if lower.contains("no issue found") || lower.contains("not found") {
+        // fp-allow: boundary parse of CLI stderr
+        // fp-allow: boundary parse of CLI stderr
+        return StoreError::Rejected {
+            op,
+            detail: stderr.to_owned(),
+        };
+    }
+    // fp-allow: boundary parse of CLI stderr, done once here
+    if lower.contains("database") || lower.contains("dolt") || lower.contains("lock") {
+        // fp-allow: boundary parse of CLI stderr
+        // fp-allow: boundary parse of CLI stderr
+        let cause = if lower.contains("lock") {
+            Unavailable::Locked
+        } else {
+            Unavailable::Database
+        };
+        return StoreError::Unavailable {
+            op,
+            cause,
+            detail: stderr.to_owned(),
+        };
+    }
+    StoreError::Rejected {
+        op,
+        detail: stderr.to_owned(),
+    }
+}
+
+/// `cannot close X: blocked by open issues [a b] (use --force to override)`
+fn parse_blocked(stderr: &str) -> Option<StoreError> {
+    let rest = stderr.split("cannot close ").nth(1)?;
+    let (id, rest) = rest.split_once(':')?;
+    let list = rest
+        .split("blocked by open issues [")
+        .nth(1)?
+        .split(']')
+        .next()?;
+    let by = list
+        .split_whitespace()
+        .filter_map(|s| BeadId::try_new(s).ok())
+        .collect::<Vec<_>>();
+    let id = BeadId::try_new(id.trim()).ok()?;
+    Some(StoreError::Blocked { id, by })
 }
 
 /// Wire shape of `bd show/ready/list --json`. Fields absent when empty.
@@ -109,8 +159,11 @@ impl TryFrom<RawBead> for Bead {
     type Error = StoreError;
 
     fn try_from(raw: RawBead) -> Result<Self, Self::Error> {
-        let decode =
-            |what: &str, e: &dyn std::fmt::Display| StoreError::Decode(format!("{what}: {e}"));
+        let decode = |what: &'static str, e: &dyn std::fmt::Display| StoreError::Decode {
+            op: StoreOp::Show,
+            field: what,
+            detail: e.to_string(),
+        };
         let id = BeadId::try_new(raw.id).map_err(|e| decode("id", &e))?;
         let status: BeadStatus = raw.status.parse().map_err(|e| decode("status", &e))?;
         let labels = raw.labels.unwrap_or_default();
@@ -170,33 +223,49 @@ fn bead_meta_json(meta: &BeadMeta) -> Result<String, StoreError> {
 }
 
 fn wrap_json<T: serde::Serialize>(key: &str, value: &T) -> Result<String, StoreError> {
-    let value = serde_json::to_value(value).map_err(|e| StoreError::Decode(e.to_string()))?;
+    let value = serde_json::to_value(value).map_err(|e| StoreError::Decode {
+        op: StoreOp::Update,
+        field: "metadata",
+        detail: e.to_string(),
+    })?;
     let wrapped = serde_json::Value::Object(std::iter::once((key.to_owned(), value)).collect());
-    serde_json::to_string(&wrapped).map_err(|e| StoreError::Decode(e.to_string()))
+    serde_json::to_string(&wrapped).map_err(|e| StoreError::Decode {
+        op: StoreOp::Update,
+        field: "metadata",
+        detail: e.to_string(),
+    })
 }
 
 #[async_trait]
 impl BeadStore for BdCli {
     async fn show(&self, id: &BeadId) -> Result<Bead, StoreError> {
-        let raws: Vec<RawBead> = match self.run_json(&["show", id.as_ref(), "--json"]).await {
-            Err(StoreError::Rejected(msg))
-                if msg.to_ascii_lowercase().contains("not found")
-                    || msg.to_ascii_lowercase().contains("no issue found") =>
+        let raws: Vec<RawBead> = match self
+            .run_json(StoreOp::Show, &["show", id.as_ref(), "--json"])
+            .await
+        {
+            // fp-allow: boundary parse of CLI stderr, done once
+            Err(StoreError::Rejected { detail, .. })
+                if detail.to_ascii_lowercase().contains("no issue found") // fp-allow: boundary parse of CLI stderr
+                    || detail.to_ascii_lowercase().contains("not found") =>
+            // fp-allow: boundary parse of CLI stderr
             {
-                return Err(StoreError::NotFound(id.clone()));
+                return Err(StoreError::NotFound { id: id.clone() });
             }
             other => other?,
         };
         raws.into_iter()
             .next()
-            .ok_or_else(|| StoreError::NotFound(id.clone()))?
+            .ok_or_else(|| StoreError::NotFound { id: id.clone() })?
             .try_into()
     }
 
     async fn ready(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
         let label = kind.label();
         let raws: Vec<RawBead> = self
-            .run_json(&["ready", "--label", &label, "--limit", "0", "--json"])
+            .run_json(
+                StoreOp::Ready,
+                &["ready", "--label", &label, "--limit", "0", "--json"],
+            )
             .await?;
         raws.into_iter().map(Bead::try_from).collect()
     }
@@ -204,44 +273,59 @@ impl BeadStore for BdCli {
     async fn list_active(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
         let label = kind.label();
         let raws: Vec<RawBead> = self
-            .run_json(&[
-                "list",
-                "--label",
-                &label,
-                "--status",
-                "open,in_progress,blocked,hooked",
-                "--limit",
-                "0",
-                "--json",
-            ])
+            .run_json(
+                StoreOp::List,
+                &[
+                    "list",
+                    "--label",
+                    &label,
+                    "--status",
+                    "open,in_progress,blocked,hooked",
+                    "--limit",
+                    "0",
+                    "--json",
+                ],
+            )
             .await?;
         raws.into_iter().map(Bead::try_from).collect()
     }
 
     async fn set_meta(&self, id: &BeadId, meta: &FactoryMeta) -> Result<(), StoreError> {
         let json = meta_json(meta)?;
-        self.run(&["update", id.as_ref(), "--metadata", &json, "--json"])
-            .await
-            .map(|_| ())
+        self.run(
+            StoreOp::Update,
+            &["update", id.as_ref(), "--metadata", &json, "--json"],
+        )
+        .await
+        .map(|_| ())
     }
 
     async fn set_verify(&self, id: &BeadId, meta: &VerifyMeta) -> Result<(), StoreError> {
         let json = wrap_json(VERIFY_META_KEY, meta)?;
-        self.run(&["update", id.as_ref(), "--metadata", &json, "--json"])
-            .await
-            .map(|_| ())
+        self.run(
+            StoreOp::Update,
+            &["update", id.as_ref(), "--metadata", &json, "--json"],
+        )
+        .await
+        .map(|_| ())
     }
 
     async fn add_needs(&self, dependent: &BeadId, blocker: &BeadId) -> Result<(), StoreError> {
-        self.run(&["dep", "add", dependent.as_ref(), blocker.as_ref()])
-            .await
-            .map(|_| ())
+        self.run(
+            StoreOp::Dep,
+            &["dep", "add", dependent.as_ref(), blocker.as_ref()],
+        )
+        .await
+        .map(|_| ())
     }
 
     async fn note(&self, id: &BeadId, text: &str) -> Result<(), StoreError> {
-        self.run(&["update", id.as_ref(), "--append-notes", text, "--json"])
-            .await
-            .map(|_| ())
+        self.run(
+            StoreOp::Note,
+            &["update", id.as_ref(), "--append-notes", text, "--json"],
+        )
+        .await
+        .map(|_| ())
     }
 
     async fn create(&self, new: NewBead) -> Result<BeadId, StoreError> {
@@ -282,37 +366,50 @@ impl BeadStore for BdCli {
             args.extend(["--defer".into(), "+1d".into()]);
         }
         let borrowed: Vec<&str> = args.iter().map(String::as_str).collect();
-        let created: Created = self.run_json(&borrowed).await?;
-        let id = BeadId::try_new(created.id).map_err(|e| StoreError::Decode(e.to_string()))?;
+        let created: Created = self.run_json(StoreOp::Create, &borrowed).await?;
+        let id = BeadId::try_new(created.id).map_err(|e| StoreError::Decode {
+            op: StoreOp::Create,
+            field: "id",
+            detail: e.to_string(),
+        })?;
         // `--deps blocks:X` means "this bead blocks X" — the opposite of `needs` — so edges are
         // added explicitly with `dep add <dependent> <blocker>`.
         for blocker in &new.needs {
             self.add_needs(&id, blocker).await?;
         }
         if deferred {
-            self.run(&["update", id.as_ref(), "--defer", "", "--json"])
-                .await?;
+            self.run(
+                StoreOp::Update,
+                &["update", id.as_ref(), "--defer", "", "--json"],
+            )
+            .await?;
         }
         Ok(id)
     }
 
     async fn close(&self, id: &BeadId, reason: &str) -> Result<(), StoreError> {
-        self.run(&["close", id.as_ref(), "--reason", reason, "--json"])
-            .await
-            .map(|_| ())
+        self.run(
+            StoreOp::Close,
+            &["close", id.as_ref(), "--reason", reason, "--json"],
+        )
+        .await
+        .map(|_| ())
     }
 
     async fn children(&self, id: &BeadId) -> Result<Vec<Bead>, StoreError> {
         let raws: Vec<RawBead> = self
-            .run_json(&[
-                "list",
-                "--parent",
-                id.as_ref(),
-                "--all",
-                "--limit",
-                "0",
-                "--json",
-            ])
+            .run_json(
+                StoreOp::List,
+                &[
+                    "list",
+                    "--parent",
+                    id.as_ref(),
+                    "--all",
+                    "--limit",
+                    "0",
+                    "--json",
+                ],
+            )
             .await?;
         raws.into_iter().map(Bead::try_from).collect()
     }
@@ -353,5 +450,48 @@ mod tests {
         let bead = Bead::try_from(raw).unwrap();
         assert_eq!(bead.kind, None);
         assert_eq!(bead.status, BeadStatus::Closed);
+    }
+
+    #[test]
+    fn stderr_parses_into_each_variant() {
+        let e = parse_bd_stderr(
+            StoreOp::Close,
+            "Error: cannot close t-1.3: blocked by open issues [t-1.2 t-1.1] (use --force to override)",
+        );
+        assert!(
+            matches!(e, StoreError::Blocked { ref id, ref by } if id.as_ref() == "t-1.3" && by.len() == 2)
+        );
+        assert!(matches!(
+            parse_bd_stderr(
+                StoreOp::Show,
+                "Error fetching x: no issue found matching \"x\""
+            ),
+            StoreError::Rejected {
+                op: StoreOp::Show,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse_bd_stderr(StoreOp::Update, "dolt: database is locked"),
+            StoreError::Unavailable {
+                cause: Unavailable::Locked,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse_bd_stderr(StoreOp::Update, "Dolt server error"),
+            StoreError::Unavailable {
+                cause: Unavailable::Database,
+                ..
+            }
+        ));
+        assert!(matches!(
+            parse_bd_stderr(StoreOp::Dep, "something else entirely"),
+            StoreError::Rejected {
+                op: StoreOp::Dep,
+                ..
+            }
+        ));
+        assert!(parse_blocked("cannot close: nothing").is_none());
     }
 }

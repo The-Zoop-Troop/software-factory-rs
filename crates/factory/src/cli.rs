@@ -203,7 +203,7 @@ pub(crate) fn build_harness(
             let spec = model.ok_or_else(|| {
                 anyhow::anyhow!("--harness opencode needs --model provider/model")
             })?;
-            let mut h = OpencodeServer::from_model_spec(&spec).map_err(|e| anyhow::anyhow!(e))?;
+            let mut h = OpencodeServer::from_model_spec(&spec)?;
             if let Ok(cfg) = std::env::var("OPENCODE_CONFIG_CONTENT") {
                 h = h.with_config_content(cfg);
             }

@@ -11,7 +11,7 @@
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, ToolPolicy};
+use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, HarnessStage, ToolPolicy};
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::process::Command;
@@ -179,9 +179,14 @@ impl Harness for CodexCli {
         let scratch = req.cwd.join(".factory-codex");
         tokio::fs::create_dir_all(&scratch)
             .await
-            .map_err(|e| HarnessError::Spawn(e.to_string()))?;
+            .map_err(|e| HarnessError::Spawn {
+                bin: self.bin.clone(),
+                cause: crate::classify_io(e.kind()),
+                detail: e.to_string(),
+            })?;
         let last_path = scratch.join("last-message.txt");
         let schema_path = scratch.join("output-schema.json");
+        // fp-allow: removing a previous run's file; absence is the desired state either way
         let _ = tokio::fs::remove_file(&last_path).await;
 
         let mut cmd = Command::new(&self.bin);
@@ -213,7 +218,11 @@ impl Harness for CodexCli {
         if let Some(schema) = &req.schema {
             tokio::fs::write(&schema_path, schema.to_string())
                 .await
-                .map_err(|e| HarnessError::Spawn(e.to_string()))?;
+                .map_err(|e| HarnessError::Spawn {
+                    bin: self.bin.clone(),
+                    cause: crate::classify_io(e.kind()),
+                    detail: e.to_string(),
+                })?;
             cmd.arg("--output-schema").arg(&schema_path);
         }
         if let Some(m) = &self.model {
@@ -226,18 +235,33 @@ impl Harness for CodexCli {
         cmd.arg(prompt);
         tracing::info!(cwd = %req.cwd.display(), tools = ?req.tools, "codex exec");
 
-        let child = cmd
-            .spawn()
-            .map_err(|e| HarnessError::Spawn(e.to_string()))?;
+        let child = cmd.spawn().map_err(|e| HarnessError::Spawn {
+            bin: self.bin.clone(),
+            cause: crate::classify_io(e.kind()),
+            detail: e.to_string(),
+        })?;
         let limit = std::time::Duration::from_secs(req.timeout.seconds());
         let out = match tokio::time::timeout(limit, child.wait_with_output()).await {
             Ok(Ok(out)) => out,
-            Ok(Err(e)) => return Err(HarnessError::Spawn(e.to_string())),
-            Err(_elapsed) => return Err(HarnessError::Timeout(req.timeout.seconds())),
+            Ok(Err(e)) => {
+                return Err(HarnessError::Spawn {
+                    bin: self.bin.clone(),
+                    cause: crate::classify_io(e.kind()),
+                    detail: e.to_string(),
+                });
+            }
+            Err(_elapsed) => {
+                return Err(HarnessError::Timeout {
+                    after: req.timeout,
+                    stage: HarnessStage::Prompt,
+                });
+            }
         };
         let events = String::from_utf8_lossy(&out.stdout);
         let last = tokio::fs::read_to_string(&last_path).await.ok();
-        let _ = tokio::fs::remove_dir_all(&scratch).await;
+        if let Err(e) = tokio::fs::remove_dir_all(&scratch).await {
+            tracing::warn!(error = %e, path = %scratch.display(), "scratch dir not removed");
+        }
         let mut outcome = fold(&events, last, req.schema.is_some());
         if !out.status.success() && !outcome.is_error {
             outcome.is_error = true;

@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::Stdio;
 
 use app::domain::Duration;
-use app::{RunError, RunOutput, Runner};
+use app::{RunError, RunOutput, Runner, Unavailable};
 use async_trait::async_trait;
 use tokio::process::Command;
 
@@ -39,7 +39,8 @@ impl Runner for ShellRunner {
             .spawn()
             .map_err(|e| RunError {
                 command: command.to_owned(),
-                reason: e.to_string(),
+                cause: crate::classify_io(e.kind()),
+                detail: e.to_string(),
             })?;
 
         let wait = child.wait_with_output();
@@ -53,7 +54,8 @@ impl Runner for ShellRunner {
             }),
             Ok(Err(e)) => Err(RunError {
                 command: command.to_owned(),
-                reason: e.to_string(),
+                cause: Unavailable::Io,
+                detail: e.to_string(),
             }),
             // The future (and the child, via kill_on_drop) is dropped here.
             Err(_elapsed) => Ok(RunOutput {

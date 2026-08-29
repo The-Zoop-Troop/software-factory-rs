@@ -11,10 +11,17 @@
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, ToolPolicy};
+use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, HarnessStage, ToolPolicy};
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::process::{Child, Command};
+
+/// `--model` was not `provider/model`.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("model `{spec}` must be provider/model")]
+pub struct ModelSpecError {
+    pub spec: String,
+}
 
 /// Adapter configuration. `provider_id`/`model_id` name a provider configured in the
 /// OpenCode config the server loads (user config, project `opencode.json`, or
@@ -42,13 +49,15 @@ impl OpencodeServer {
     /// Parse `provider/model` (OpenCode's `--model` format).
     ///
     /// # Errors
-    /// If there is no `/`.
-    pub fn from_model_spec(spec: &str) -> Result<Self, String> {
-        let (p, m) = spec
-            .split_once('/')
-            .ok_or_else(|| format!("model `{spec}` must be provider/model"))?;
+    /// `ModelSpecError` if the spec is not `provider/model` with both parts non-empty.
+    pub fn from_model_spec(spec: &str) -> Result<Self, ModelSpecError> {
+        let (p, m) = spec.split_once('/').ok_or_else(|| ModelSpecError {
+            spec: spec.to_owned(),
+        })?;
         if p.is_empty() || m.is_empty() {
-            return Err(format!("model `{spec}` must be provider/model"));
+            return Err(ModelSpecError {
+                spec: spec.to_owned(),
+            });
         }
         Ok(Self::new(p, m))
     }
@@ -155,7 +164,7 @@ fn error_text(e: &serde_json::Value) -> String {
 )]
 fn micro_usd(usd: f64) -> u64 {
     if usd.is_finite() && usd > 0.0 {
-        (usd * 1_000_000.0).round() as u64
+        (usd * 1_000_000.0).round() as u64 // fp-allow: float→integer minor units at the boundary; finite and positive checked above
     } else {
         0
     }
@@ -232,11 +241,14 @@ impl Server {
             None => r#"{"permission":"allow"}"#.to_owned(),
         };
         cmd.env("OPENCODE_CONFIG_CONTENT", content);
-        let child = cmd
-            .spawn()
-            .map_err(|e| HarnessError::Spawn(e.to_string()))?;
+        let child = cmd.spawn().map_err(|e| HarnessError::Spawn {
+            bin: cfg.bin.clone(),
+            cause: crate::classify_io(e.kind()),
+            detail: e.to_string(),
+        })?;
         let base = format!("http://127.0.0.1:{port}");
         let client = local_client()?;
+        // fp-allow: monotonic local deadline for a process health probe, not domain time
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
         loop {
             let probe = client
@@ -247,10 +259,14 @@ impl Server {
             if probe.is_ok_and(|r| r.status().is_success()) {
                 break;
             }
+            // fp-allow: local monotonic deadline for a process health probe, not domain time
             if tokio::time::Instant::now() > deadline {
-                return Err(HarnessError::Spawn(
-                    "opencode serve did not become healthy in 30s".into(),
-                ));
+                // fp-allow: local monotonic deadline for a health probe
+                // fp-allow: see above
+                return Err(HarnessError::Timeout {
+                    after: app::domain::Duration::from_seconds(30),
+                    stage: HarnessStage::Health,
+                });
             }
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         }
@@ -260,6 +276,7 @@ impl Server {
 
 impl Drop for Server {
     fn drop(&mut self) {
+        // fp-allow: Drop cannot report; the server is disposable
         let _ = self.child.start_kill();
     }
 }
@@ -284,16 +301,24 @@ fn local_client() -> Result<reqwest::Client, HarnessError> {
         // A connection accepted during server boot may never be serviced; don't reuse any.
         .pool_max_idle_per_host(0)
         .build()
-        .map_err(|e| HarnessError::Spawn(e.to_string()))
+        .map_err(|e| HarnessError::Spawn { bin: PathBuf::from("opencode"), cause: app::Unavailable::Io, detail: e.to_string() })
 }
 
 async fn free_port() -> Result<u16, HarnessError> {
     let l = tokio::net::TcpListener::bind(("127.0.0.1", 0))
         .await
-        .map_err(|e| HarnessError::Spawn(e.to_string()))?;
+        .map_err(|e| HarnessError::Spawn {
+            bin: PathBuf::from("opencode"),
+            cause: app::Unavailable::Io,
+            detail: e.to_string(),
+        })?;
     l.local_addr()
         .map(|a| a.port())
-        .map_err(|e| HarnessError::Spawn(e.to_string()))
+        .map_err(|e| HarnessError::Spawn {
+            bin: PathBuf::from("opencode"),
+            cause: app::Unavailable::Io,
+            detail: e.to_string(),
+        })
 }
 
 #[derive(Deserialize)]
@@ -308,18 +333,24 @@ impl Harness for OpencodeServer {
         let server = Server::start(self, &req.cwd).await?;
         tracing::debug!(base = %server.base, "opencode serve healthy");
         let client = local_client()?;
-        let http = |e: reqwest::Error| HarnessError::Decode(e.to_string());
+        let http = |stage: HarnessStage| {
+            move |e: reqwest::Error| HarnessError::Http {
+                stage,
+                status: e.status().map_or(0, |s| s.as_u16()),
+                detail: e.to_string(),
+            }
+        };
         let created: Created = client
             .post(format!("{}/session", server.base))
             .json(&serde_json::json!({ "title": "factory" }))
             .send()
             .await
-            .map_err(http)?
+            .map_err(http(HarnessStage::Session))?
             .error_for_status()
-            .map_err(http)?
+            .map_err(http(HarnessStage::Session))?
             .json()
             .await
-            .map_err(http)?;
+            .map_err(http(HarnessStage::Session))?;
 
         tracing::debug!(session = %created.id, "session created; sending prompt");
         let mut body = serde_json::json!({
@@ -339,30 +370,34 @@ impl Harness for OpencodeServer {
             .json(&body)
             .send();
         let resp = match tokio::time::timeout(limit, send).await {
-            Ok(r) => r.map_err(http)?,
+            Ok(r) => r.map_err(http(HarnessStage::Prompt))?,
             Err(_elapsed) => {
+                // fp-allow: best-effort abort; the timeout is the error the caller acts on
                 let _ = client
                     .post(format!("{}/session/{}/abort", server.base, created.id))
                     .send()
                     .await;
-                return Err(HarnessError::Timeout(req.timeout.seconds()));
+                return Err(HarnessError::Timeout {
+                    after: req.timeout,
+                    stage: HarnessStage::Prompt,
+                });
             }
         };
         let status = resp.status();
         tracing::debug!(%status, "prompt answered");
-        let text = resp.text().await.map_err(http)?;
+        let text = resp.text().await.map_err(http(HarnessStage::Prompt))?;
         if !status.is_success() {
-            return Err(HarnessError::Decode(format!(
-                "HTTP {status}: {}",
-                text.chars().take(500).collect::<String>()
-            )));
+            return Err(HarnessError::Http {
+                stage: HarnessStage::Prompt,
+                status: status.as_u16(),
+                detail: text.chars().take(500).collect(),
+            });
         }
-        let msg: MessageResponse = serde_json::from_str(&text).map_err(|e| {
-            HarnessError::Decode(format!(
-                "{e}: {}",
-                text.chars().take(300).collect::<String>()
-            ))
-        })?;
+        let msg: MessageResponse =
+            serde_json::from_str(&text).map_err(|e| HarnessError::Decode {
+                stage: HarnessStage::Envelope,
+                detail: format!("{e}: {}", text.chars().take(300).collect::<String>()),
+            })?;
         drop(server);
         Ok(msg.into())
     }

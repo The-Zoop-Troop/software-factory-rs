@@ -52,16 +52,16 @@ async fn claude_text_structured_error_timeout_garbage() {
     assert!(o.is_error);
     assert!(matches!(
         h.run(req("SLOW", ToolPolicy::None, false)).await,
-        Err(HarnessError::Timeout(2))
+        Err(HarnessError::Timeout { .. })
     ));
     assert!(matches!(
         h.run(req("GARBAGE", ToolPolicy::None, false)).await,
-        Err(HarnessError::Decode(_))
+        Err(HarnessError::Decode { .. })
     ));
     let missing = ClaudeCli::default().with_bin("/nonexistent/claude");
     assert!(matches!(
         missing.run(req("x", ToolPolicy::None, false)).await,
-        Err(HarnessError::Spawn(_))
+        Err(HarnessError::Spawn { .. })
     ));
 }
 
@@ -92,7 +92,7 @@ async fn codex_text_structured_failure() {
     let missing = CodexCli::default().with_bin("/nonexistent/codex");
     assert!(matches!(
         missing.run(req("x", ToolPolicy::None, false)).await,
-        Err(HarnessError::Spawn(_))
+        Err(HarnessError::Spawn { .. })
     ));
 }
 
@@ -123,15 +123,15 @@ async fn opencode_server_paths() {
     assert!(o.is_error && o.text == "no route");
     assert!(matches!(
         h.run(req("HTTP500", ToolPolicy::None, false)).await,
-        Err(HarnessError::Decode(_))
+        Err(HarnessError::Http { status: 500, .. })
     ));
     assert!(matches!(
         h.run(req("SLOW", ToolPolicy::None, false)).await,
-        Err(HarnessError::Timeout(2))
+        Err(HarnessError::Timeout { .. })
     ));
     let missing = OpencodeServer::new("p", "m").with_bin("/nonexistent/opencode");
     assert!(matches!(
         missing.run(req("x", ToolPolicy::None, false)).await,
-        Err(HarnessError::Spawn(_))
+        Err(HarnessError::Spawn { .. })
     ));
 }

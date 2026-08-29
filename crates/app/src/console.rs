@@ -235,7 +235,7 @@ mod tests {
         assert_eq!(resolve(&store, &q, "postgres").await.unwrap(), None);
         assert!(matches!(
             resolve(&store, &id("fac-nope"), "x").await,
-            Err(StoreError::NotFound(_))
+            Err(StoreError::NotFound { .. })
         ));
     }
 }

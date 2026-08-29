@@ -64,10 +64,12 @@ non-blocking until epic 5 flips it.
 - 2026-08-29 — Skill ships as a pinned submodule, not a copy: reproducible, and bumps are
   deliberate because a skill change can change what the lints demand.
 
+- 2026-08-29 — `lint-fp` became a blocking CI gate at the end of epic 2 (already green) instead of epic 5.
+
 ## Progress
 
 - [x] skill-in-repo (submodule pinned 2d34087, harness symlinks, `xtask skills --check`, `xtask lint-fp` non-blocking in CI, railway.md, vision/beliefs/principles/AGENTS updated) — 2026-08-29
-- [ ] error-tracks
+- [x] error-tracks (26 string payloads → structured variants with `op`/`cause`/ids/paths; `bd`/`git` stderr parsed once in `parse_*_stderr` with per-variant tests; `LandRejection`, `Decision`, typed events; `lint-fp` green and blocking in CI) — 2026-08-29
 - [ ] boundary-types
 - [ ] effects-and-sagas
 - [ ] proof

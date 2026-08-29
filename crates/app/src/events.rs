@@ -31,12 +31,12 @@ pub enum EventKind {
     Integrated {
         merge_bead: BeadId,
         landed: Option<domain::Sha>,
-        detail: Option<String>,
+        rejection: Option<crate::integrator::LandRejection>,
     },
     /// Steward reopened a task whose lease expired.
     LeaseReaped,
     /// Steward escalated a task to an incident.
-    Escalated { detail: String },
+    Escalated { exceeded: domain::BudgetExceeded },
     /// Steward closed an epic whose children are all closed.
     EpicClosed { children: usize },
     /// A sweep finished.

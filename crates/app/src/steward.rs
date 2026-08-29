@@ -2,7 +2,7 @@
 //! closing. Deterministic, no LLM. Each step is isolated so one bad bead cannot stall
 //! the rest of the sweep; failures are logged as events and counted.
 
-use domain::{BeadId, BeadKind, Event, TaskState, Timestamp};
+use domain::{BeadId, BeadKind, BudgetExceeded, Event, TaskState, Timestamp};
 
 use crate::bead::{Bead, BeadStatus};
 use crate::events::{EventKind, FactoryEvent};
@@ -50,13 +50,13 @@ pub async fn sweep(
                     EventKind::LeaseReaped,
                 ));
             }
-            Ok(Some(Outcome::Escalated(detail))) => {
+            Ok(Some(Outcome::Escalated(exceeded))) => {
                 report.escalated += 1;
                 log.record(&event(
                     now,
                     actor,
                     Some(bead.id.clone()),
-                    EventKind::Escalated { detail },
+                    EventKind::Escalated { exceeded },
                 ));
             }
             Ok(None) => {}
@@ -115,25 +115,30 @@ pub async fn sweep(
 
 enum Outcome {
     Reaped,
-    Escalated(String),
+    Escalated(BudgetExceeded),
+}
+
+/// What the Steward should do about one task.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Decision {
+    Reap { now: Timestamp },
+    Escalate { exceeded: BudgetExceeded },
 }
 
 /// Decide, purely, what the Steward should do about one task right now.
-fn decide(bead: &Bead, now: Timestamp) -> Option<Event> {
+fn decide(bead: &Bead, now: Timestamp) -> Option<Decision> {
     let meta = bead.meta.as_ref()?;
     match &meta.state {
         TaskState::Leased { lease } => {
             if lease.is_expired(now) {
-                return Some(Event::LeaseExpired { now });
+                return Some(Decision::Reap { now });
             }
             // Project wall-clock to now so a runaway session is caught mid-lease, not at submit.
             let projected = meta.usage.add_wall_clock(now.since(lease.claimed_at));
             meta.budget
                 .check(projected)
                 .err()
-                .map(|exceeded| Event::Escalate {
-                    detail: exceeded.to_string(),
-                })
+                .map(|exceeded| Decision::Escalate { exceeded })
         }
         TaskState::Open
         | TaskState::InVerify { .. }
@@ -148,20 +153,17 @@ async fn sweep_task(
     bead: &Bead,
     now: Timestamp,
 ) -> Result<Option<Outcome>, TransitionError> {
-    let Some(ev) = decide(bead, now) else {
+    let Some(decision) = decide(bead, now) else {
         return Ok(None);
     };
-    let outcome = match &ev {
-        Event::LeaseExpired { .. } => Outcome::Reaped,
-        Event::Escalate { detail } => Outcome::Escalated(detail.clone()),
-        Event::Claim { .. }
-        | Event::Heartbeat { .. }
-        | Event::Submit { .. }
-        | Event::Release { .. }
-        | Event::VerifyPassed
-        | Event::VerifyFailed { .. }
-        | Event::Merged { .. }
-        | Event::MergeFailed { .. } => return Ok(None),
+    let (ev, outcome) = match decision {
+        Decision::Reap { now } => (Event::LeaseExpired { now }, Outcome::Reaped),
+        Decision::Escalate { exceeded } => (
+            Event::Escalate {
+                detail: exceeded.to_string(),
+            },
+            Outcome::Escalated(exceeded),
+        ),
     };
     apply_event(store, &bead.id, ev).await?;
     Ok(Some(outcome))

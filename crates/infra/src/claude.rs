@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::process::Stdio;
 
-use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, ToolPolicy};
+use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, HarnessStage, ToolPolicy};
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::process::Command;
@@ -114,7 +114,7 @@ impl From<Envelope> for HarnessOutcome {
 )]
 fn micro_usd(usd: f64) -> u64 {
     if usd.is_finite() && usd > 0.0 {
-        (usd * 1_000_000.0).round() as u64
+        (usd * 1_000_000.0).round() as u64 // fp-allow: float→integer minor units at the boundary; finite and positive checked above
     } else {
         0
     }
@@ -158,24 +158,40 @@ impl Harness for ClaudeCli {
         }
         tracing::info!(cwd = %req.cwd.display(), tools = ?req.tools, max_turns = req.max_turns, "claude -p");
 
-        let child = cmd
-            .spawn()
-            .map_err(|e| HarnessError::Spawn(e.to_string()))?;
+        let child = cmd.spawn().map_err(|e| HarnessError::Spawn {
+            bin: self.bin.clone(),
+            cause: crate::classify_io(e.kind()),
+            detail: e.to_string(),
+        })?;
         let limit = std::time::Duration::from_secs(req.timeout.seconds());
         let out = match tokio::time::timeout(limit, child.wait_with_output()).await {
             Ok(Ok(out)) => out,
-            Ok(Err(e)) => return Err(HarnessError::Spawn(e.to_string())),
-            Err(_elapsed) => return Err(HarnessError::Timeout(req.timeout.seconds())),
+            Ok(Err(e)) => {
+                return Err(HarnessError::Spawn {
+                    bin: self.bin.clone(),
+                    cause: crate::classify_io(e.kind()),
+                    detail: e.to_string(),
+                });
+            }
+            Err(_elapsed) => {
+                return Err(HarnessError::Timeout {
+                    after: req.timeout,
+                    stage: HarnessStage::Prompt,
+                });
+            }
         };
         let stdout = String::from_utf8_lossy(&out.stdout);
         // On a hard failure the CLI may print nothing parseable; surface stderr instead.
         let envelope: Envelope = serde_json::from_str(stdout.trim()).map_err(|e| {
             let stderr = String::from_utf8_lossy(&out.stderr);
-            HarnessError::Decode(format!(
-                "{e}; exit {:?}; stderr: {}",
-                out.status.code(),
-                stderr.trim()
-            ))
+            HarnessError::Decode {
+                stage: HarnessStage::Envelope,
+                detail: format!(
+                    "{e}; exit {:?}; stderr: {}",
+                    out.status.code(),
+                    stderr.trim()
+                ),
+            }
         })?;
         Ok(envelope.into())
     }

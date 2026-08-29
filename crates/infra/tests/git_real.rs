@@ -110,7 +110,7 @@ async fn branch_commit_rebase_ff_push_roundtrip() {
     assert!(matches!(
         git.worktree_add(&b("x"), &Sha::try_new("0".repeat(40)).unwrap())
             .await,
-        Err(RepoError::RefNotFound(_))
+        Err(RepoError::RefNotFound { .. })
     ));
     // Push to a missing remote.
     assert!(git.push("nowhere", &b("main")).await.is_err());
@@ -134,7 +134,7 @@ async fn rebase_conflict_is_reported_and_aborted() {
     let wt = git.worktree_add(&b("task/conflict"), &head).await.unwrap();
     assert!(matches!(
         git.rebase(&wt, &b("main")).await,
-        Err(RepoError::Conflict(_))
+        Err(RepoError::Conflict { .. })
     ));
     // Aborted: the worktree is back at its head, and re-adding over a stale path works.
     assert_eq!(sh(&wt.path, "git rev-parse HEAD"), head.as_ref());

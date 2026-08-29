@@ -21,9 +21,7 @@ jobs:
       - run: cargo xtask lint-docs
       - run: cargo xtask lint-taste
       - run: cargo xtask gen-docs --check
-      # Red until the railway refactor's epic 5 flips it to blocking (see docs/exec-plans/active/railway-refactor.md).
       - run: cargo xtask lint-fp
-        continue-on-error: true
   rig:
     runs-on: ubuntu-latest
     steps:

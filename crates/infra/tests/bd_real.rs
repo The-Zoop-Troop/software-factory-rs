@@ -188,7 +188,7 @@ async fn full_ledger_roundtrip() {
     // A bead cannot close while a blocker is open: task first, then its dependents.
     assert!(matches!(
         store.close(&dependent, "early").await,
-        Err(StoreError::Unavailable(_) | StoreError::Rejected(_))
+        Err(StoreError::Blocked { ref id, ref by }) if *id == dependent && by.contains(&task)
     ));
     store.close(&task, "done").await.unwrap();
     store.close(&dependent, "done").await.unwrap();
@@ -204,12 +204,12 @@ async fn full_ledger_roundtrip() {
     // errors.
     assert!(matches!(
         store.show(&BeadId::try_new("t-nope").unwrap()).await,
-        Err(StoreError::NotFound(_))
+        Err(StoreError::NotFound { .. })
     ));
     let broken = BdCli::new(&dir).with_bin("/nonexistent/bd");
     assert!(matches!(
         store_err(&broken).await,
-        StoreError::Unavailable(_)
+        StoreError::Unavailable { .. }
     ));
 }
 

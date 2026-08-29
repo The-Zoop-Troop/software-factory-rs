@@ -92,15 +92,10 @@ async fn verify_one(
     let TaskState::InVerify { branch, head } = &task.state else {
         return Ok(None);
     };
-    let worktree = repo
-        .worktree_add(branch, head)
-        .await
-        .map_err(|e| to_store(&e))?;
+    let worktree = repo.worktree_add(branch, head).await?;
     let result = run_all(runner, &worktree.path, meta).await;
     // Remove the worktree before deciding, so a store failure can't leak a checkout.
-    repo.worktree_remove(worktree)
-        .await
-        .map_err(|e| to_store(&e))?;
+    repo.worktree_remove(worktree).await?;
 
     let (passed, note) = summarize(&meta.commands, &result);
     let event = if passed {
@@ -160,7 +155,7 @@ fn summarize(
                 }
             }
             Err(e) => {
-                let _ = write!(note, "[could not run: {}]", e.reason);
+                let _ = write!(note, "[could not run: {e}]");
             }
         }
     }
@@ -174,10 +169,6 @@ fn tail(s: &str) -> &str {
         .find(|&i| s.is_char_boundary(i))
         .unwrap_or(s.len());
     s.get(start..).unwrap_or("")
-}
-
-fn to_store(e: &crate::ports::RepoError) -> TransitionError {
-    TransitionError::Store(StoreError::Unavailable(format!("repo: {e}")))
 }
 
 #[cfg(test)]

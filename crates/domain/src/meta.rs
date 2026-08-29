@@ -55,10 +55,16 @@ pub struct RawFactoryMeta {
 pub enum MetaParseError {
     #[error("unsupported factory metadata version {found} (expected {expected})")]
     Version { found: u32, expected: u32 },
-    #[error("invalid verify_bead id: {0}")]
-    VerifyBead(String),
-    #[error("invalid base sha: {0}")]
-    Base(String),
+    #[error("invalid verify_bead id `{raw}`: {source}")]
+    VerifyBead {
+        raw: String,
+        source: crate::ids::BeadIdError,
+    },
+    #[error("invalid base sha `{raw}`: {source}")]
+    Base {
+        raw: String,
+        source: crate::ids::ShaError,
+    },
 }
 
 impl TryFrom<RawFactoryMeta> for FactoryMeta {
@@ -72,9 +78,16 @@ impl TryFrom<RawFactoryMeta> for FactoryMeta {
             });
         }
         Ok(Self {
-            verify_bead: BeadId::try_new(raw.verify_bead)
-                .map_err(|e| MetaParseError::VerifyBead(e.to_string()))?,
-            base: Sha::try_new(raw.base).map_err(|e| MetaParseError::Base(e.to_string()))?,
+            verify_bead: BeadId::try_new(raw.verify_bead.clone()).map_err(|source| {
+                MetaParseError::VerifyBead {
+                    raw: raw.verify_bead,
+                    source,
+                }
+            })?,
+            base: Sha::try_new(raw.base.clone()).map_err(|source| MetaParseError::Base {
+                raw: raw.base,
+                source,
+            })?,
             budget: raw.budget.unwrap_or_default(),
             usage: raw.usage,
             lease_expiries: raw.lease_expiries,
@@ -147,8 +160,11 @@ fn default_timeout() -> crate::time::Duration {
 pub enum VerifyMetaParseError {
     #[error("unsupported verify metadata version {found} (expected {expected})")]
     Version { found: u32, expected: u32 },
-    #[error("invalid task id: {0}")]
-    Task(String),
+    #[error("invalid task id `{raw}`: {source}")]
+    Task {
+        raw: String,
+        source: crate::ids::BeadIdError,
+    },
     #[error("verify bead has no commands")]
     NoCommands,
 }
@@ -167,8 +183,12 @@ impl TryFrom<RawVerifyMeta> for VerifyMeta {
             return Err(VerifyMetaParseError::NoCommands);
         }
         Ok(Self {
-            task: BeadId::try_new(raw.task)
-                .map_err(|e| VerifyMetaParseError::Task(e.to_string()))?,
+            task: BeadId::try_new(raw.task.clone()).map_err(|source| {
+                VerifyMetaParseError::Task {
+                    raw: raw.task,
+                    source,
+                }
+            })?,
             commands: raw
                 .commands
                 .into_iter()
@@ -218,12 +238,21 @@ pub struct RawMergeMeta {
 pub enum MergeMetaParseError {
     #[error("unsupported merge metadata version {found} (expected {expected})")]
     Version { found: u32, expected: u32 },
-    #[error("invalid task id: {0}")]
-    Task(String),
-    #[error("invalid branch: {0}")]
-    Branch(String),
-    #[error("invalid head sha: {0}")]
-    Head(String),
+    #[error("invalid task id `{raw}`: {source}")]
+    Task {
+        raw: String,
+        source: crate::ids::BeadIdError,
+    },
+    #[error("invalid branch `{raw}`: {source}")]
+    Branch {
+        raw: String,
+        source: crate::ids::BranchNameError,
+    },
+    #[error("invalid head sha `{raw}`: {source}")]
+    Head {
+        raw: String,
+        source: crate::ids::ShaError,
+    },
 }
 
 impl TryFrom<RawMergeMeta> for MergeMeta {
@@ -237,11 +266,22 @@ impl TryFrom<RawMergeMeta> for MergeMeta {
             });
         }
         Ok(Self {
-            task: BeadId::try_new(raw.task)
-                .map_err(|e| MergeMetaParseError::Task(e.to_string()))?,
-            branch: crate::ids::BranchName::try_new(raw.branch)
-                .map_err(|e| MergeMetaParseError::Branch(e.to_string()))?,
-            head: Sha::try_new(raw.head).map_err(|e| MergeMetaParseError::Head(e.to_string()))?,
+            task: BeadId::try_new(raw.task.clone()).map_err(|source| {
+                MergeMetaParseError::Task {
+                    raw: raw.task,
+                    source,
+                }
+            })?,
+            branch: crate::ids::BranchName::try_new(raw.branch.clone()).map_err(|source| {
+                MergeMetaParseError::Branch {
+                    raw: raw.branch,
+                    source,
+                }
+            })?,
+            head: Sha::try_new(raw.head.clone()).map_err(|source| MergeMetaParseError::Head {
+                raw: raw.head,
+                source,
+            })?,
         })
     }
 }

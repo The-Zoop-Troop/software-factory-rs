@@ -28,12 +28,12 @@ pub struct PlanReport {
 pub enum PlannerError {
     #[error(transparent)]
     Harness(#[from] HarnessError),
-    #[error("model reported an error: {0}")]
-    ModelError(String),
+    #[error("model reported an error: {message}")]
+    ModelError { message: String },
     #[error("model returned no structured output")]
     NoStructuredOutput,
-    #[error("model output did not match the plan schema: {0}")]
-    Shape(String),
+    #[error("model output did not match the plan schema: {detail}")]
+    Shape { detail: String },
     #[error(transparent)]
     Invalid(#[from] PlanError),
     #[error(transparent)]
@@ -68,7 +68,9 @@ pub async fn plan(
         })
         .await?;
     if outcome.is_error {
-        return Err(PlannerError::ModelError(outcome.text));
+        return Err(PlannerError::ModelError {
+            message: outcome.text,
+        });
     }
     // Harnesses without native structured output (or that return it as text) fall back to
     // the first JSON object in the reply.
@@ -76,8 +78,9 @@ pub async fn plan(
         Some(v) => v,
         None => extract_json_object(&outcome.text).ok_or(PlannerError::NoStructuredOutput)?,
     };
-    let raw: RawPlan =
-        serde_json::from_value(value).map_err(|e| PlannerError::Shape(e.to_string()))?;
+    let raw: RawPlan = serde_json::from_value(value).map_err(|e| PlannerError::Shape {
+        detail: e.to_string(),
+    })?;
     let plan = raw.validate(defaults)?;
     let base = repo.head_of(main).await?;
     let mut report = materialize(store, &plan, &base).await?;
@@ -228,7 +231,7 @@ fn extract_json_object(text: &str) -> Option<serde_json::Value> {
                     return Some(v);
                 }
             }
-            _ => {}
+            _ => {} // fp-allow: matching raw bytes of untrusted text, not a domain enum
         }
     }
     None
@@ -410,7 +413,10 @@ mod tests {
         )
         .await
         .unwrap_err();
-        assert!(matches!(err, PlannerError::Invalid(PlanError::SelfNeed(_))));
+        assert!(matches!(
+            err,
+            PlannerError::Invalid(PlanError::SelfNeed { .. })
+        ));
         assert!(store.list_active(BeadKind::Epic).await.unwrap().is_empty());
     }
 
@@ -433,6 +439,6 @@ mod tests {
         )
         .await
         .unwrap_err();
-        assert!(matches!(err, PlannerError::ModelError(m) if m == "rate limited"));
+        assert!(matches!(err, PlannerError::ModelError { message } if message == "rate limited"));
     }
 }

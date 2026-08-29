@@ -9,13 +9,17 @@ use domain::{
 };
 
 use crate::bead::NewBead;
-use crate::ports::{BeadStore, StoreError};
+use crate::ports::{BeadStore, RepoError, RunError, StoreError};
 
 /// Failures of the transition workflow.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum TransitionError {
     #[error(transparent)]
     Store(#[from] StoreError),
+    #[error(transparent)]
+    Repo(#[from] RepoError),
+    #[error(transparent)]
+    Run(#[from] RunError),
     #[error("bead {0} is not a factory task (no fac:kind=task label)")]
     NotATask(BeadId),
     #[error("bead {0} has no factory metadata")]

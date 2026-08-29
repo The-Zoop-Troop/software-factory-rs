@@ -91,7 +91,10 @@ pub async fn work_once(
     ));
 
     let packet = ContextPacket::build(store, &bead, &tr.task).await?;
-    let branch = BranchName::for_task(&id).map_err(|e| RepoError::Rejected(e.to_string()))?;
+    let branch = BranchName::for_task(&id).map_err(|e| RepoError::Rejected {
+        op: crate::ports::GitOp::WorktreeAdd,
+        detail: e.to_string(),
+    })?;
     let from = repo.head_of(&cfg.main).await?;
     let worktree = repo.branch_worktree(&branch, &from).await?;
 
@@ -111,7 +114,9 @@ pub async fn work_once(
     let commit = repo
         .commit_all(&worktree, &format!("{}: {}", id, bead.title))
         .await;
-    let _ = repo.worktree_remove(worktree).await;
+    if let Err(e) = repo.worktree_remove(worktree).await {
+        tracing::warn!(error = %e, "worktree left behind; the next claim recreates it");
+    }
     let head = commit?;
     let outcome = outcome?;
 
@@ -224,9 +229,9 @@ where
                 if let Err(e) = apply_event(store, id, hb).await {
                     // A lost lease means the Steward reassigned us; stop feeding a zombie session.
                     tracing::warn!(error = %e, "heartbeat failed; abandoning session");
-                    return Err(crate::ports::HarnessError::Spawn(format!(
-                        "lease lost: {e}"
-                    )));
+                    return Err(crate::ports::HarnessError::LeaseLost {
+                        detail: e.to_string(),
+                    });
                 }
             }
         }

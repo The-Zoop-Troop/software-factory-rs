@@ -153,7 +153,7 @@ impl BeadStore for FakeStore {
             .await
             .get(id)
             .cloned()
-            .ok_or_else(|| StoreError::NotFound(id.clone()))
+            .ok_or_else(|| StoreError::NotFound { id: id.clone() })
     }
 
     async fn ready(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
@@ -175,7 +175,7 @@ impl BeadStore for FakeStore {
         let mut beads = self.beads.lock().await;
         let bead = beads
             .get_mut(id)
-            .ok_or_else(|| StoreError::NotFound(id.clone()))?;
+            .ok_or_else(|| StoreError::NotFound { id: id.clone() })?;
         bead.meta = Some(meta.clone());
         Ok(())
     }
@@ -184,14 +184,16 @@ impl BeadStore for FakeStore {
         let mut beads = self.beads.lock().await;
         let bead = beads
             .get_mut(id)
-            .ok_or_else(|| StoreError::NotFound(id.clone()))?;
+            .ok_or_else(|| StoreError::NotFound { id: id.clone() })?;
         bead.verify = Some(meta.clone());
         Ok(())
     }
 
     async fn add_needs(&self, dependent: &BeadId, blocker: &BeadId) -> Result<(), StoreError> {
         if !self.beads.lock().await.contains_key(dependent) {
-            return Err(StoreError::NotFound(dependent.clone()));
+            return Err(StoreError::NotFound {
+                id: dependent.clone(),
+            });
         }
         self.needs
             .lock()
@@ -206,7 +208,7 @@ impl BeadStore for FakeStore {
         let mut beads = self.beads.lock().await;
         let bead = beads
             .get_mut(id)
-            .ok_or_else(|| StoreError::NotFound(id.clone()))?;
+            .ok_or_else(|| StoreError::NotFound { id: id.clone() })?;
         bead.notes = Some(match bead.notes.take() {
             Some(existing) => format!("{existing}\n{text}"),
             None => text.to_owned(),
@@ -217,8 +219,10 @@ impl BeadStore for FakeStore {
     async fn create(&self, new: NewBead) -> Result<BeadId, StoreError> {
         let mut next = self.next.lock().await;
         *next += 1;
-        let id = BeadId::try_new(format!("fake-{}", *next))
-            .map_err(|e| StoreError::Rejected(e.to_string()))?;
+        let id = BeadId::try_new(format!("fake-{}", *next)).map_err(|e| StoreError::Rejected {
+            op: crate::ports::StoreOp::Create,
+            detail: e.to_string(),
+        })?;
         self.needs
             .lock()
             .await
@@ -256,7 +260,7 @@ impl BeadStore for FakeStore {
         let mut beads = self.beads.lock().await;
         let bead = beads
             .get_mut(id)
-            .ok_or_else(|| StoreError::NotFound(id.clone()))?;
+            .ok_or_else(|| StoreError::NotFound { id: id.clone() })?;
         bead.status = BeadStatus::Closed;
         Ok(())
     }
@@ -353,7 +357,9 @@ pub struct FakeRepo {
 impl Repo for FakeRepo {
     async fn worktree_add(&self, branch: &BranchName, head: &Sha) -> Result<Worktree, RepoError> {
         if self.missing.contains(head) {
-            return Err(RepoError::RefNotFound(head.to_string()));
+            return Err(RepoError::RefNotFound {
+                rev: head.to_string(),
+            });
         }
         let wt = Worktree {
             path: PathBuf::from(format!("/fake/wt/{branch}")),
@@ -390,10 +396,9 @@ impl Repo for FakeRepo {
 
     async fn rebase(&self, worktree: &Worktree, _onto: &BranchName) -> Result<Sha, RepoError> {
         if self.conflicting.contains(&worktree.head) {
-            return Err(RepoError::Conflict(format!(
-                "CONFLICT in {}",
-                worktree.branch
-            )));
+            return Err(RepoError::Conflict {
+                paths: vec![PathBuf::from("lib.sh")],
+            });
         }
         Ok(self
             .rebased_to
@@ -411,12 +416,19 @@ impl Repo for FakeRepo {
     }
 
     async fn head_of(&self, _branch: &BranchName) -> Result<Sha, RepoError> {
-        Sha::try_new("0".repeat(40)).map_err(|e| RepoError::Rejected(e.to_string()))
+        Sha::try_new("0".repeat(40)).map_err(|e| RepoError::Rejected {
+            op: crate::ports::GitOp::RevParse,
+            detail: e.to_string(),
+        })
     }
 
     async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError> {
         if self.push_fails {
-            return Err(RepoError::Unavailable("remote down".into()));
+            return Err(RepoError::Unavailable {
+                op: crate::ports::GitOp::Push,
+                cause: crate::ports::Unavailable::Network,
+                detail: "remote down".into(),
+            });
         }
         self.pushes
             .lock()
@@ -469,7 +481,8 @@ impl Runner for FakeRunner {
             .push((cwd.to_path_buf(), command.to_owned()));
         self.script.get(command).cloned().ok_or_else(|| RunError {
             command: command.to_owned(),
-            reason: "unscripted".into(),
+            cause: crate::ports::Unavailable::NotInstalled,
+            detail: "unscripted".into(),
         })
     }
 }
@@ -502,8 +515,10 @@ impl FakeHarness {
 impl Harness for FakeHarness {
     async fn run(&self, req: HarnessRequest) -> Result<HarnessOutcome, HarnessError> {
         self.requests.lock().expect("test mutex").push(req);
-        self.outcome
-            .clone()
-            .ok_or_else(|| HarnessError::Spawn("unscripted".into()))
+        self.outcome.clone().ok_or_else(|| HarnessError::Spawn {
+            bin: PathBuf::from("fake"),
+            cause: crate::ports::Unavailable::NotInstalled,
+            detail: "unscripted".into(),
+        })
     }
 }

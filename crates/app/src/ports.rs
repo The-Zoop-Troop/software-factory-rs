@@ -5,21 +5,12 @@ use std::path::{Path, PathBuf};
 use async_trait::async_trait;
 use domain::{BeadId, BeadKind, BranchName, Duration, FactoryMeta, Sha, Timestamp, VerifyMeta};
 
+pub use crate::errors::{
+    GitOp, HarnessError, HarnessStage, RepoError, RunError, StoreError, StoreOp, Unavailable,
+};
+
 use crate::bead::{Bead, NewBead};
 use crate::events::FactoryEvent;
-
-/// Failures crossing the bead-store boundary, already translated from the adapter.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum StoreError {
-    #[error("bead {0} not found")]
-    NotFound(BeadId),
-    #[error("bead store rejected the request: {0}")]
-    Rejected(String),
-    #[error("could not decode bead store output: {0}")]
-    Decode(String),
-    #[error("bead store unavailable: {0}")]
-    Unavailable(String),
-}
 
 /// The beads ledger. Implemented by the `bd` CLI adapter in `infra` and by an in-memory fake.
 #[async_trait]
@@ -90,21 +81,6 @@ pub trait Clock: Send + Sync {
     fn now(&self) -> Timestamp;
     /// Wait for `d`. Fakes return immediately (after yielding) so tests never sleep.
     async fn sleep(&self, d: Duration);
-}
-
-/// Failures from the git adapter, already translated.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum RepoError {
-    #[error("ref not found: {0}")]
-    RefNotFound(String),
-    #[error("rebase conflict: {0}")]
-    Conflict(String),
-    #[error("not a fast-forward: {branch} is not an ancestor of {to}")]
-    NotFastForward { branch: String, to: Sha },
-    #[error("git rejected the operation: {0}")]
-    Rejected(String),
-    #[error("git unavailable: {0}")]
-    Unavailable(String),
 }
 
 /// A checked-out worktree. Removed by `Repo::worktree_remove`; never dropped silently.
@@ -187,14 +163,6 @@ impl RunOutput {
     }
 }
 
-/// Failure to even start a command (as opposed to the command failing).
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-#[error("could not run `{command}`: {reason}")]
-pub struct RunError {
-    pub command: String,
-    pub reason: String,
-}
-
 /// Runs shell commands in a directory with a timeout. The verify and build sandbox.
 #[async_trait]
 pub trait Runner: Send + Sync {
@@ -242,17 +210,6 @@ pub struct HarnessOutcome {
     pub cost_micro_usd: u64,
     pub turns: u32,
     pub is_error: bool,
-}
-
-/// The harness could not run or returned garbage; a *model* error is `HarnessOutcome::is_error`.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum HarnessError {
-    #[error("harness could not start: {0}")]
-    Spawn(String),
-    #[error("harness timed out after {0}s")]
-    Timeout(u64),
-    #[error("harness output undecodable: {0}")]
-    Decode(String),
 }
 
 /// An LLM agent runner (Claude Code headless today; anything behind an A2A card tomorrow).

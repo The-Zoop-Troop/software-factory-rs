@@ -80,20 +80,20 @@ pub struct RawPlannedTask {
 pub enum PlanError {
     #[error("plan has no tasks")]
     Empty,
-    #[error("task key `{0}` is empty or malformed")]
-    BadKey(String),
-    #[error("duplicate task key `{0}`")]
-    DuplicateKey(String),
-    #[error("task `{0}` has an empty title")]
-    EmptyTitle(String),
-    #[error("task `{0}` has no verify commands")]
-    NoVerify(String),
+    #[error("task key `{key}` is empty or malformed")]
+    BadKey { key: String },
+    #[error("duplicate task key `{key}`")]
+    DuplicateKey { key: String },
+    #[error("task `{key}` has an empty title")]
+    EmptyTitle { key: String },
+    #[error("task `{key}` has no verify commands")]
+    NoVerify { key: String },
     #[error("task `{task}` needs unknown task `{needs}`")]
     UnknownNeed { task: String, needs: String },
-    #[error("task `{0}` needs itself")]
-    SelfNeed(String),
-    #[error("dependency cycle involving `{0}`")]
-    Cycle(String),
+    #[error("task `{key}` needs itself")]
+    SelfNeed { key: String },
+    #[error("dependency cycle involving `{key}`")]
+    Cycle { key: String },
 }
 
 impl RawPlan {
@@ -110,10 +110,10 @@ impl RawPlan {
         for raw in self.tasks {
             let key = parse_key(&raw.key)?;
             if !seen.insert(key.clone()) {
-                return Err(PlanError::DuplicateKey(raw.key));
+                return Err(PlanError::DuplicateKey { key: raw.key });
             }
             if raw.title.trim().is_empty() {
-                return Err(PlanError::EmptyTitle(raw.key));
+                return Err(PlanError::EmptyTitle { key: raw.key });
             }
             let verify: Vec<String> = raw
                 .verify
@@ -121,7 +121,7 @@ impl RawPlan {
                 .filter(|c| !c.trim().is_empty())
                 .collect();
             if verify.is_empty() {
-                return Err(PlanError::NoVerify(raw.key));
+                return Err(PlanError::NoVerify { key: raw.key });
             }
             let needs = raw
                 .needs
@@ -129,7 +129,7 @@ impl RawPlan {
                 .map(|n| parse_key(n))
                 .collect::<Result<Vec<_>, _>>()?;
             if needs.contains(&key) {
-                return Err(PlanError::SelfNeed(raw.key));
+                return Err(PlanError::SelfNeed { key: raw.key });
             }
             tasks.push(PlannedTask {
                 key,
@@ -182,7 +182,7 @@ fn parse_key(s: &str) -> Result<TaskKey, PlanError> {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
     {
-        return Err(PlanError::BadKey(s.to_owned()));
+        return Err(PlanError::BadKey { key: s.to_owned() });
     }
     Ok(TaskKey(t.to_owned()))
 }
@@ -204,7 +204,7 @@ fn topo_sort(tasks: Vec<PlannedTask>) -> Result<Vec<PlannedTask>, PlanError> {
                 .first()
                 .map(|t| t.key.to_string())
                 .unwrap_or_default();
-            return Err(PlanError::Cycle(stuck));
+            return Err(PlanError::Cycle { key: stuck });
         };
         let done = pending.remove(pos);
         for t in &pending {
@@ -260,11 +260,11 @@ mod tests {
         assert_eq!(v.tasks[0].key.as_str(), "a");
         assert!(matches!(
             plan(vec![raw("has space", &[])]).validate(PlanDefaults::default()),
-            Err(PlanError::BadKey(_))
+            Err(PlanError::BadKey { .. })
         ));
         assert!(matches!(
             plan(vec![raw("", &[])]).validate(PlanDefaults::default()),
-            Err(PlanError::BadKey(_))
+            Err(PlanError::BadKey { .. })
         ));
         assert!(
             plan(vec![raw("ok-key_1", &[])])
@@ -278,7 +278,7 @@ mod tests {
         let d = PlanDefaults::default();
         assert!(matches!(
             plan(vec![raw("a", &["b"]), raw("b", &["a"])]).validate(d),
-            Err(PlanError::Cycle(_))
+            Err(PlanError::Cycle { .. })
         ));
         assert!(matches!(
             plan(vec![raw("a", &["zz"])]).validate(d),
@@ -286,22 +286,22 @@ mod tests {
         ));
         assert!(matches!(
             plan(vec![raw("a", &[]), raw("a", &[])]).validate(d),
-            Err(PlanError::DuplicateKey(_))
+            Err(PlanError::DuplicateKey { .. })
         ));
         assert!(matches!(
             plan(vec![raw("a", &["a"])]).validate(d),
-            Err(PlanError::SelfNeed(_))
+            Err(PlanError::SelfNeed { .. })
         ));
         assert!(matches!(plan(vec![]).validate(d), Err(PlanError::Empty)));
         let mut nv = raw("a", &[]);
         nv.verify = vec!["  ".into()];
         assert!(matches!(
             plan(vec![nv]).validate(d),
-            Err(PlanError::NoVerify(_))
+            Err(PlanError::NoVerify { .. })
         ));
         assert!(matches!(
             plan(vec![raw("bad key", &[])]).validate(d),
-            Err(PlanError::BadKey(_))
+            Err(PlanError::BadKey { .. })
         ));
     }
 }

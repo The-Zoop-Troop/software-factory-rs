@@ -16,6 +16,7 @@
 
 pub mod bead;
 pub mod console;
+pub mod errors;
 pub mod events;
 pub mod integrator;
 pub mod planner;
@@ -31,12 +32,15 @@ pub mod testing;
 pub use bead::{Bead, BeadStatus, NewBead};
 pub use console::{EpicSummary, LedgerSummary, inbox, ledger_summary, resolve};
 pub use domain;
+pub use errors::{
+    GitOp, HarnessError, HarnessStage, RepoError, RunError, StoreError, StoreOp, Unavailable,
+};
 pub use events::{EventKind, FactoryEvent};
 pub use integrator::{IntegrateConfig, IntegrateReport, IntegratorError, integrate_once};
 pub use planner::{PlanReport, PlannerError, plan};
 pub use ports::{
-    BeadStore, Clock, EventSink, Harness, HarnessError, HarnessOutcome, HarnessRequest, Repo,
-    RepoError, RunError, RunOutput, Runner, StoreError, ToolPolicy, Worktree,
+    BeadStore, Clock, EventSink, Harness, HarnessOutcome, HarnessRequest, Repo, RunOutput, Runner,
+    ToolPolicy, Worktree,
 };
 pub use steward::{StewardError, SweepReport, sweep};
 pub use transition::{TransitionError, apply_event, load_task};

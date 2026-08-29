@@ -2,12 +2,10 @@
 //! time — rebase, run the project's own check suite, fast-forward, push. The only
 //! component that pushes to the remote. Batch-then-bisect is Phase 1.
 
-use std::fmt::Write as _;
-
 use domain::{BeadId, BeadKind, BranchName, Duration, Event, MergeMeta, TaskState};
 
 use crate::events::{EventKind, FactoryEvent};
-use crate::ports::{BeadStore, Clock, EventSink, Repo, RepoError, Runner, StoreError};
+use crate::ports::{BeadStore, Clock, EventSink, Repo, RepoError, RunError, Runner, StoreError};
 use crate::transition::{TransitionError, apply_event, load_task};
 
 /// How to integrate.
@@ -64,15 +62,15 @@ pub async fn integrate_once(
                 EventKind::Integrated {
                     merge_bead: bead.id.clone(),
                     landed: Some(sha.clone()),
-                    detail: None,
+                    rejection: None,
                 }
             }
-            Ok(Some(Landed::No(detail))) => {
+            Ok(Some(Landed::No(rejection))) => {
                 report.failed += 1;
                 EventKind::Integrated {
                     merge_bead: bead.id.clone(),
                     landed: None,
-                    detail: Some(detail.clone()),
+                    rejection: Some(rejection.clone()),
                 }
             }
             Ok(None) => {
@@ -96,9 +94,52 @@ pub async fn integrate_once(
     Ok(report)
 }
 
+/// Why a branch could not land. Reopens the task with this as the note.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "kind", rename_all = "snake_case"))]
+pub enum LandRejection {
+    Conflict {
+        onto: BranchName,
+        paths: Vec<std::path::PathBuf>,
+    },
+    CheckFailed {
+        command: String,
+        exit_code: Option<i32>,
+        timed_out: bool,
+        tail: String,
+    },
+}
+
+impl std::fmt::Display for LandRejection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Conflict { onto, paths } => {
+                write!(f, "rebase onto {onto} conflicted in {paths:?}")
+            }
+            Self::CheckFailed {
+                command,
+                exit_code,
+                timed_out,
+                tail,
+            } => {
+                write!(
+                    f,
+                    "check `{command}` failed after rebase (exit {exit_code:?}{})",
+                    if *timed_out { ", timed out" } else { "" }
+                )?;
+                if !tail.is_empty() {
+                    write!(f, "\n{tail}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
 enum Landed {
     Yes(domain::Sha),
-    No(String),
+    No(LandRejection),
 }
 
 /// `None` if the task is no longer mergeable (stale merge bead — closed as such).
@@ -127,14 +168,9 @@ async fn integrate_one(
         return Ok(None);
     }
 
-    let worktree = repo
-        .worktree_add(branch, head)
-        .await
-        .map_err(|e| repo_err(&e))?;
+    let worktree = repo.worktree_add(branch, head).await?;
     let attempt = land(repo, runner, cfg, &worktree).await;
-    repo.worktree_remove(worktree)
-        .await
-        .map_err(|e| repo_err(&e))?;
+    repo.worktree_remove(worktree).await?;
 
     match attempt {
         Ok(new_head) => {
@@ -151,7 +187,8 @@ async fn integrate_one(
                 .await?;
             Ok(Some(Landed::Yes(new_head)))
         }
-        Err(LandError::Rejected(detail)) => {
+        Err(LandError::Rejected(rejection)) => {
+            let detail = rejection.to_string();
             apply_event(
                 store,
                 &meta.task,
@@ -163,18 +200,21 @@ async fn integrate_one(
             store
                 .close(merge_bead, "integration failed; task reopened")
                 .await?;
-            Ok(Some(Landed::No(detail)))
+            Ok(Some(Landed::No(rejection)))
         }
         // Infrastructure trouble (remote down, git broken): leave everything as it was and retry later.
-        Err(LandError::Infra(e)) => Err(repo_err(&e)),
+        Err(LandError::Infra(e)) => Err(TransitionError::Repo(e)),
+        Err(LandError::Runner(e)) => Err(TransitionError::Run(e)),
     }
 }
 
 enum LandError {
     /// The branch itself is at fault: conflict or failing checks. Reopens the task.
-    Rejected(String),
+    Rejected(LandRejection),
     /// Our side is at fault. Nothing changes; try again next pass.
     Infra(RepoError),
+    /// The check runner could not start.
+    Runner(RunError),
 }
 
 /// Rebase → checks → fast-forward → push. Returns the sha now at the tip of `main`.
@@ -186,17 +226,17 @@ async fn land(
 ) -> Result<domain::Sha, LandError> {
     let new_head = match repo.rebase(worktree, &cfg.main).await {
         Ok(sha) => sha,
-        Err(RepoError::Conflict(detail)) => {
-            return Err(LandError::Rejected(format!(
-                "rebase onto {}: {detail}",
-                cfg.main
-            )));
+        Err(RepoError::Conflict { paths }) => {
+            return Err(LandError::Rejected(LandRejection::Conflict {
+                onto: cfg.main.clone(),
+                paths,
+            }));
         }
         Err(
-            e @ (RepoError::RefNotFound(_)
+            e @ (RepoError::RefNotFound { .. }
             | RepoError::NotFastForward { .. }
-            | RepoError::Rejected(_)
-            | RepoError::Unavailable(_)),
+            | RepoError::Rejected { .. }
+            | RepoError::Unavailable { .. }),
         ) => {
             return Err(LandError::Infra(e));
         }
@@ -206,15 +246,8 @@ async fn land(
         let out = runner
             .run(&worktree.path, check, cfg.check_timeout)
             .await
-            .map_err(|e| LandError::Infra(RepoError::Unavailable(e.to_string())))?;
+            .map_err(LandError::Runner)?;
         if !out.succeeded() {
-            let mut detail = format!("check `{check}` failed after rebase onto {}", cfg.main);
-            let _ = write!(
-                detail,
-                " (exit {:?}{})",
-                out.exit_code,
-                if out.timed_out { ", timed out" } else { "" }
-            );
             let tail = out
                 .stderr
                 .chars()
@@ -224,10 +257,12 @@ async fn land(
                 .into_iter()
                 .rev()
                 .collect::<String>();
-            if !tail.is_empty() {
-                let _ = write!(detail, "\n{tail}");
-            }
-            return Err(LandError::Rejected(detail));
+            return Err(LandError::Rejected(LandRejection::CheckFailed {
+                command: check.clone(),
+                exit_code: out.exit_code,
+                timed_out: out.timed_out,
+                tail,
+            }));
         }
     }
 
@@ -242,10 +277,6 @@ async fn land(
             .map_err(LandError::Infra)?;
     }
     Ok(new_head)
-}
-
-fn repo_err(e: &RepoError) -> TransitionError {
-    TransitionError::Store(StoreError::Unavailable(format!("repo: {e}")))
 }
 
 #[cfg(test)]
@@ -400,7 +431,7 @@ mod tests {
                 .unwrap()
                 .notes
                 .unwrap()
-                .contains("CONFLICT")
+                .contains("conflicted in")
         );
         assert!(store.list_active(BeadKind::Merge).await.unwrap().is_empty());
         assert!(repo.fast_forwards.lock().unwrap().is_empty());
