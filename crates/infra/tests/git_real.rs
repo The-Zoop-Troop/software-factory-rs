@@ -30,7 +30,6 @@ fn fixture() -> (PathBuf, PathBuf, GitCli) {
         std::process::id(),
         rand_suffix()
     ));
-    let origin = base.join("origin.git");
     let clone = base.join("clone");
     std::fs::create_dir_all(&base).unwrap();
     sh(

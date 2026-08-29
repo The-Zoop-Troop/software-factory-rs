@@ -19,7 +19,12 @@ pub(crate) fn lint(root: &Path) -> anyhow::Result<()> {
         if lines > MAX_LINES {
             errors.push(format!("{} has {lines} lines (max {MAX_LINES}). Split it by concern (e.g. tests into a sibling module) so it fits an agent's context.", rel(root, &file)));
         }
-        let is_bin = file.ends_with("main.rs") || file.to_string_lossy().contains("/xtask/");
+        let path = file.to_string_lossy();
+        // Binary crates and integration tests may print; library crates must trace.
+        let is_bin = ["/crates/factory/", "/crates/stewardd/", "/crates/xtask/"]
+            .iter()
+            .any(|c| path.contains(c))
+            || path.contains("/tests/");
         if !is_bin && (text.contains("println!(") || text.contains("eprintln!(")) {
             errors.push(format!("{}: println!/eprintln! outside a binary. Use `tracing` with structured fields so the output is queryable.", rel(root, &file)));
         }

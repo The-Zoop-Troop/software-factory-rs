@@ -41,6 +41,7 @@ fn sha(c: char) -> Sha {
 }
 
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn full_ledger_roundtrip() {
     let Some(dir) = ledger() else { return };
     let store = BdCli::new(&dir).with_actor("test");

@@ -12,11 +12,12 @@
     clippy::unnecessary_wraps
 )]
 
+mod run;
+
 use std::path::PathBuf;
-use std::time::Duration;
 
 use clap::Parser;
-use infra::app::{Clock, sweep};
+use infra::app::domain::Duration;
 use infra::{BdCli, JsonlSink, SystemClock};
 use tokio_util::sync::CancellationToken;
 
@@ -54,22 +55,16 @@ async fn main() -> anyhow::Result<()> {
 
     let token = CancellationToken::new();
     tokio::spawn(shutdown_signal(token.clone()));
-
-    loop {
-        match sweep(&store, &clock, &log, "stewardd").await {
-            Ok(report) => tracing::info!(?report, "sweep"),
-            Err(e) => tracing::error!(error = %e, "sweep failed"),
-        }
-        if cli.once || token.is_cancelled() {
-            break;
-        }
-        tokio::select! {
-            () = tokio::time::sleep(Duration::from_secs(cli.interval)) => {}
-            () = token.cancelled() => break,
-        }
-    }
-    tracing::info!(at = clock.now().unix_seconds(), "stewardd stopped");
-    drop(log);
+    let stop = async move { token.cancelled().await };
+    run::steward_loop(
+        &store,
+        &clock,
+        &log,
+        Duration::from_seconds(cli.interval),
+        cli.once,
+        stop,
+    )
+    .await;
     Ok(())
 }
 
