@@ -30,7 +30,10 @@ ghcr.io/the-zoop-troop/rig-base          factory, stewardd, bd, git, make, claud
    ├─ rig-jvm  (v2) Temurin JDK LTS, Maven, Gradle                   cache: ~/.m2, ~/.gradle
    ├─ rig-c-cpp(v2) gcc/clang, cmake, ninja, ccache, conan           cache: ~/.ccache, ~/.conan2
    ├─ rig-web-e2e(v2) rig-node + Playwright browsers                 sidecar-free browser testing
-   ├─ rig-dotnet, rig-ruby, rig-php, rig-elixir (on demand)
+   ├─ rig-ruby (v2)  Ruby via ruby-build, bundler, Rails deps (libpq, node for assets)   cache: ~/.bundle, vendor/bundle
+   ├─ rig-php  (v2)  PHP LTS + composer, common extensions (pdo, mbstring, intl)         cache: ~/.composer/cache
+   ├─ rig-elixir(v2) Erlang/OTP + Elixir, hex, rebar3, mix                               cache: ~/.hex, ~/.mix, _build
+   ├─ rig-dotnet (on demand)
    └─ rig-polyglot(v2) rust+python+node for monorepos (opt-in, large)
 project-provided: .factory/Dockerfile  FROM ghcr.io/the-zoop-troop/rig-<runtime>:<tag>  (+ project deps)
 ```
@@ -72,8 +75,8 @@ project-provided: .factory/Dockerfile  FROM ghcr.io/the-zoop-troop/rig-<runtime>
    rebuild trigger, nightly e2e per runtime.
 4. **byo-and-mcp** — project `.factory/Dockerfile` support, project allowlist fragment, per-rig
    `.factory/mcp.json` passed through to all three harnesses, skills mount reported by `doctor`.
-5. **runtimes-v2** — `jvm`, `c-cpp`, `web-e2e` (Playwright), `polyglot`; service sidecars
-   (`postgres`, `redis`) as compose profiles the Verifier can start.
+5. **runtimes-v2** — `jvm`, `c-cpp`, `web-e2e` (Playwright), `ruby` (Rails), `php`, `elixir`,
+   `polyglot`; service sidecars (`postgres`, `redis`) as compose profiles the Verifier can start.
 
 ## Acceptance
 
@@ -87,7 +90,7 @@ project-provided: .factory/Dockerfile  FROM ghcr.io/the-zoop-troop/rig-<runtime>
 
 - 2026-08-29 — Skills, plugins and MCP are repo-carried; images carry toolchains and OS tools only.
 - 2026-08-29 — The image is chosen by humans/registry, never by an agent.
-- 2026-08-29 — v1 runtimes: rust, python (uv), node (pnpm), go. v2: jvm, c-cpp, web-e2e, polyglot.
+- 2026-08-29 — v1 runtimes: rust, python (uv), node (pnpm), go. v2: jvm, c-cpp, web-e2e, ruby (Rails), php, elixir, polyglot (user).
 
 ## Progress
 
