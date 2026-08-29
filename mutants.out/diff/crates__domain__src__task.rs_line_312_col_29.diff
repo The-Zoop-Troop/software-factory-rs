@@ -1,0 +1,21 @@
+--- crates/domain/src/task.rs
++++ replace >= with < in Task::apply
+@@ -304,17 +304,17 @@
+                 }
+                 let expiries = self.lease_expiries.saturating_add(1);
+                 let usage = self.usage.add_wall_clock(now.since(lease.claimed_at));
+                 let note = format!(
+                     "lease held by {} expired at {}",
+                     lease.holder,
+                     now.unix_seconds()
+                 );
+-                if expiries >= MAX_LEASE_EXPIRIES {
++                if expiries < /* ~ changed by cargo-mutants ~ */ MAX_LEASE_EXPIRIES {
+                     let t = Task {
+                         usage,
+                         lease_expiries: expiries,
+                         ..self
+                     };
+                     return Ok(t.escalate(IncidentReason::LeaseStorm { expiries }));
+                 }
+                 Ok(Transition {

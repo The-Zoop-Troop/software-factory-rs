@@ -1,0 +1,21 @@
+--- crates/domain/src/task.rs
++++ delete field state from struct Task expression in Task::apply
+@@ -362,17 +362,17 @@
+                 }
+             }
+ 
+             // ---- mergeable ------------------------------------------------------------
+             (TaskState::Mergeable { .. }, Event::Merged { merged }) => {
+                 let verify = self.verify_bead.clone();
+                 Ok(Transition {
+                     task: Task {
+-                        state: TaskState::Closed { merged },
++                         /* ~ changed by cargo-mutants ~ */
+                         ..self
+                     },
+                     effects: vec![
+                         Effect::CloseTaskBead { task: id },
+                         Effect::CloseVerifyBead { verify },
+                     ],
+                 })
+             }

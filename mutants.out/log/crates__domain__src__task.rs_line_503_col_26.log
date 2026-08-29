@@ -1,0 +1,28 @@
+
+*** crates/domain/src/task.rs:503:26: replace == with != in Task::require_holder
+
+*** mutation diff:
+--- crates/domain/src/task.rs
++++ replace == with != in Task::require_holder
+@@ -495,17 +495,17 @@
+         }
+     }
+ 
+     fn require_holder(
+         id: &BeadId,
+         lease: &Lease,
+         actor: &AgentId,
+     ) -> Result<(), IllegalTransition> {
+-        if &lease.holder == actor {
++        if &lease.holder != /* ~ changed by cargo-mutants ~ */ actor {
+             Ok(())
+         } else {
+             Err(IllegalTransition::NotHolder {
+                 id: id.clone(),
+                 actor: actor.clone(),
+                 holder: lease.holder.clone(),
+             })
+         }
+
+
+*** /home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo test --no-run --verbose --package=domain@0.1.0

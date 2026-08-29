@@ -4201,13 +4201,1669 @@
           ]
         }
       ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:175:9: replace TaskState::name -> &'static str with \"\"",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "TaskState::name",
+            "return_type": "-> &'static str",
+            "span": {
+              "start": {
+                "line": 173,
+                "column": 5
+              },
+              "end": {
+                "line": 183,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 175,
+              "column": 9
+            },
+            "end": {
+              "line": 182,
+              "column": 10
+            }
+          },
+          "replacement": "\"\"",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_175_col_9.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_175_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.315418325,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.156235463,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:175:9: replace TaskState::name -> &'static str with \"xyzzy\"",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "TaskState::name",
+            "return_type": "-> &'static str",
+            "span": {
+              "start": {
+                "line": 173,
+                "column": 5
+              },
+              "end": {
+                "line": 183,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 175,
+              "column": 9
+            },
+            "end": {
+              "line": 182,
+              "column": 10
+            }
+          },
+          "replacement": "\"xyzzy\"",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_175_col_9_001.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_175_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.873155423,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.155962263,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:187:9: replace TaskState::is_terminal -> bool with false",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "TaskState::is_terminal",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 185,
+                "column": 5
+              },
+              "end": {
+                "line": 193,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 187,
+              "column": 9
+            },
+            "end": {
+              "line": 192,
+              "column": 10
+            }
+          },
+          "replacement": "false",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_187_col_9_001.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_187_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.828808846,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.152536031,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:187:9: replace TaskState::is_terminal -> bool with true",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "TaskState::is_terminal",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 185,
+                "column": 5
+              },
+              "end": {
+                "line": 193,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 187,
+              "column": 9
+            },
+            "end": {
+              "line": 192,
+              "column": 10
+            }
+          },
+          "replacement": "true",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_187_col_9.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_187_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.92745761,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.302693777,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:199:9: replace Event::name -> &'static str with \"xyzzy\"",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Event::name",
+            "return_type": "-> &'static str",
+            "span": {
+              "start": {
+                "line": 197,
+                "column": 5
+              },
+              "end": {
+                "line": 211,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 199,
+              "column": 9
+            },
+            "end": {
+              "line": 210,
+              "column": 10
+            }
+          },
+          "replacement": "\"xyzzy\"",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_199_col_9_001.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_199_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.715988944,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.101139895,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:238:9: replace Task::apply -> Result<Transition, IllegalTransition> with Ok(Default::default())",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 238,
+              "column": 9
+            },
+            "end": {
+              "line": 482,
+              "column": 10
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__domain__src__task.rs_line_238_col_9.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_238_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.058480489,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:199:9: replace Event::name -> &'static str with \"\"",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Event::name",
+            "return_type": "-> &'static str",
+            "span": {
+              "start": {
+                "line": 197,
+                "column": 5
+              },
+              "end": {
+                "line": 211,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 199,
+              "column": 9
+            },
+            "end": {
+              "line": 210,
+              "column": 10
+            }
+          },
+          "replacement": "\"\"",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_199_col_9.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_199_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.8209199919999999,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.201505346,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:249:21: delete field state from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 249,
+              "column": 21
+            },
+            "end": {
+              "line": 251,
+              "column": 23
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_249_col_21.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_249_col_21.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.66623807,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.151434672,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:294:25: delete field usage from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 294,
+              "column": 25
+            },
+            "end": {
+              "line": 294,
+              "column": 31
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_294_col_25.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_294_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.857665301,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.15376166,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:295:25: delete field state from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 295,
+              "column": 25
+            },
+            "end": {
+              "line": 295,
+              "column": 69
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_295_col_25.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_295_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.8176509140000001,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.20257667,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:269:25: delete field state from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 269,
+              "column": 25
+            },
+            "end": {
+              "line": 271,
+              "column": 27
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_269_col_25.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_269_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.765997095,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.355178539,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:302:20: delete ! in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 302,
+              "column": 20
+            },
+            "end": {
+              "line": 302,
+              "column": 21
+            }
+          },
+          "replacement": "",
+          "genre": "UnaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_302_col_20.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_302_col_20.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.509604851,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.151369707,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:312:29: replace >= with < in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 312,
+              "column": 29
+            },
+            "end": {
+              "line": 312,
+              "column": 31
+            }
+          },
+          "replacement": "<",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_312_col_29.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_312_col_29.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.8178682689999999,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.152072466,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:314:25: delete field usage from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 314,
+              "column": 25
+            },
+            "end": {
+              "line": 314,
+              "column": 31
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_314_col_25.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_314_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.934651513,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.352409854,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:315:25: delete field lease_expiries from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 315,
+              "column": 25
+            },
+            "end": {
+              "line": 315,
+              "column": 50
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_315_col_25.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_315_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.867621254,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.353743575,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:322:25: delete field usage from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 322,
+              "column": 25
+            },
+            "end": {
+              "line": 322,
+              "column": 31
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_322_col_25.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_322_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.66149657,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.303871948,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:323:25: delete field lease_expiries from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 323,
+              "column": 25
+            },
+            "end": {
+              "line": 323,
+              "column": 50
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_323_col_25.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_323_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.810382894,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.167524398,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:334:21: delete field state from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 334,
+              "column": 21
+            },
+            "end": {
+              "line": 337,
+              "column": 23
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_334_col_21.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_334_col_21.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.7109884069999999,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.155628597,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:324:25: delete field state from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 324,
+              "column": 25
+            },
+            "end": {
+              "line": 324,
+              "column": 48
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_324_col_25.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_324_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.7653308380000001,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.151964209,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:348:32: delete field usage from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 348,
+              "column": 32
+            },
+            "end": {
+              "line": 348,
+              "column": 38
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_348_col_32.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_348_col_32.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.726372405,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.201222908,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:352:29: delete field state from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 352,
+              "column": 29
+            },
+            "end": {
+              "line": 352,
+              "column": 52
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_352_col_29.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_352_col_29.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.814313434,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.15335485,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:370:25: delete field state from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 370,
+              "column": 25
+            },
+            "end": {
+              "line": 370,
+              "column": 61
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_370_col_25.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_370_col_25.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.8103101750000001,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.251616959,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:385:29: delete field state from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 385,
+              "column": 29
+            },
+            "end": {
+              "line": 385,
+              "column": 52
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_385_col_29.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_385_col_29.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.67028856,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.201442805,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:381:32: delete field usage from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 381,
+              "column": 32
+            },
+            "end": {
+              "line": 381,
+              "column": 38
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_381_col_32.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_381_col_32.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.764731125,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.40402719,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:486:9: replace Task::escalate -> Transition with Default::default()",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::escalate",
+            "return_type": "-> Transition",
+            "span": {
+              "start": {
+                "line": 485,
+                "column": 5
+              },
+              "end": {
+                "line": 496,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 486,
+              "column": 9
+            },
+            "end": {
+              "line": 495,
+              "column": 10
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__domain__src__task.rs_line_486_col_9.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_486_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.003390781,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:403:32: delete field usage from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 403,
+              "column": 32
+            },
+            "end": {
+              "line": 403,
+              "column": 38
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_403_col_32.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_403_col_32.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.715785067,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.201413942,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
     }
   ],
-  "total_mutants": 68,
-  "missed": 9,
-  "caught": 38,
+  "total_mutants": 94,
+  "missed": 15,
+  "caught": 56,
   "timeout": 0,
-  "unviable": 21,
+  "unviable": 23,
   "success": 0,
   "start_time": "2026-08-29T12:01:32.392271092Z",
   "end_time": null,

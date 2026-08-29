@@ -36,3 +36,21 @@ crates/domain/src/plan.rs:183:65: replace == with != in parse_key
 crates/domain/src/plan.rs:192:5: replace topo_sort -> Result<Vec<PlannedTask>, PlanError> with Ok(vec![])
 crates/domain/src/plan.rs:201:57: replace == with != in topo_sort
 crates/domain/src/plan.rs:198:11: delete ! in topo_sort
+crates/domain/src/task.rs:175:9: replace TaskState::name -> &'static str with ""
+crates/domain/src/task.rs:175:9: replace TaskState::name -> &'static str with "xyzzy"
+crates/domain/src/task.rs:187:9: replace TaskState::is_terminal -> bool with false
+crates/domain/src/task.rs:199:9: replace Event::name -> &'static str with "xyzzy"
+crates/domain/src/task.rs:199:9: replace Event::name -> &'static str with ""
+crates/domain/src/task.rs:249:21: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:294:25: delete field usage from struct Task expression in Task::apply
+crates/domain/src/task.rs:295:25: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:302:20: delete ! in Task::apply
+crates/domain/src/task.rs:312:29: replace >= with < in Task::apply
+crates/domain/src/task.rs:323:25: delete field lease_expiries from struct Task expression in Task::apply
+crates/domain/src/task.rs:334:21: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:324:25: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:348:32: delete field usage from struct Task expression in Task::apply
+crates/domain/src/task.rs:352:29: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:370:25: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:385:29: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:403:32: delete field usage from struct Task expression in Task::apply

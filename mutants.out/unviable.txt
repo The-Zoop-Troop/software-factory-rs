@@ -19,3 +19,5 @@ crates/domain/src/plan.rs:105:9: replace RawPlan::validate -> Result<Plan, PlanE
 crates/domain/src/plan.rs:179:5: replace parse_key -> Result<TaskKey, PlanError> with Ok(Default::default())
 crates/domain/src/plan.rs:192:5: replace topo_sort -> Result<Vec<PlannedTask>, PlanError> with Ok(vec![Default::default()])
 crates/domain/src/plan.rs:212:17: replace && with || in topo_sort
+crates/domain/src/task.rs:238:9: replace Task::apply -> Result<Transition, IllegalTransition> with Ok(Default::default())
+crates/domain/src/task.rs:486:9: replace Task::escalate -> Transition with Default::default()
