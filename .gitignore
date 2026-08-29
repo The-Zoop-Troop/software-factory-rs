@@ -1,24 +1,42 @@
+# --- build output
+/target
+/mutants.out*
+*.profraw
+*.profdata
 
-# Beads / Dolt files (added by bd init)
+# --- secrets (never commit; injected at container start)
+docker/rig.env
+docker/rig.env.*
+!docker/rig.env.example
+.env
+.env.*
+
+# --- Beads / Dolt local state (added by bd init; the tracked .beads files are bd's own)
 .dolt/
 *.db
 .beads-credential-key
 .beads/proxieddb/
+.beads/embeddeddolt/
+.beads/last-touched
+.beads/.local_version
 
-# Rust
-/target
+# --- factory runtime state on the host (rigs keep theirs in volumes)
+/.factory/
+.factory-worktrees/
+.factory-codex/
 
-# rig secrets
-docker/rig.env
-
-# IDE / local agent config
+# --- per-developer harness/IDE config (the skills symlinks ARE tracked)
 .idea/
-
-# cargo-mutants output
-/mutants.out
-
-# local harness config (per-developer)
-.claude/settings.json
+.vscode/
+.agents/
+.claude/settings*.json
 .codex/config.toml
 .codex/hooks.json
-.agents/
+.opencode/opencode.json
+
+# --- OS / editor noise
+.DS_Store
+*.swp
+*~
+*.orig
+*.log

@@ -1,3 +1,0 @@
-crates/domain/src/task.rs:269:25: delete field state from struct Task expression in Task::apply
-crates/domain/src/task.rs:315:25: delete field lease_expiries from struct Task expression in Task::apply
-crates/domain/src/task.rs:314:25: delete field usage from struct Task expression in Task::apply

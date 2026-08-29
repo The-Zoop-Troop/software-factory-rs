@@ -1,3 +1,0 @@
-crates/domain/src/counts.rs:85:9: replace Priority::get -> u8 with 0
-crates/domain/src/counts.rs:85:9: replace Priority::get -> u8 with 1
-crates/domain/src/counts.rs:109:9: replace <impl core::fmt::Display for Priority>::fmt -> core::fmt::Result with Ok(Default::default())

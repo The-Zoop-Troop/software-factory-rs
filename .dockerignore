@@ -1,0 +1,11 @@
+# Allowlist: the rig image only needs the Rust sources and the entrypoint.
+# Everything else (target/, .git, secrets, ledgers, docs) stays out of the build context.
+*
+!Cargo.toml
+!Cargo.lock
+!rust-toolchain.toml
+!clippy.toml
+!rustfmt.toml
+!crates/
+crates/**/target
+!docker/entrypoint.sh

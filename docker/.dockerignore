@@ -1,0 +1,4 @@
+# Egress image context: config only. Secrets never enter a build context.
+*
+!Dockerfile.egress
+!egress/
