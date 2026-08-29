@@ -39,6 +39,7 @@ Usage: factory doctor [OPTIONS]
 Options:
       --repo <REPO>        Path to the project clone [default: repo]
       --workdir <WORKDIR>  Directory containing `.beads/` (defaults to the current directory) [default: .]
+      --probe              Also send a one-token request through every configured harness (costs a fraction of a cent)
   -h, --help               Print help
 ```
 

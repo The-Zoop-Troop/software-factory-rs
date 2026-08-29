@@ -119,7 +119,7 @@ baked into the image.
 
 | Variable | Used by | Meaning |
 |---|---|---|
-| `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` | `worker` (Claude), `plan` | Claude Code credential (`claude setup-token`) |
+| `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, or `CLAUDE_AUTH_JSON` (base64 of `~/.claude/.credentials.json`) | `worker` (Claude), `plan` | Claude Code credential; `setup-token` preferred |
 | `OPENCODE_PROVIDER_ID`, `OPENCODE_PROVIDER_NAME`, `OPENCODE_PROVIDER_BASE_URL`, `OPENCODE_API_KEY`, `OPENCODE_MODEL` | `worker-opencode`, `plan` with `RIG_HARNESS=opencode` | Any OpenAI-compatible provider; the entrypoint writes OpenCode's config from these |
 | `OPENAI_API_KEY` or `CODEX_AUTH_JSON` (base64 of a logged-in `~/.codex/auth.json`), `CODEX_MODEL` | `worker-codex` (profile `codex`) | Codex CLI (Responses API only); the entrypoint seeds Codex's login from these |
 | `RIG_HARNESS` | any role | `claude` (default), `opencode`, `codex` |
@@ -160,7 +160,7 @@ troubleshooting — is [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). The sandbox m
 ## Operating a rig
 
 ```sh
-factory doctor                      # is this host/rig able to run? (tools, ledger, repo, credentials)
+factory doctor [--probe]            # is this host/rig able to run? --probe sends one token per configured harness
 factory plan --harness opencode --model provider/model --text "..."   # or --file plan.md
 factory work --harness claude --agent worker-1 --interval 10           # a worker loop
 factory verify --interval 10        # verifier loop

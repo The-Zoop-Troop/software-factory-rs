@@ -5,7 +5,7 @@
 ## Prerequisites
 - Linux host with **rootless** Docker (`docker info | grep rootless`) and Compose v2+.
 - One credential per harness you intend to run (see `docs/SECURITY.md` for scope):
-  `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) or `ANTHROPIC_API_KEY`; `OPENCODE_*` for an OpenAI-compatible provider; `OPENAI_API_KEY` or `CODEX_AUTH_JSON=$(base64 -w0 ~/.codex/auth.json)` for Codex — the entrypoint seeds Codex's login from these.
+  `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), `ANTHROPIC_API_KEY`, or `CLAUDE_AUTH_JSON=$(base64 -w0 ~/.claude/.credentials.json)` if host re-logins keep revoking setup tokens; `OPENCODE_*` for an OpenAI-compatible provider; `OPENAI_API_KEY` or `CODEX_AUTH_JSON=$(base64 -w0 ~/.codex/auth.json)` for Codex — the entrypoint seeds Codex's login from these.
 - Outbound access from the host to the allowlisted domains in `docker/egress/allowlist` (edit it for your git remote and registries).
 
 ## First run
@@ -13,7 +13,7 @@
 cp docker/rig.env.example docker/rig.env   # fill in; gitignored
 docker compose build                        # rig image (~1.4 GB) + egress proxy
 docker compose up -d                        # egress, steward, verifier, integrator, worker (claude)
-docker compose run --rm shell doctor           # tools, ledger, repo, credentials — with fixes
+docker compose run --rm shell doctor --probe   # tools, ledger, repo, credentials; --probe sends one token per harness
 ```
 Bring your project in: set `RIG_REPO_URL` in `rig.env` (cloned on first start), or seed the `repo` volume via `docker compose run --rm shell`.
 

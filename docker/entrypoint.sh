@@ -41,6 +41,13 @@ if [ -n "${OPENCODE_PROVIDER_ID:-}" ]; then
                             "models": { ($model): { "name":$model } } } } }' \
     > "$HOME/.config/opencode/opencode.json"
 fi
+# Claude Code: prefer CLAUDE_CODE_OAUTH_TOKEN (claude setup-token). CLAUDE_AUTH_JSON (base64 of a
+# logged-in host's ~/.claude/.credentials.json, refresh token included) is the alternative when
+# re-logins on the host keep revoking setup tokens.
+if [ -n "${CLAUDE_AUTH_JSON:-}" ] && [ -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
+  mkdir -p "$HOME/.claude" && printf '%s' "$CLAUDE_AUTH_JSON" | base64 -d > "$HOME/.claude/.credentials.json" && chmod 600 "$HOME/.claude/.credentials.json"
+fi
+
 # Codex CLI keeps its credential in $CODEX_HOME/auth.json; seed it from env at start so nothing
 # is baked into the image. An access token (ChatGPT OAuth) expires; an API key does not.
 if [ -n "${CODEX_AUTH_JSON:-}" ]; then

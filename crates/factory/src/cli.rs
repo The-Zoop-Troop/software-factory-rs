@@ -47,6 +47,9 @@ pub(crate) enum Command {
         /// Path to the project clone.
         #[arg(long, default_value = "repo")]
         repo: PathBuf,
+        /// Also send a one-token request through every configured harness (costs a fraction of a cent).
+        #[arg(long)]
+        probe: bool,
     },
     /// Summarize the ledger: tasks per epic by state, incidents, questions.
     Watch {
@@ -237,8 +240,12 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             let bead = store.show(&id).await?;
             print!("{}", render(&bead));
         }
-        Command::Doctor { repo } => {
-            let (text, ok) = crate::doctor::render(&crate::doctor::run_checks(&cli.workdir, &repo));
+        Command::Doctor { repo, probe } => {
+            let mut checks = crate::doctor::run_checks(&cli.workdir, &repo);
+            if probe {
+                checks.extend(crate::doctor::probe_harnesses(&cli.workdir).await);
+            }
+            let (text, ok) = crate::doctor::render(&checks);
             print!("{text}");
             anyhow::ensure!(ok, "doctor found problems (see fixes above)");
         }

@@ -43,6 +43,61 @@ fn tool(name: &'static str, bin: &str, args: &[&str], fix: &'static str) -> Chec
     }
 }
 
+/// A one-token request through each harness whose credential is configured, so a revoked or
+/// wrong credential is found by `doctor`, not by three failed task attempts.
+pub(crate) async fn probe_harnesses(cwd: &Path) -> Vec<Check> {
+    use infra::app::domain::{Duration, Turns};
+    use infra::app::{Harness, HarnessRequest, ToolPolicy};
+    let req = |cwd: &Path| HarnessRequest {
+        cwd: cwd.to_path_buf(),
+        system_prompt: "Reply with the single word: pong".into(),
+        prompt: "pong".into(),
+        schema: None,
+        tools: ToolPolicy::None,
+        max_turns: Turns::new(1),
+        timeout: Duration::from_seconds(90),
+    };
+    let set = |k: &str| std::env::var(k).is_ok_and(|v| !v.is_empty());
+    let mut checks = Vec::new();
+    let mut probes: Vec<(&'static str, Box<dyn Harness>)> = Vec::new();
+    if set("CLAUDE_CODE_OAUTH_TOKEN") || set("ANTHROPIC_API_KEY") || set("CLAUDE_AUTH_JSON") {
+        probes.push(("claude auth", Box::new(infra::ClaudeCli::default())));
+    }
+    if set("OPENCODE_MODEL")
+        && let Ok(spec) = std::env::var("OPENCODE_MODEL")
+        && let Ok(h) = infra::OpencodeServer::from_model_spec(&spec)
+    {
+        probes.push(("opencode auth", Box::new(h)));
+    }
+    if set("OPENAI_API_KEY") || set("CODEX_AUTH_JSON") || set("CODEX_OAUTH_TOKEN") {
+        probes.push(("codex auth", Box::new(infra::CodexCli::default())));
+    }
+    for (name, h) in probes {
+        let check = match h.run(req(cwd)).await {
+            Ok(o) if !o.is_error => Check {
+                name,
+                ok: true,
+                detail: format!("ok ({} tokens)", o.tokens),
+                fix: "",
+            },
+            Ok(o) => Check {
+                name,
+                ok: false,
+                detail: o.text.chars().take(160).collect(),
+                fix: "credential rejected: regenerate it in docker/rig.env and recreate the services",
+            },
+            Err(e) => Check {
+                name,
+                ok: false,
+                detail: e.to_string().chars().take(160).collect(),
+                fix: "harness could not run: check the binary, proxy allowlist and credential",
+            },
+        };
+        checks.push(check);
+    }
+    checks
+}
+
 /// Run every check. `workdir` holds `.beads`; `repo` is the project clone.
 pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
     let mut checks = vec![
