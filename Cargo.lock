@@ -396,9 +396,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "app",
+ "async-trait",
  "clap",
  "infra",
  "serde",
+ "serde_json",
+ "thiserror",
  "tokio",
  "toml",
  "tracing",

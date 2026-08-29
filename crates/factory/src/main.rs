@@ -7,6 +7,10 @@
 
 mod cli;
 mod doctor;
+mod remote;
+#[cfg(test)]
+mod remote_tests;
+mod telegram;
 
 use clap::Parser as _;
 

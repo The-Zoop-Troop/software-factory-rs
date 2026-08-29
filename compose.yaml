@@ -105,6 +105,23 @@ services:
     ports:
       - "127.0.0.1:${CONSOLE_PORT:-7700}:7700"
 
+  # Telegram bot: long-polls api.telegram.org (allowlisted below via the egress proxy) and
+  # talks to the console over the rig network. Needs TELEGRAM_BOT_TOKEN, TELEGRAM_CHATS, FACTORY_TOKEN.
+  telegram:
+    <<: *rig
+    command: [telegram]
+    env_file: []
+    environment:
+      HTTPS_PROXY: http://egress:8888
+      NO_PROXY: localhost,127.0.0.1,egress,console
+      RUST_LOG: ${RUST_LOG:-info}
+      RIG_NAME: ${RIG_NAME:-toy}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHATS: ${TELEGRAM_CHATS:-}
+      FACTORY_TOKEN: ${FACTORY_TOKEN:-}
+    volumes: []
+    profiles: [telegram]
+
   plan:
     <<: *rig
     restart: "no"

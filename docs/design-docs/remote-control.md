@@ -26,6 +26,10 @@ The Planner needs the rig's harness credential, which the console must never hol
 - Every remote action appends a `FactoryEvent` with `actor = remote:<client>` to the rig's `events.jsonl`.
 - `RigBudget` (`max_tokens`, `max_usd_micros` in the registry) is checked against the ledger's summed usage before a plan is accepted.
 
+## Clients
+
+`app::remote::chat` is the shared client core: the `A2aApi` port, text renderings, `/command` parsing, and the poll-to-poll `notifications` diff. `factory --rig <url> --token <t>` (`crates/factory/src/remote.rs`) maps `watch/inbox/plan/stop/doctor` onto it over `infra::A2aHttp`; `factory telegram` (`crates/factory/src/telegram.rs`) runs the same core behind Telegram long polling (`infra::TelegramApi`), answering only allowlisted chat ids and pushing state changes. Slack or Discord are another `ChatTransport` over the same loop.
+
 ## What it refuses by design
 
 Merging, force-closing tasks, editing beads, reading provider credentials. Done means verified, remotely too.

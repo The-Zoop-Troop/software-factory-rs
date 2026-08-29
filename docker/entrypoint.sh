@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Rig entrypoint: bring up the ledger and clone if missing, then run one role.
-#   rig-entrypoint steward|verify|integrate|work|plan <args>|planner|console|doctor|watch|inbox|shell|<any command>
+#   rig-entrypoint steward|verify|integrate|work|plan <args>|planner|console|telegram|doctor|watch|inbox|shell|<any command>
 set -euo pipefail
 
 RIG_DIR=/work/rig
@@ -79,6 +79,10 @@ case "$role" in
     [ -f /work/console/rigs.toml ] || printf '[[rig]]\nname = "%s"\nledger = "%s"\nevents = "%s/.factory/events.jsonl"\n' "${RIG_NAME:-toy}" "$RIG_DIR" "$RIG_DIR" > /work/console/rigs.toml
     [ -f /work/console/tokens.toml ] || { echo "[rig] console needs /work/console/tokens.toml (see docker/console/tokens.toml.example)"; exit 2; }
     exec console serve --registry /work/console/rigs.toml --tokens /work/console/tokens.toml --listen 0.0.0.0:7700 --public-url "${CONSOLE_URL:-http://127.0.0.1:7700}" "$@" ;;
+  telegram)
+    # Chat bot over the console; TELEGRAM_CHATS is a comma-separated allowlist of chat ids.
+    chats=(); IFS=, read -ra ids <<< "${TELEGRAM_CHATS:-}"; for c in "${ids[@]}"; do [ -n "$c" ] && chats+=(--chat "$c"); done
+    exec factory --rig "${FACTORY_RIG:-http://console:7700/rigs/${RIG_NAME:-toy}}" --token "${FACTORY_TOKEN:?set FACTORY_TOKEN to a console token}" telegram --bot-token "${TELEGRAM_BOT_TOKEN:?set TELEGRAM_BOT_TOKEN}" "${chats[@]}" "$@" ;;
   doctor|watch|inbox) exec factory --workdir "$RIG_DIR" "$role" "$@" ;;
   shell)     exec bash ;;
   *)         exec "$role" "$@" ;;

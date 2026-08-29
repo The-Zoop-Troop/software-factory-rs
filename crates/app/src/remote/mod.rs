@@ -3,6 +3,9 @@
 //! authorize, act, and audit. The console crate is a thin HTTP binding of this module.
 
 pub mod a2a;
+pub mod chat;
+#[cfg(test)]
+mod chat_tests;
 #[cfg(test)]
 mod remote_tests;
 pub mod service;

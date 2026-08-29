@@ -47,6 +47,10 @@ pub use ports::{
     BeadStore, Clock, EventSink, Harness, HarnessOutcome, HarnessRequest, Repo, RunOutput, Runner,
     ToolPolicy, Worktree,
 };
+pub use remote::chat::{
+    A2aApi, ChatCommand, ChatParseError, ClientError, HELP, Seen, handle, notifications,
+    parse_command, render_inbox, render_tasks,
+};
 pub use remote::service::{
     RemoteError, Sent, cancel_task, events_after, get_task, list_tasks, send_message, spend,
 };

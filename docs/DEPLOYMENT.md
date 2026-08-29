@@ -40,6 +40,19 @@ docker compose up -d planner console                               # planner ser
 curl -s localhost:7700/rigs/toy/.well-known/agent-card.json | jq .skills[].id
 curl -s -H "Authorization: Bearer $(cat phone.token)" -d '{"jsonrpc":"2.0","id":1,"method":"ListTasks"}' localhost:7700/rigs/toy/a2a
 ```
+From anywhere with the token:
+```sh
+export FACTORY_RIG=https://host/rigs/toy FACTORY_TOKEN=$(cat phone.token)
+factory doctor                      # console reachable, token accepted
+factory watch [--interval 30]       # epics + inbox
+factory inbox --resolve <id> --note "…"
+factory plan --text "…"             # queued to the rig's planner
+factory stop <epic>
+```
+Telegram: create a bot with `@BotFather`, find your chat id (`/start` the bot, then `curl https://api.telegram.org/bot<token>/getUpdates`), then
+`TELEGRAM_BOT_TOKEN=… TELEGRAM_CHATS=<id>[,<id>] FACTORY_TOKEN=$(cat phone.token) docker compose --profile telegram up -d telegram`.
+The bot answers `/plan /watch /inbox /resolve /stop /help` from listed chats only and pushes a message when a task needs you or finishes. No inbound port anywhere: it long-polls Telegram through the egress proxy.
+
 Operations, scopes, and error codes: `docs/generated/console-api.md`. Multiple rigs on one host: mount your own `docker/console/rigs.toml` (one `[[rig]]` per ledger, optional `max_tokens`/`max_usd_micros`, optional `plan_cmd`).
 
 ## One rig per worktree

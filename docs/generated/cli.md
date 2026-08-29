@@ -17,6 +17,8 @@ Commands:
   doctor     Check that this host or rig can run the factory (tools, ledger, repo, credentials)
   watch      Summarize the ledger: tasks per epic by state, incidents, questions
   inbox      Items that need a human: open incidents and questions
+  stop       Cancel an epic through the console: its open tasks are closed (needs --rig)
+  telegram   Run a Telegram bot over a remote rig (long polling; needs --rig and --token)
   plan       Run the Planner: turn a plan (text or file) into an epic of task + verify beads
   work       Run a Worker: claim ready tasks and hand each to a fresh Claude Code session
   verify     Run the Verifier: check every task awaiting verification
@@ -25,6 +27,8 @@ Commands:
 
 Options:
       --workdir <WORKDIR>  Directory containing `.beads/` (defaults to the current directory) [default: .]
+      --rig <RIG>          Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
+      --token <TOKEN>      Bearer token for --rig [env: FACTORY_TOKEN]
   -h, --help               Print help
   -V, --version            Print version
 ```
@@ -40,6 +44,8 @@ Options:
       --repo <REPO>        Path to the project clone [default: repo]
       --workdir <WORKDIR>  Directory containing `.beads/` (defaults to the current directory) [default: .]
       --probe              Also send a one-token request through every configured harness (costs a fraction of a cent)
+      --rig <RIG>          Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
+      --token <TOKEN>      Bearer token for --rig [env: FACTORY_TOKEN]
   -h, --help               Print help
 ```
 
@@ -53,6 +59,8 @@ Usage: factory watch [OPTIONS]
 Options:
       --interval <INTERVAL>  Seconds between refreshes; omit to print once
       --workdir <WORKDIR>    Directory containing `.beads/` (defaults to the current directory) [default: .]
+      --rig <RIG>            Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
+      --token <TOKEN>        Bearer token for --rig [env: FACTORY_TOKEN]
   -h, --help                 Print help
 ```
 
@@ -67,6 +75,8 @@ Options:
       --resolve <RESOLVE>  Resolve this bead (closes it; reopens its task if it was an incident)
       --workdir <WORKDIR>  Directory containing `.beads/` (defaults to the current directory) [default: .]
       --note <NOTE>        Note recorded with the resolution [default: "resolved by operator"]
+      --rig <RIG>          Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
+      --token <TOKEN>      Bearer token for --rig [env: FACTORY_TOKEN]
   -h, --help               Print help
 ```
 
@@ -93,8 +103,18 @@ Options:
           
           [default: main]
 
+      --rig <RIG>
+          Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor
+          
+          [env: FACTORY_RIG=]
+
       --file <FILE>
           Read the plan from this file instead of --text
+
+      --token <TOKEN>
+          Bearer token for --rig
+          
+          [env: FACTORY_TOKEN]
 
       --text <TEXT>
           The plan, inline
@@ -145,6 +165,11 @@ Options:
           
           [default: .]
 
+      --rig <RIG>
+          Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor
+          
+          [env: FACTORY_RIG=]
+
       --worktrees <WORKTREES>
           Directory for task worktrees
           
@@ -154,6 +179,11 @@ Options:
           Event log path (JSONL, appended)
           
           [default: .factory/events.jsonl]
+
+      --token <TOKEN>
+          Bearer token for --rig
+          
+          [env: FACTORY_TOKEN]
 
       --main <MAIN>
           Integration branch tasks are cut from
@@ -210,8 +240,10 @@ Usage: factory verify [OPTIONS]
 Options:
       --repo <REPO>            Path to the project clone [default: repo]
       --workdir <WORKDIR>      Directory containing `.beads/` (defaults to the current directory) [default: .]
+      --rig <RIG>              Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
       --worktrees <WORKTREES>  Directory for throwaway worktrees [default: .factory/worktrees]
       --events <EVENTS>        Event log path (JSONL, appended) [default: .factory/events.jsonl]
+      --token <TOKEN>          Bearer token for --rig [env: FACTORY_TOKEN]
       --interval <INTERVAL>    Seconds between passes; omit to run once and exit
   -h, --help                   Print help
 ```
@@ -226,8 +258,10 @@ Usage: factory integrate [OPTIONS]
 Options:
       --repo <REPO>                    Path to the project clone [default: repo]
       --workdir <WORKDIR>              Directory containing `.beads/` (defaults to the current directory) [default: .]
+      --rig <RIG>                      Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
       --worktrees <WORKTREES>          Directory for throwaway worktrees [default: .factory/worktrees]
       --events <EVENTS>                Event log path (JSONL, appended) [default: .factory/events.jsonl]
+      --token <TOKEN>                  Bearer token for --rig [env: FACTORY_TOKEN]
       --main <MAIN>                    Integration branch [default: main]
       --remote <REMOTE>                Remote to push main to after landing (omit for local-only)
       --check <CHECKS>                 Project-wide check to run on the rebased head before landing (repeatable)
@@ -249,6 +283,42 @@ Commands:
 
 Options:
       --workdir <WORKDIR>  Directory containing `.beads/` (defaults to the current directory) [default: .]
+      --rig <RIG>          Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
+      --token <TOKEN>      Bearer token for --rig [env: FACTORY_TOKEN]
   -h, --help               Print help
+```
+
+## `factory stop`
+
+```text
+Cancel an epic through the console: its open tasks are closed (needs --rig)
+
+Usage: factory stop [OPTIONS] <EPIC>
+
+Arguments:
+  <EPIC>  The epic id
+
+Options:
+      --workdir <WORKDIR>  Directory containing `.beads/` (defaults to the current directory) [default: .]
+      --rig <RIG>          Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
+      --token <TOKEN>      Bearer token for --rig [env: FACTORY_TOKEN]
+  -h, --help               Print help
+```
+
+## `factory telegram`
+
+```text
+Run a Telegram bot over a remote rig (long polling; needs --rig and --token)
+
+Usage: factory telegram [OPTIONS] --bot-token <BOT_TOKEN> --chat <CHATS>
+
+Options:
+      --bot-token <BOT_TOKEN>  Bot token from `@BotFather` [env: TELEGRAM_BOT_TOKEN]
+      --workdir <WORKDIR>      Directory containing `.beads/` (defaults to the current directory) [default: .]
+      --chat <CHATS>           Chat ids allowed to talk to the bot (repeatable); others are ignored
+      --rig <RIG>              Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
+      --poll <POLL>            Seconds between task polls for push notifications [default: 30]
+      --token <TOKEN>          Bearer token for --rig [env: FACTORY_TOKEN]
+  -h, --help                   Print help
 ```
 

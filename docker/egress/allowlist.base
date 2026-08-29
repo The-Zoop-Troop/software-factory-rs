@@ -18,3 +18,5 @@ crates.io
 static.crates.io
 index.crates.io
 registry.npmjs.org
+# Telegram bot (long polling from the `telegram` service)
+api.telegram.org

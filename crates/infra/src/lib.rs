@@ -13,6 +13,7 @@
     )
 )]
 
+pub mod a2a;
 pub mod bd;
 pub mod claude;
 pub mod clock;
@@ -21,6 +22,7 @@ pub mod git;
 pub mod jsonl;
 pub mod opencode;
 pub mod shell;
+pub mod telegram;
 
 pub use app;
 
@@ -45,6 +47,7 @@ pub fn classify_io(kind: std::io::ErrorKind) -> app::Unavailable {
     }
 }
 
+pub use a2a::A2aHttp;
 pub use bd::BdCli;
 pub use claude::ClaudeCli;
 pub use clock::SystemClock;
@@ -53,3 +56,4 @@ pub use git::GitCli;
 pub use jsonl::JsonlSink;
 pub use opencode::OpencodeServer;
 pub use shell::ShellRunner;
+pub use telegram::{Incoming, TelegramApi};

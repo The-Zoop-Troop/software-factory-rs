@@ -11,6 +11,8 @@ use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use domain::{BeadId, Principal, RigName};
 
+use crate::remote::a2a::Task;
+use crate::remote::chat::{A2aApi, ClientError};
 use crate::remote::{
     Authenticator, EventRecord, EventTail, PlanSubmitter, Rig, RigRegistry, SubmitError, TailError,
 };
@@ -123,4 +125,78 @@ pub fn rig(
         budget: domain::RigBudget::default(),
     };
     (rig, store, sink, tail)
+}
+
+/// A console as a client sees it: canned tasks, a log of sends/cancels, optional failure.
+#[derive(Debug, Default)]
+pub struct FakeApi {
+    pub tasks: Mutex<Vec<Task>>,
+    pub sent: Mutex<Vec<(String, Option<String>)>>,
+    pub canceled: Mutex<Vec<String>>,
+    pub fail: Option<ClientError>,
+}
+
+impl FakeApi {
+    #[must_use]
+    pub fn with_tasks(tasks: Vec<Task>) -> Self {
+        Self {
+            tasks: Mutex::new(tasks),
+            ..Self::default()
+        }
+    }
+    fn check(&self) -> Result<(), ClientError> {
+        self.fail.clone().map_or(Ok(()), Err)
+    }
+    fn find(&self, id: &str) -> Result<Task, ClientError> {
+        self.tasks
+            .lock()
+            .ok()
+            .and_then(|t| t.iter().find(|t| t.id == id).cloned())
+            .ok_or_else(|| ClientError::Refused {
+                status: 404,
+                code: Some(-32001),
+                message: format!("task `{id}` not found"),
+            })
+    }
+}
+
+#[async_trait]
+impl A2aApi for FakeApi {
+    async fn card(&self) -> Result<serde_json::Value, ClientError> {
+        self.check()?;
+        Ok(serde_json::Value::String("factory rig fake".to_owned()))
+    }
+
+    async fn list_tasks(&self) -> Result<Vec<Task>, ClientError> {
+        self.check()?;
+        Ok(self.tasks.lock().map(|t| t.clone()).unwrap_or_default())
+    }
+    async fn get_task(&self, id: &str) -> Result<Task, ClientError> {
+        self.check()?;
+        self.find(id)
+    }
+    async fn send(&self, text: &str, task_id: Option<&str>) -> Result<Task, ClientError> {
+        self.check()?;
+        if let Ok(mut s) = self.sent.lock() {
+            s.push((text.to_owned(), task_id.map(str::to_owned)));
+        }
+        match task_id {
+            Some(id) => self.find(id),
+            None => self
+                .tasks
+                .lock()
+                .ok()
+                .and_then(|t| t.first().cloned())
+                .ok_or(ClientError::Decode {
+                    detail: "no tasks seeded".to_owned(),
+                }),
+        }
+    }
+    async fn cancel(&self, id: &str) -> Result<Task, ClientError> {
+        self.check()?;
+        if let Ok(mut c) = self.canceled.lock() {
+            c.push(id.to_owned());
+        }
+        self.find(id)
+    }
 }

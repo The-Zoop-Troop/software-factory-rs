@@ -29,6 +29,13 @@ pub(crate) struct Cli {
     /// Directory containing `.beads/` (defaults to the current directory).
     #[arg(long, global = true, default_value = ".")]
     pub(crate) workdir: PathBuf,
+    /// Operate a remote rig through its console instead of a local ledger
+    /// (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor.
+    #[arg(long, global = true, env = "FACTORY_RIG")]
+    pub(crate) rig: Option<String>,
+    /// Bearer token for --rig.
+    #[arg(long, global = true, env = "FACTORY_TOKEN", hide_env_values = true)]
+    pub(crate) token: Option<String>,
     #[command(subcommand)]
     pub(crate) command: Command,
 }
@@ -65,6 +72,26 @@ pub(crate) enum Command {
         /// Note recorded with the resolution.
         #[arg(long, default_value = "resolved by operator")]
         note: String,
+    },
+    /// Cancel an epic through the console: its open tasks are closed (needs --rig).
+    Stop {
+        /// The epic id.
+        epic: String,
+    },
+    /// Run a Telegram bot over a remote rig (long polling; needs --rig and --token).
+    Telegram {
+        /// Bot token from `@BotFather`.
+        #[arg(long, env = "TELEGRAM_BOT_TOKEN", hide_env_values = true)]
+        bot_token: String,
+        /// Chat ids allowed to talk to the bot (repeatable); others are ignored.
+        #[arg(long = "chat", required = true)]
+        chats: Vec<i64>,
+        /// Seconds between task polls for push notifications.
+        #[arg(long, default_value_t = 30)]
+        poll: u64,
+        /// Telegram API base (tests point this at a local server).
+        #[arg(long, default_value = "https://api.telegram.org", hide = true)]
+        api_base: String,
     },
     /// Run the Planner: turn a plan (text or file) into an epic of task + verify beads.
     Plan {
@@ -236,8 +263,19 @@ pub(crate) enum BeadCommand {
     reason = "one linear dispatch; the single wiring site"
 )]
 pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
+    if let Some(rig) = cli.rig.as_deref() {
+        let token = cli
+            .token
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("--rig needs --token (or FACTORY_TOKEN)"))?;
+        let api = infra::A2aHttp::new(rig, token)?;
+        return crate::remote::run_remote(&api, cli.command).await;
+    }
     let store = BdCli::new(&cli.workdir).with_actor("factory");
     match cli.command {
+        Command::Stop { .. } | Command::Telegram { .. } => {
+            anyhow::bail!("this command operates a remote rig: add --rig <url> --token <token>")
+        }
         Command::Version => println!("factory {}", env!("CARGO_PKG_VERSION")),
         Command::Bead {
             command: BeadCommand::Show { id },
