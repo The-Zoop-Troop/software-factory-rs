@@ -210,7 +210,7 @@ exact CLI/API contracts are in [`docs/references/`](docs/references/index.md).
 See [`CONTRIBUTING.md`](CONTRIBUTING.md). In short: read `AGENTS.md`, claim or file a bead,
 keep PRs small and short-lived, run the full gate locally (`cargo fmt --check`, `clippy`,
 `nextest`, `deny`, `xtask lint-fp|lint-taste|lint-docs|gen-docs --check|coverage`), walk the
-skill's [`code-review.md`](skills/rust-fp-skill/references/code-review.md) before declaring done,
+skill's [review checklist](skills/rust-fp-skill/references/code-review.md) before declaring done,
 and record decisions in the exec plan, not in chat. Agent-authored PRs are welcome and expected.
 
 ## Roadmap

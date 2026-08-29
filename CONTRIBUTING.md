@@ -17,7 +17,7 @@ follow the same path.
    cargo xtask lint-fp && cargo xtask lint-taste && cargo xtask lint-docs && cargo xtask gen-docs --check
    cargo xtask coverage
    ```
-4. **Self-review** with the skill's [`code-review.md`](skills/rust-fp-skill/references/code-review.md)
+4. **Self-review** with the skill's [review checklist](skills/rust-fp-skill/references/code-review.md)
    checklist. Report honestly: a claimed-green report that is red is worse than no report.
 5. **Document decisions** in the relevant exec plan under `docs/exec-plans/` (decision log), and
    keep `Status`/`Verified` lines current. `docs/generated/` is regenerated, never hand-edited.
