@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(sample C)
+add_library(sample sample.c)
+add_executable(sample_test sample_test.c)
+target_link_libraries(sample_test sample)
+enable_testing()
+add_test(NAME greet COMMAND sample_test)

@@ -1,0 +1,6 @@
+[runtime]
+name = "web-e2e"
+
+[[tools]]
+bin = "node"
+version_cmd = "node --version"

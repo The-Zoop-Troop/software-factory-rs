@@ -97,6 +97,19 @@ services:
     command: [shell]
     profiles: [tools]
 
+  # Verifier sidecars: opt-in services on the rig network for verify commands that need them.
+  # `docker compose --profile postgres up -d postgres`; reachable as postgres:5432 / redis:6379.
+  postgres:
+    image: postgres:17-alpine
+    profiles: [postgres]
+    environment: { POSTGRES_PASSWORD: factory, POSTGRES_USER: factory, POSTGRES_DB: factory }
+    networks: [rig]
+    tmpfs: [/var/lib/postgresql/data]
+  redis:
+    image: redis:7-alpine
+    profiles: [redis]
+    networks: [rig]
+
 networks:
   rig:
     internal: true          # no default route: only `egress` can reach outside

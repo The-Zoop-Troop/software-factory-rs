@@ -73,6 +73,10 @@ impl BeadStore for FlakyStore {
         self.write(crate::ports::StoreOp::Note)?;
         self.inner.note(id, text).await
     }
+    async fn label(&self, id: &BeadId, label: &str) -> Result<(), StoreError> {
+        self.write(crate::ports::StoreOp::Note)?;
+        self.inner.label(id, label).await
+    }
     async fn create(&self, new: NewBead) -> Result<BeadId, StoreError> {
         self.write(crate::ports::StoreOp::Create)?;
         self.inner.create(new).await

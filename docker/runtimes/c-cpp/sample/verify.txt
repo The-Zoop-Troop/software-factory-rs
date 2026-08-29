@@ -1,0 +1,3 @@
+cmake -S . -B build -G Ninja >/dev/null
+cmake --build build >/dev/null
+ctest --test-dir build --output-on-failure

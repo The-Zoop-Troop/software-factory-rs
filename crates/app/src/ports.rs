@@ -66,6 +66,12 @@ pub trait BeadStore: Send + Sync {
     /// `NotFound` or transport failures.
     async fn close(&self, id: &BeadId, reason: &str) -> Result<(), StoreError>;
 
+    /// Add a label.
+    ///
+    /// # Errors
+    /// `NotFound` or transport failures.
+    async fn label(&self, id: &BeadId, label: &str) -> Result<(), StoreError>;
+
     /// Direct children of `id` (any status).
     ///
     /// # Errors

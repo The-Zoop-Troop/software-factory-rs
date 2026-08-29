@@ -1,0 +1,9 @@
+[runtime]
+name = "c-cpp"
+
+[[tools]]
+bin = "cmake"
+version_cmd = "cmake --version | head -1"
+
+[[tools]]
+bin = "gcc"

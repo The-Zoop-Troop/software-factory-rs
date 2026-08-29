@@ -1,0 +1,11 @@
+[runtime]
+name = "polyglot"
+
+[[tools]]
+bin = "cargo"
+
+[[tools]]
+bin = "uv"
+
+[[tools]]
+bin = "pnpm"

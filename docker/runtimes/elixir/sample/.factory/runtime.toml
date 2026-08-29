@@ -1,0 +1,9 @@
+[runtime]
+name = "elixir"
+
+[[tools]]
+bin = "mix"
+
+[[tools]]
+bin = "elixir"
+version_cmd = "elixir --version | tail -1"

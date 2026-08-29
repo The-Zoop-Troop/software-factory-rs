@@ -22,6 +22,7 @@ pub mod integrator;
 pub mod mcp;
 pub mod planner;
 pub mod ports;
+pub mod remote;
 pub mod steward;
 pub mod transition;
 pub mod verifier;
@@ -43,6 +44,12 @@ pub use planner::{PlanReport, PlannerError, plan};
 pub use ports::{
     BeadStore, Clock, EventSink, Harness, HarnessOutcome, HarnessRequest, Repo, RunOutput, Runner,
     ToolPolicy, Worktree,
+};
+pub use remote::service::{
+    RemoteError, Sent, cancel_task, events_after, get_task, list_tasks, send_message, spend,
+};
+pub use remote::{
+    Authenticator, EventRecord, EventTail, PlanSubmitter, Rig, RigRegistry, SubmitError, TailError,
 };
 pub use steward::{StewardError, SweepReport, sweep};
 pub use transition::{TransitionError, apply_event, load_task};

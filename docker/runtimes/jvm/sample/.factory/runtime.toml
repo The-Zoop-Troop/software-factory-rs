@@ -1,0 +1,10 @@
+[runtime]
+name = "jvm"
+
+[[tools]]
+bin = "java"
+version_cmd = "java -version 2>&1 | head -1"
+
+[[tools]]
+bin = "mvn"
+version_cmd = "mvn -v | head -1"

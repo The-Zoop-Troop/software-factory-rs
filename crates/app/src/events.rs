@@ -49,6 +49,8 @@ pub enum EventKind {
     },
     /// A sweep step failed; recorded, not fatal.
     Error { detail: String },
+    /// A remote client acted (or was refused) through the console. `actor` is `remote:<client>`.
+    Remote { action: String, detail: String },
 }
 
 /// One line of the event log.

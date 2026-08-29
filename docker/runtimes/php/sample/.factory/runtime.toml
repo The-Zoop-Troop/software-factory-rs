@@ -1,0 +1,9 @@
+[runtime]
+name = "php"
+
+[[tools]]
+bin = "php"
+version_cmd = "php --version | head -1"
+
+[[tools]]
+bin = "composer"

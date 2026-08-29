@@ -116,3 +116,45 @@ mod tests {
         assert!(Sha::try_new("abc").is_err());
     }
 }
+
+/// Name of a rig in the console's registry (e.g. `toy`, `api-prod`).
+#[nutype(
+    sanitize(trim),
+    validate(not_empty, len_char_max = 40, regex = r"^[a-z0-9][a-z0-9_-]*$"),
+    derive(
+        Debug,
+        Clone,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        Hash,
+        Display,
+        AsRef,
+        TryFrom,
+        Serialize,
+        Deserialize
+    )
+)]
+pub struct RigName(String);
+
+/// Identity of a remote client (a person's CLI, a bot, another agent).
+#[nutype(
+    sanitize(trim),
+    validate(not_empty, len_char_max = 64, regex = r"^[A-Za-z0-9][A-Za-z0-9_.@-]*$"),
+    derive(
+        Debug,
+        Clone,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        Hash,
+        Display,
+        AsRef,
+        TryFrom,
+        Serialize,
+        Deserialize
+    )
+)]
+pub struct ClientId(String);

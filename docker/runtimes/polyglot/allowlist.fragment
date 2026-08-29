@@ -1,0 +1,13 @@
+# Rust: crates.io index and downloads, rustup component downloads.
+crates.io
+static.crates.io
+index.crates.io
+static.rust-lang.org
+# Python: PyPI, uv-managed interpreters.
+pypi.org
+files.pythonhosted.org
+github.com
+objects.githubusercontent.com
+# Node: npm registry (pnpm/npm/yarn), Node downloads.
+registry.npmjs.org
+nodejs.org

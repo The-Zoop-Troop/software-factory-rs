@@ -1,0 +1,2 @@
+composer install --quiet --no-interaction
+vendor/bin/phpunit --no-progress tests

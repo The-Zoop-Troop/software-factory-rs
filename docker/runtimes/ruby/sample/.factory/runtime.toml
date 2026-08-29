@@ -1,0 +1,9 @@
+[runtime]
+name = "ruby"
+
+[[tools]]
+bin = "ruby"
+version_cmd = "ruby --version"
+
+[[tools]]
+bin = "bundle"

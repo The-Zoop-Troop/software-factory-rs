@@ -16,10 +16,18 @@ done
 echo "==> base"
 docker build -q -f docker/base/Dockerfile -t factory-rig:base . >/dev/null
 IMAGE=factory-rig:base
+# A runtime layers on the image named by its Dockerfile's `ARG BASE=factory-rig:<x>` default;
+# build that parent first (web-e2e sits on node, polyglot on rust).
+build_runtime() {
+  local rt=$1 parent
+  [ -f "docker/runtimes/$rt/Dockerfile" ] || { echo "unknown runtime: $rt (see docker/runtimes/)"; exit 2; }
+  parent=$(sed -nE 's/^ARG BASE=factory-rig:([a-z0-9-]+)$/\1/p' "docker/runtimes/$rt/Dockerfile" | head -1)
+  [ "${parent:-base}" = base ] || build_runtime "$parent"
+  echo "==> runtime $rt (from ${parent:-base})"
+  docker build -q -f "docker/runtimes/$rt/Dockerfile" --build-arg BASE="factory-rig:${parent:-base}" -t "factory-rig:$rt" docker/runtimes >/dev/null
+}
 if [ "$RUNTIME" != base ]; then
-  [ -f "docker/runtimes/$RUNTIME/Dockerfile" ] || { echo "unknown runtime: $RUNTIME (see docker/runtimes/)"; exit 2; }
-  echo "==> runtime $RUNTIME"
-  docker build -q -f "docker/runtimes/$RUNTIME/Dockerfile" --build-arg BASE=factory-rig:base -t "factory-rig:$RUNTIME" docker/runtimes >/dev/null
+  build_runtime "$RUNTIME"
   IMAGE="factory-rig:$RUNTIME"
 fi
 if [ -n "$PROJECT" ] && [ -f "$PROJECT/.factory/Dockerfile" ]; then

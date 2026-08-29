@@ -1,0 +1,2 @@
+pnpm install --frozen-lockfile=false --silent
+pnpm test

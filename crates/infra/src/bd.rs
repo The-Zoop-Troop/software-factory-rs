@@ -328,6 +328,15 @@ impl BeadStore for BdCli {
         .map(|_| ())
     }
 
+    async fn label(&self, id: &BeadId, label: &str) -> Result<(), StoreError> {
+        self.run(
+            StoreOp::Note,
+            &["label", "add", id.as_ref(), label, "--json"],
+        )
+        .await
+        .map(|_| ())
+    }
+
     async fn create(&self, new: NewBead) -> Result<BeadId, StoreError> {
         let priority = new.priority.get().to_string();
         let label = new.kind.label();

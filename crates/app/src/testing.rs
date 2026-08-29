@@ -223,6 +223,17 @@ impl BeadStore for FakeStore {
         Ok(())
     }
 
+    async fn label(&self, id: &BeadId, label: &str) -> Result<(), StoreError> {
+        let mut beads = self.beads.lock().await;
+        let bead = beads
+            .get_mut(id)
+            .ok_or_else(|| StoreError::NotFound { id: id.clone() })?;
+        if !bead.labels.iter().any(|l| l == label) {
+            bead.labels.push(label.to_owned());
+        }
+        Ok(())
+    }
+
     async fn create(&self, new: NewBead) -> Result<BeadId, StoreError> {
         let mut next = self.next.lock().await;
         *next += 1;
@@ -542,3 +553,7 @@ impl Harness for FakeHarness {
 #[path = "testing_flaky.rs"]
 mod flaky;
 pub use flaky::FlakyStore;
+
+/// Remote-control fakes live in a sibling file to keep this one under the size cap.
+#[path = "testing_remote.rs"]
+pub mod remote;

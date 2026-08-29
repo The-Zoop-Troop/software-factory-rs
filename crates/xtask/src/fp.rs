@@ -205,7 +205,9 @@ fn rust_files(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
             out.extend(rust_files(&p)?);
         } else if p.extension().is_some_and(|e| e == "rs")
             && !p.to_string_lossy().ends_with("_tests.rs")
-            && !p.ends_with("testing.rs")
+            && !p
+                .file_name()
+                .is_some_and(|n| n.to_string_lossy().starts_with("testing"))
         {
             out.push(p);
         }
