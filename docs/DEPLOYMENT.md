@@ -5,7 +5,7 @@
 ## Prerequisites
 - Linux host with **rootless** Docker (`docker info | grep rootless`) and Compose v2+.
 - One credential per harness you intend to run (see `docs/SECURITY.md` for scope):
-  `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) or `ANTHROPIC_API_KEY`; `OPENCODE_*` for an OpenAI-compatible provider; `OPENAI_API_KEY` for Codex.
+  `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) or `ANTHROPIC_API_KEY`; `OPENCODE_*` for an OpenAI-compatible provider; `OPENAI_API_KEY` or `CODEX_AUTH_JSON=$(base64 -w0 ~/.codex/auth.json)` for Codex — the entrypoint seeds Codex's login from these.
 - Outbound access from the host to the allowlisted domains in `docker/egress/allowlist` (edit it for your git remote and registries).
 
 ## First run

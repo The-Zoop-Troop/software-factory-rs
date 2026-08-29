@@ -41,6 +41,18 @@ if [ -n "${OPENCODE_PROVIDER_ID:-}" ]; then
                             "models": { ($model): { "name":$model } } } } }' \
     > "$HOME/.config/opencode/opencode.json"
 fi
+# Codex CLI keeps its credential in $CODEX_HOME/auth.json; seed it from env at start so nothing
+# is baked into the image. An access token (ChatGPT OAuth) expires; an API key does not.
+if [ -n "${CODEX_AUTH_JSON:-}" ]; then
+  # base64 of a logged-in host's ~/.codex/auth.json (ChatGPT OAuth tokens incl. refresh token).
+  mkdir -p "$HOME/.codex" && printf '%s' "$CODEX_AUTH_JSON" | base64 -d > "$HOME/.codex/auth.json" && chmod 600 "$HOME/.codex/auth.json"
+elif [ -n "${CODEX_OAUTH_TOKEN:-}" ]; then
+  # An agent-identity JWT (not a ChatGPT access token).
+  printf '%s' "$CODEX_OAUTH_TOKEN" | codex login --with-access-token >/dev/null 2>&1 || echo "[rig] codex login (access token) failed" >&2
+elif [ -n "${OPENAI_API_KEY:-}" ]; then
+  printf '%s' "$OPENAI_API_KEY" | codex login --with-api-key >/dev/null 2>&1 || echo "[rig] codex login (api key) failed" >&2
+fi
+
 HARNESS_ARGS=(--harness "${RIG_HARNESS:-claude}")
 [ -n "${OPENCODE_MODEL:-}" ] && [ "${RIG_HARNESS:-claude}" = opencode ] && HARNESS_ARGS+=(--model "$OPENCODE_MODEL")
 [ -n "${CODEX_MODEL:-}" ] && [ "${RIG_HARNESS:-claude}" = codex ] && HARNESS_ARGS+=(--model "$CODEX_MODEL")

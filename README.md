@@ -121,7 +121,7 @@ baked into the image.
 |---|---|---|
 | `CLAUDE_CODE_OAUTH_TOKEN` or `ANTHROPIC_API_KEY` | `worker` (Claude), `plan` | Claude Code credential (`claude setup-token`) |
 | `OPENCODE_PROVIDER_ID`, `OPENCODE_PROVIDER_NAME`, `OPENCODE_PROVIDER_BASE_URL`, `OPENCODE_API_KEY`, `OPENCODE_MODEL` | `worker-opencode`, `plan` with `RIG_HARNESS=opencode` | Any OpenAI-compatible provider; the entrypoint writes OpenCode's config from these |
-| `OPENAI_API_KEY`, `CODEX_MODEL` | `worker-codex` (profile `codex`) | Codex CLI (Responses API only) |
+| `OPENAI_API_KEY` or `CODEX_AUTH_JSON` (base64 of a logged-in `~/.codex/auth.json`), `CODEX_MODEL` | `worker-codex` (profile `codex`) | Codex CLI (Responses API only); the entrypoint seeds Codex's login from these |
 | `RIG_HARNESS` | any role | `claude` (default), `opencode`, `codex` |
 | `RIG_PREFIX`, `RIG_REPO_URL`, `RIG_MAIN`, `RIG_GIT_NAME`, `RIG_GIT_EMAIL` | entrypoint | ledger prefix, project clone, integration branch, commit identity |
 | `FACTORY_LOG_FORMAT=json` | any role | one JSON object per log line |
