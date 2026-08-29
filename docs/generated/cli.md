@@ -341,7 +341,7 @@ Commands:
   help     Print this message or the help of the given subcommand(s)
 
 Options:
-      --root <ROOT>        Where rig files live (registry, per-rig env and secrets, console config) [env: FACTORY_ROOT=] [default: /home/mazup/.factory]
+      --root <ROOT>        Where rig files live (registry, per-rig env and secrets, console config); `~` expands [env: FACTORY_ROOT=] [default: ~/.factory]
       --workdir <WORKDIR>  Directory containing `.beads/` (defaults to the current directory) [default: .]
       --compose <COMPOSE>  The shared rig compose file [env: FACTORY_COMPOSE=] [default: compose.yaml]
       --rig <RIG>          Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]

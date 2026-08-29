@@ -213,11 +213,12 @@ pub(crate) enum Command {
     },
 }
 
-fn default_root() -> PathBuf {
-    std::env::var_os("HOME").map_or_else(
-        || PathBuf::from(".factory"),
-        |h| PathBuf::from(h).join(".factory"),
-    )
+/// `~/x` → `$HOME/x`; anything else unchanged.
+pub(crate) fn expand_home(p: PathBuf) -> PathBuf {
+    match (p.strip_prefix("~"), std::env::var_os("HOME")) {
+        (Ok(rest), Some(home)) => PathBuf::from(home).join(rest),
+        (Ok(_), None) | (Err(_), _) => p,
+    }
 }
 
 /// Which agent runner executes LLM sessions.
