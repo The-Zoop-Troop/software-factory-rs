@@ -6,6 +6,7 @@
 )]
 
 mod cli;
+mod doctor;
 
 use clap::Parser as _;
 

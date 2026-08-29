@@ -16,7 +16,8 @@ use clap::{Parser, Subcommand};
 use infra::app::Harness;
 use infra::app::domain::{AgentId, BeadId, BranchName, Duration, PlanDefaults, TaskState};
 use infra::app::{
-    Bead, BeadStore, IntegrateConfig, WorkerConfig, integrate_once, plan, verify_once, work_once,
+    Bead, BeadStore, IntegrateConfig, WorkerConfig, inbox, integrate_once, ledger_summary, plan,
+    resolve, verify_once, work_once,
 };
 use infra::{
     BdCli, ClaudeCli, CodexCli, GitCli, JsonlSink, OpencodeServer, ShellRunner, SystemClock,
@@ -40,6 +41,27 @@ pub(crate) enum Command {
     Bead {
         #[command(subcommand)]
         command: BeadCommand,
+    },
+    /// Check that this host or rig can run the factory (tools, ledger, repo, credentials).
+    Doctor {
+        /// Path to the project clone.
+        #[arg(long, default_value = "repo")]
+        repo: PathBuf,
+    },
+    /// Summarize the ledger: tasks per epic by state, incidents, questions.
+    Watch {
+        /// Seconds between refreshes; omit to print once.
+        #[arg(long)]
+        interval: Option<u64>,
+    },
+    /// Items that need a human: open incidents and questions.
+    Inbox {
+        /// Resolve this bead (closes it; reopens its task if it was an incident).
+        #[arg(long)]
+        resolve: Option<String>,
+        /// Note recorded with the resolution.
+        #[arg(long, default_value = "resolved by operator")]
+        note: String,
     },
     /// Run the Planner: turn a plan (text or file) into an epic of task + verify beads.
     Plan {
@@ -215,6 +237,42 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             let bead = store.show(&id).await?;
             print!("{}", render(&bead));
         }
+        Command::Doctor { repo } => {
+            let (text, ok) = crate::doctor::render(&crate::doctor::run_checks(&cli.workdir, &repo));
+            print!("{text}");
+            anyhow::ensure!(ok, "doctor found problems (see fixes above)");
+        }
+        Command::Watch { interval } => loop {
+            let s = ledger_summary(&store).await?;
+            print!("{}", render_summary(&s));
+            let Some(secs) = interval else { break };
+            tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
+        },
+        Command::Inbox {
+            resolve: target,
+            note,
+        } => {
+            if let Some(id) = target {
+                let id = BeadId::try_new(id)?;
+                match resolve(&store, &id, &note).await? {
+                    Some(task) => println!("resolved {id}; reopened {task}"),
+                    None => println!("resolved {id}"),
+                }
+            }
+            let items = inbox(&store).await?;
+            if items.is_empty() {
+                println!("inbox empty");
+            }
+            for b in items {
+                println!(
+                    "{}  [{}] {}\n    {}",
+                    b.id,
+                    b.kind.map_or("?", |k| k.as_str()),
+                    b.title,
+                    b.description.lines().next().unwrap_or_default()
+                );
+            }
+        }
         Command::Plan {
             repo,
             main,
@@ -351,6 +409,32 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// `factory watch` output.
+pub(crate) fn render_summary(s: &infra::app::LedgerSummary) -> String {
+    let mut out = String::new();
+    for (id, e) in &s.epics {
+        let states = e
+            .by_state
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        let _ = writeln!(
+            out,
+            "{id}  {}  [{}/{}] {states}",
+            e.title,
+            e.by_state.get("closed").copied().unwrap_or(0),
+            e.total
+        );
+    }
+    let _ = writeln!(
+        out,
+        "tasks outside epics: {}  incidents: {}  questions: {}",
+        s.tasks_without_epic, s.open_incidents, s.open_questions
+    );
+    out
+}
+
 pub(crate) fn render(b: &Bead) -> String {
     let mut out = String::new();
     // Writing to a String cannot fail; the Results are discarded deliberately.
@@ -408,165 +492,5 @@ pub(crate) fn render(b: &Bead) -> String {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
-mod tests {
-    use clap::Parser as _;
-    use infra::app::domain::{
-        AgentId, Budget, Duration, FactoryMeta, Lease, Sha, TaskState, Timestamp, Usage,
-    };
-    use infra::app::{Bead, BeadStatus};
-
-    use super::*;
-
-    #[test]
-    fn parses_every_command() {
-        let c = Cli::parse_from(["factory", "version"]);
-        assert!(matches!(c.command, Command::Version));
-        let c = Cli::parse_from(["factory", "--workdir", "/w", "bead", "show", "fac-1"]);
-        assert_eq!(c.workdir, PathBuf::from("/w"));
-        assert!(
-            matches!(c.command, Command::Bead { command: BeadCommand::Show { ref id } } if id == "fac-1")
-        );
-        let c = Cli::parse_from([
-            "factory",
-            "plan",
-            "--harness",
-            "opencode",
-            "--model",
-            "p/m",
-            "--text",
-            "hi",
-        ]);
-        assert!(matches!(
-            c.command,
-            Command::Plan {
-                harness: HarnessKind::Opencode,
-                ..
-            }
-        ));
-        let c = Cli::parse_from([
-            "factory",
-            "work",
-            "--harness",
-            "codex",
-            "--agent",
-            "w9",
-            "--lease-ttl",
-            "7",
-            "--interval",
-            "3",
-        ]);
-        assert!(
-            matches!(c.command, Command::Work { harness: HarnessKind::Codex, ref agent, lease_ttl: 7, interval: Some(3), .. } if agent == "w9")
-        );
-        let c = Cli::parse_from(["factory", "verify", "--repo", "r"]);
-        assert!(matches!(c.command, Command::Verify { interval: None, .. }));
-        let c = Cli::parse_from([
-            "factory",
-            "integrate",
-            "--check",
-            "a",
-            "--check",
-            "b",
-            "--remote",
-            "origin",
-        ]);
-        assert!(
-            matches!(c.command, Command::Integrate { ref checks, remote: Some(ref r), .. } if checks.len() == 2 && r == "origin")
-        );
-        assert!(Cli::try_parse_from(["factory", "bogus"]).is_err());
-    }
-
-    #[test]
-    fn build_harness_variants() {
-        assert!(build_harness(HarnessKind::Claude, Some("m".into()), 1.0).is_ok());
-        assert!(build_harness(HarnessKind::Codex, None, 1.0).is_ok());
-        assert!(build_harness(HarnessKind::Opencode, Some("p/m".into()), 1.0).is_ok());
-        assert!(
-            build_harness(HarnessKind::Opencode, None, 1.0).is_err(),
-            "opencode needs a model"
-        );
-        assert!(build_harness(HarnessKind::Opencode, Some("nope".into()), 1.0).is_err());
-    }
-
-    fn bead(meta: Option<FactoryMeta>) -> Bead {
-        Bead {
-            id: infra::app::domain::BeadId::try_new("fac-1").unwrap(),
-            title: "t".into(),
-            description: String::new(),
-            acceptance: Some("acc".into()),
-            notes: Some("n1\nn2".into()),
-            status: BeadStatus::Open,
-            labels: vec![],
-            parent: None,
-            kind: meta.is_some().then_some(infra::app::domain::BeadKind::Task),
-            meta,
-            verify: None,
-            merge: None,
-        }
-    }
-
-    fn meta(state: TaskState) -> FactoryMeta {
-        FactoryMeta {
-            verify_bead: infra::app::domain::BeadId::try_new("fac-2").unwrap(),
-            base: Sha::try_new("a".repeat(40)).unwrap(),
-            budget: Budget::default(),
-            usage: Usage::default(),
-            lease_expiries: 0,
-            state,
-        }
-    }
-
-    #[test]
-    fn render_covers_every_state() {
-        let plain = render(&bead(None));
-        assert!(
-            plain.contains("(not a factory bead)")
-                && plain.contains("accept")
-                && plain.contains("    n2")
-        );
-        let sha = Sha::try_new("b".repeat(40)).unwrap();
-        let branch = infra::app::domain::BranchName::try_new("task/fac-1").unwrap();
-        let lease = Lease::grant(
-            AgentId::try_new("w").unwrap(),
-            Timestamp::from_unix_seconds(1),
-            Duration::from_seconds(9),
-        );
-        for (state, needle) in [
-            (TaskState::Open, "state     : open"),
-            (TaskState::Leased { lease }, "lease     : w until 10"),
-            (
-                TaskState::InVerify {
-                    branch: branch.clone(),
-                    head: sha.clone(),
-                },
-                "branch    : task/fac-1 @",
-            ),
-            (
-                TaskState::Mergeable {
-                    branch,
-                    head: sha.clone(),
-                },
-                "branch    : task/fac-1 @",
-            ),
-            (TaskState::Closed { merged: sha }, "merged    :"),
-            (
-                TaskState::Incident {
-                    reason: infra::app::domain::task::IncidentReason::Manual { detail: "x".into() },
-                },
-                "incident  :",
-            ),
-        ] {
-            let out = render(&bead(Some(meta(state))));
-            assert!(out.contains(needle), "{out}");
-            assert!(out.contains("budget    : tokens 0/400000"));
-        }
-    }
-
-    #[tokio::test]
-    async fn run_version_and_missing_plan_text() {
-        assert!(run(Cli::parse_from(["factory", "version"])).await.is_ok());
-        let err = run(Cli::parse_from(["factory", "plan"])).await.unwrap_err();
-        assert!(err.to_string().contains("--text or --file"));
-    }
-}
+#[path = "cli_tests.rs"]
+mod tests;

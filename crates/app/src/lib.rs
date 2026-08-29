@@ -15,6 +15,7 @@
 )]
 
 pub mod bead;
+pub mod console;
 pub mod events;
 pub mod integrator;
 pub mod planner;
@@ -28,6 +29,7 @@ pub mod worker;
 pub mod testing;
 
 pub use bead::{Bead, BeadStatus, NewBead};
+pub use console::{EpicSummary, LedgerSummary, inbox, ledger_summary, resolve};
 pub use domain;
 pub use events::{EventKind, FactoryEvent};
 pub use integrator::{IntegrateConfig, IntegrateReport, IntegratorError, integrate_once};
