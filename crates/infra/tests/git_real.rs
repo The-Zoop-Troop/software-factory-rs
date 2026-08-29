@@ -1,5 +1,10 @@
 //! `GitCli` against a real git repository in a temp dir: worktrees, commit, rebase, ff, push.
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::disallowed_methods)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::disallowed_methods,
+    clippy::disallowed_types
+)]
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

@@ -43,7 +43,7 @@ fn log_report(report: SweepReport) {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[allow(clippy::unwrap_used, clippy::indexing_slicing)]
 mod tests {
     use infra::app::BeadStore;
     use infra::app::domain::BeadKind;
