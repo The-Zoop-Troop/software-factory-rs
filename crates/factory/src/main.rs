@@ -10,6 +10,10 @@ mod doctor;
 mod remote;
 #[cfg(test)]
 mod remote_tests;
+mod render;
+mod rig;
+#[cfg(test)]
+mod rig_tests;
 mod telegram;
 
 use clap::Parser as _;

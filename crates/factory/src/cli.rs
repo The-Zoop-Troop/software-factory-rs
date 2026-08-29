@@ -9,15 +9,14 @@
     clippy::too_many_lines
 )]
 
-use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use infra::app::Harness;
-use infra::app::domain::{AgentId, BeadId, BranchName, Duration, PlanDefaults, TaskState};
+use infra::app::domain::{AgentId, BeadId, BranchName, Duration, PlanDefaults};
 use infra::app::{
-    Bead, BeadStore, IntegrateConfig, WorkerConfig, inbox, integrate_once, ledger_summary, plan,
-    resolve, verify_once, work_once,
+    BeadStore, IntegrateConfig, WorkerConfig, inbox, integrate_once, ledger_summary, plan, resolve,
+    verify_once, work_once,
 };
 use infra::{
     BdCli, ClaudeCli, CodexCli, GitCli, JsonlSink, OpencodeServer, ShellRunner, SystemClock,
@@ -72,6 +71,17 @@ pub(crate) enum Command {
         /// Note recorded with the resolution.
         #[arg(long, default_value = "resolved by operator")]
         note: String,
+    },
+    /// Manage rigs on this host: one compose project per rig, one console over all of them.
+    Rig {
+        /// Where rig files live (registry, per-rig env and secrets, console config).
+        #[arg(long, env = "FACTORY_ROOT", default_value_os_t = default_root())]
+        root: PathBuf,
+        /// The shared rig compose file.
+        #[arg(long, env = "FACTORY_COMPOSE", default_value = "compose.yaml")]
+        compose: PathBuf,
+        #[command(subcommand)]
+        command: crate::rig::RigCommand,
     },
     /// Cancel an epic through the console: its open tasks are closed (needs --rig).
     Stop {
@@ -203,6 +213,13 @@ pub(crate) enum Command {
     },
 }
 
+fn default_root() -> PathBuf {
+    std::env::var_os("HOME").map_or_else(
+        || PathBuf::from(".factory"),
+        |h| PathBuf::from(h).join(".factory"),
+    )
+}
+
 /// Which agent runner executes LLM sessions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum HarnessKind {
@@ -258,10 +275,8 @@ pub(crate) enum BeadCommand {
 ///
 /// # Errors
 /// Any adapter or workflow failure, already typed; `main` prints it.
-#[allow(
-    clippy::too_many_lines,
-    reason = "one linear dispatch; the single wiring site"
-)]
+pub(crate) use crate::render::{render, render_summary};
+
 pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
     if let Some(rig) = cli.rig.as_deref() {
         let token = cli
@@ -275,6 +290,20 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
         Command::Stop { .. } | Command::Telegram { .. } => {
             anyhow::bail!("this command operates a remote rig: add --rig <url> --token <token>")
+        }
+        Command::Rig {
+            root,
+            compose,
+            command,
+        } => {
+            let layout = crate::rig::Layout {
+                root,
+                compose_file: compose,
+            };
+            print!(
+                "{}",
+                crate::rig::run(&infra::DockerCli::default(), &layout, command).await?
+            );
         }
         Command::Version => println!("factory {}", env!("CARGO_PKG_VERSION")),
         Command::Bead {
@@ -490,88 +519,6 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
         }
     }
     Ok(())
-}
-
-/// `factory watch` output.
-pub(crate) fn render_summary(s: &infra::app::LedgerSummary) -> String {
-    let mut out = String::new();
-    for (id, e) in &s.epics {
-        let states = e
-            .by_state
-            .iter()
-            .map(|(k, v)| format!("{k}={v}"))
-            .collect::<Vec<_>>()
-            .join(" ");
-        let _ = writeln!(
-            out,
-            "{id}  {}  [{}/{}] {states}",
-            e.title,
-            e.by_state.get("closed").copied().unwrap_or(0),
-            e.total
-        );
-    }
-    let _ = writeln!(
-        out,
-        "tasks outside epics: {}  incidents: {}  questions: {}",
-        s.tasks_without_epic, s.open_incidents, s.open_questions
-    );
-    out
-}
-
-pub(crate) fn render(b: &Bead) -> String {
-    let mut out = String::new();
-    // Writing to a String cannot fail; the Results are discarded deliberately.
-    let _ = writeln!(out, "{}  {}", b.id, b.title);
-    let _ = writeln!(out, "  bd status : {}", b.status.as_str());
-    match b.kind {
-        Some(k) => {
-            let _ = writeln!(out, "  kind      : {k}");
-        }
-        None => {
-            let _ = writeln!(out, "  kind      : (not a factory bead)");
-        }
-    }
-    if let Some(m) = &b.meta {
-        let _ = writeln!(out, "  state     : {}", m.state.name());
-        let detail = match &m.state {
-            TaskState::Leased { lease } => Some(format!(
-                "  lease     : {} until {} (claimed {})",
-                lease.holder, lease.expires, lease.claimed_at
-            )),
-            TaskState::InVerify { branch, head } | TaskState::Mergeable { branch, head } => {
-                Some(format!("  branch    : {branch} @ {head}"))
-            }
-            TaskState::Closed { merged } => Some(format!("  merged    : {merged}")),
-            TaskState::Incident { reason } => Some(format!("  incident  : {reason:?}")),
-            TaskState::Open => None,
-        };
-        if let Some(d) = detail {
-            let _ = writeln!(out, "{d}");
-        }
-        let _ = writeln!(out, "  verify    : {}", m.verify_bead);
-        let _ = writeln!(out, "  base      : {}", m.base);
-        let _ = writeln!(
-            out,
-            "  budget    : tokens {}/{}  wall {}s/{}s  attempts {}/{}  lease expiries {}",
-            m.usage.tokens,
-            m.budget.tokens,
-            m.usage.wall_clock.seconds(),
-            m.budget.wall_clock.seconds(),
-            m.usage.attempts,
-            m.budget.attempts,
-            m.lease_expiries
-        );
-    }
-    if let Some(a) = &b.acceptance {
-        let _ = writeln!(out, "  accept    : {a}");
-    }
-    if let Some(n) = &b.notes {
-        let _ = writeln!(out, "  notes     :");
-        for line in n.lines() {
-            let _ = writeln!(out, "    {line}");
-        }
-    }
-    out
 }
 
 #[cfg(test)]

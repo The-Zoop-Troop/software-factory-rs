@@ -55,12 +55,19 @@ The bot answers `/plan /watch /inbox /resolve /stop /help` from listed chats onl
 
 Operations, scopes, and error codes: `docs/generated/console-api.md`. Multiple rigs on one host: mount your own `docker/console/rigs.toml` (one `[[rig]]` per ledger, optional `max_tokens`/`max_usd_micros`, optional `plan_cmd`).
 
-## One rig per worktree
-Compose names volumes and containers after the project name, so an isolated factory per branch is one variable away:
+## Many rigs on one host
+`factory rig` turns the shared `compose.yaml` into one compose project per rig (`factory-<name>`: its own `ledger`/`repo`/`cache` volumes, env, secrets) and one console over all of them. Files live under `~/.factory` (`FACTORY_ROOT`).
 ```sh
-COMPOSE_PROJECT_NAME=factory-$(git branch --show-current | tr '/' '-') docker compose up -d
+factory rig create toy --repo-url git@github.com:me/toy.git --runtime rust --harness claude --secrets docker/rig.env
+factory rig create api --repo-url … --runtime node --harness codex          # second rig, next console port
+factory rig list                                                            # name, repo, runtime, harness, port
+factory rig doctor                                                          # ledger volume + running services per rig
+factory rig console                                                         # one console at 127.0.0.1:7700 over every rig
+factory rig backup toy --to backups/                                        # toy-ledger-<ts>.tgz, toy-repo-<ts>.tgz
+docker compose -p factory-toy down && factory rig restore toy --ledger backups/toy-ledger-<ts>.tgz
+factory rig destroy toy [--volumes]
 ```
-Each project gets its own `ledger`/`repo` volumes and network; tear it down with the same variable and `down -v`.
+`~/.factory/console/tokens.toml` holds the console tokens; `~/.factory/console/rigs.toml` and `compose.yaml` are regenerated on every change (the console mounts each rig's ledger volume read-write, nothing else). Run the commands from this repository (or set `FACTORY_COMPOSE` to its `compose.yaml`).
 
 ## Logs
 Every role logs via `tracing` to stderr (`RUST_LOG=info` by default). Set `FACTORY_LOG_FORMAT=json` for one JSON object per line (`docker compose logs --no-log-prefix steward | jq`). State transitions are additionally appended to `.factory/events.jsonl` in the `ledger` volume.
@@ -72,7 +79,7 @@ One image per language toolchain layered on `factory-rig:base`: `docker/build.sh
 `git pull && docker/build.sh <runtime> && docker compose up -d --force-recreate`. Ledger and repo volumes persist; the image is stateless.
 
 ## Backup / restore
-Volumes `ledger` and `repo` are the state: `docker run --rm -v <project>_ledger:/v -v $PWD:/b alpine tar czf /b/ledger.tgz -C /v .` (same for `repo`). Restore by extracting into a fresh volume before `up`.
+`factory rig backup <name>` / `factory rig restore <name> --ledger <tgz> [--repo <tgz>]` (the rig must be stopped to restore). Without the rig registry: Volumes `ledger` and `repo` are the state: `docker run --rm -v <project>_ledger:/v -v $PWD:/b alpine tar czf /b/ledger.tgz -C /v .` (same for `repo`). Restore by extracting into a fresh volume before `up`.
 
 ## Troubleshooting
 - A role logs `nothing ready` forever → `bd ready` in the rig; check `blocked` and incidents.

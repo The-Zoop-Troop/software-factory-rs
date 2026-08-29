@@ -17,6 +17,7 @@ Commands:
   doctor     Check that this host or rig can run the factory (tools, ledger, repo, credentials)
   watch      Summarize the ledger: tasks per epic by state, incidents, questions
   inbox      Items that need a human: open incidents and questions
+  rig        Manage rigs on this host: one compose project per rig, one console over all of them
   stop       Cancel an epic through the console: its open tasks are closed (needs --rig)
   telegram   Run a Telegram bot over a remote rig (long polling; needs --rig and --token)
   plan       Run the Planner: turn a plan (text or file) into an epic of task + verify beads
@@ -320,5 +321,31 @@ Options:
       --poll <POLL>            Seconds between task polls for push notifications [default: 30]
       --token <TOKEN>          Bearer token for --rig [env: FACTORY_TOKEN]
   -h, --help                   Print help
+```
+
+## `factory rig`
+
+```text
+Manage rigs on this host: one compose project per rig, one console over all of them
+
+Usage: factory rig [OPTIONS] <COMMAND>
+
+Commands:
+  create   Register a rig, write its env + secrets, and start it
+  list     Rigs on this host
+  destroy  Stop a rig and forget it; `--volumes` also deletes its ledger and repo
+  doctor   Ledger volume and running services per rig
+  backup   Archive a rig's ledger and repo volumes into a directory
+  restore  Replace a stopped rig's ledger (and optionally repo) volume from `rig backup` tarballs
+  console  Bring the shared console up (or down) over every registered rig
+  help     Print this message or the help of the given subcommand(s)
+
+Options:
+      --root <ROOT>        Where rig files live (registry, per-rig env and secrets, console config) [env: FACTORY_ROOT=] [default: /home/mazup/.factory]
+      --workdir <WORKDIR>  Directory containing `.beads/` (defaults to the current directory) [default: .]
+      --compose <COMPOSE>  The shared rig compose file [env: FACTORY_COMPOSE=] [default: compose.yaml]
+      --rig <RIG>          Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
+      --token <TOKEN>      Bearer token for --rig [env: FACTORY_TOKEN]
+  -h, --help               Print help
 ```
 

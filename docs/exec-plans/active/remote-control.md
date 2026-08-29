@@ -96,11 +96,13 @@ The Agent Card lists skills per rig (`plan`, `watch`, `inbox`, `resolve`, `docto
 - 2026-08-29 — `CancelTask` closes an epic's open tasks and labels the epic `fac:canceled`; a worker mid-session loses its task at the next persist rather than being killed.
 - 2026-08-29 — Push notifications come from polling `ListTasks` and diffing states (`app::remote::chat::notifications`), not from SSE: one code path serves every chat transport and survives reconnects for free. SSE stays for interactive clients.
 - 2026-08-29 — The bot serves only chat ids listed at start (`--chat`); everything else is logged and ignored. A bot token alone must not be enough to drive a rig.
+- 2026-08-29 — A rig is a compose *project* over the one shared `compose.yaml` (env file per rig), not a copy of the file: fixes land in every rig on the next `up`. The console is a separate project that mounts the rigs' ledger volumes as `external`, so it can be restarted without touching a rig.
+- 2026-08-29 — `rig restore` refuses while any service of the rig runs; restoring under a live steward would race the ledger.
 
 ## Progress
 
 - [x] console-api (`crates/console`: cards, SendMessage/GetTask/ListTasks/CancelTask, SSE SubscribeToTask, hashed scoped tokens, audit, budgets; compose `console` + `planner`; generated API doc) — 2026-08-29
 - [x] cli-remote + telegram (`factory --rig/--token` for watch/inbox/plan/stop/doctor over `infra::A2aHttp`; `factory telegram` long-polling bot with chat allowlist and push notifications; compose `telegram` profile; shared `app::remote::chat` core) — 2026-08-29
-- [ ] rig-registry + multi-project
+- [x] rig-registry + multi-project (`factory rig create|list|destroy|doctor|backup|restore|console`; `app::rigs` registry + rendering + `HostDocker` port; `infra::DockerCli`; per-rig compose project and secrets; console over external ledger volumes) — 2026-08-29
 - [ ] ops-hardening
 - [ ] web-console (A2UI)

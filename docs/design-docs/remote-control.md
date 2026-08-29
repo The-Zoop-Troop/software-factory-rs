@@ -30,6 +30,10 @@ The Planner needs the rig's harness credential, which the console must never hol
 
 `app::remote::chat` is the shared client core: the `A2aApi` port, text renderings, `/command` parsing, and the poll-to-poll `notifications` diff. `factory --rig <url> --token <t>` (`crates/factory/src/remote.rs`) maps `watch/inbox/plan/stop/doctor` onto it over `infra::A2aHttp`; `factory telegram` (`crates/factory/src/telegram.rs`) runs the same core behind Telegram long polling (`infra::TelegramApi`), answering only allowlisted chat ids and pushing state changes. Slack or Discord are another `ChatTransport` over the same loop.
 
+## Hosts with many rigs
+
+`app::rigs` models a host: `HostRegistry` (`~/.factory/rigs.toml`) of `HostRig`s, each a compose project `factory-<name>` driven from the shared `compose.yaml` with its own `compose.env`, `rig.env`, and volumes; the console is its own project whose generated compose file mounts every rig's `<project>_ledger` volume under `/work/rigs/<name>`. `HostDocker` is the port (compose, volume queries, tar in/out of volumes); `infra::DockerCli` shells out; `factory rig create|list|destroy|doctor|backup|restore|console` is the shell. Adding a rig never touches another rig's files or credentials.
+
 ## What it refuses by design
 
 Merging, force-closing tasks, editing beads, reading provider credentials. Done means verified, remotely too.

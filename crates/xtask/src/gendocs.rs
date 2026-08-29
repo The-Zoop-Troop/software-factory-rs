@@ -158,6 +158,7 @@ fn cli_reference(root: &Path) -> anyhow::Result<String> {
         vec!["bead"],
         vec!["stop"],
         vec!["telegram"],
+        vec!["rig"],
     ] {
         let title = if cmd.is_empty() {
             "factory".to_owned()

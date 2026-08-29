@@ -24,6 +24,7 @@ pub mod plan_queue;
 pub mod planner;
 pub mod ports;
 pub mod remote;
+pub mod rigs;
 pub mod steward;
 pub mod transition;
 pub mod verifier;
@@ -56,6 +57,10 @@ pub use remote::service::{
 };
 pub use remote::{
     Authenticator, EventRecord, EventTail, PlanSubmitter, Rig, RigRegistry, SubmitError, TailError,
+};
+pub use rigs::{
+    HostDocker, HostError, HostRegistry, HostRig, RegistryError, RigHealth, backup, backup_path,
+    doctor as rig_doctor,
 };
 pub use steward::{StewardError, SweepReport, sweep};
 pub use transition::{TransitionError, apply_event, load_task};

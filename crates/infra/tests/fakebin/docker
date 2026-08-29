@@ -1,0 +1,9 @@
+#!/bin/sh
+# Fake docker: logs argv to $FAKE_DOCKER_LOG, answers `volume ls -q` and `compose … ps`.
+echo "$*" >> "${TMPDIR:-/tmp}/fake-docker-$PPID.log"
+case "$1 $2" in
+  "volume ls") printf 'factory-toy_ledger\nother\n' ;;
+  "compose -p") case "$*" in *" ps "*) printf 'steward\n' ;; *" fail"*) echo "boom" >&2; exit 1 ;; esac ;;
+  "run --rm") case "$*" in *"tar czf"*|*"tar xzf"*) ;; *) exit 1 ;; esac ;;
+  *) echo "unexpected: $*" >&2; exit 2 ;;
+esac

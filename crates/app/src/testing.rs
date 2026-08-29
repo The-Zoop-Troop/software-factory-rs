@@ -563,3 +563,8 @@ pub use flaky::FlakyStore;
 /// Remote-control fakes live in a sibling file to keep this one under the size cap.
 #[path = "testing_remote.rs"]
 pub mod remote;
+
+/// Host docker fake lives in a sibling file (size cap).
+#[path = "testing_host.rs"]
+pub mod host;
+pub use host::FakeHostDocker;

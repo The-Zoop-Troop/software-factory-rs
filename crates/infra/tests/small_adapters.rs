@@ -37,3 +37,56 @@ async fn system_clock_is_now_and_sleeps() {
     c.sleep(Duration::from_seconds(0)).await;
     assert!(c.now() >= t0);
 }
+
+#[tokio::test]
+async fn docker_cli_shells_out_for_compose_volumes_and_tar() {
+    use app::HostDocker as _;
+    // The fake logs to $TMPDIR/fake-docker-<parent pid>.log; our pid is its parent.
+    let log = std::env::temp_dir().join(format!("fake-docker-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let docker = infra::DockerCli::default()
+        .with_bin(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fakebin/docker"));
+    let out = docker
+        .compose(
+            "factory-toy",
+            std::path::Path::new("/e"),
+            std::path::Path::new("/c.yaml"),
+            &["ps", "--services"],
+        )
+        .await
+        .unwrap();
+    assert_eq!(out.trim(), "steward");
+    assert!(matches!(
+        docker.compose("factory-toy", std::path::Path::new("/e"), std::path::Path::new("/c.yaml"), &["fail"]).await,
+        Err(app::HostError::Command { detail, .. }) if detail == "boom"
+    ));
+    assert!(docker.volume_exists("factory-toy_ledger").await.unwrap());
+    assert!(!docker.volume_exists("nope").await.unwrap());
+    let dest = std::env::temp_dir()
+        .join(format!("fake-docker-{}", std::process::id()))
+        .join("toy-ledger-1.tgz");
+    docker
+        .archive_volume("factory-toy_ledger", &dest)
+        .await
+        .unwrap();
+    docker
+        .restore_volume("factory-toy_ledger", &dest)
+        .await
+        .unwrap();
+    assert!(
+        docker
+            .archive_volume("v", std::path::Path::new("/"))
+            .await
+            .is_err()
+    );
+    let logged = std::fs::read_to_string(&log).unwrap();
+    assert!(logged.contains("compose -p factory-toy --env-file /e -f /c.yaml ps --services"));
+    assert!(logged.contains("tar czf /b/toy-ledger-1.tgz"));
+    assert!(logged.contains("tar xzf /b/toy-ledger-1.tgz"));
+    let missing = infra::DockerCli::default().with_bin("/nonexistent/docker");
+    assert!(matches!(
+        missing.volume_exists("x").await,
+        Err(app::HostError::Missing { .. })
+    ));
+    let _ = std::fs::remove_dir_all(dest.parent().unwrap());
+}
