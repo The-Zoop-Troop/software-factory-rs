@@ -60,14 +60,34 @@ function process(envelopes) {
     if (env.updateComponents) for (const c of env.updateComponents.components) state.components.set(c.id, c);
     if (env.updateDataModel) {
       const { path, value } = env.updateDataModel;
-      if (!path || path === "/") state.data = value; else pointerSet(state.data, path, value);
+      if (!path || path === "/") state.data = keepTyped(state.data, value); else pointerSet(state.data, path, value);
     }
     if (env.deleteSurface) { state.components = new Map(); }
   }
   render();
 }
 
+// A refresh must not erase what the operator is typing: keep non-empty local strings where
+// the server sent an empty placeholder.
+function keepTyped(local, incoming) {
+  if (typeof incoming !== "object" || incoming === null) return incoming;
+  const out = Array.isArray(incoming) ? [...incoming] : { ...incoming };
+  for (const [k, v] of Object.entries(incoming)) {
+    const l = local && typeof local === "object" ? local[k] : undefined;
+    if (typeof v === "object" && v !== null) out[k] = keepTyped(l, v);
+    else if (v === "" && typeof l === "string" && l !== "") out[k] = l;
+  }
+  return out;
+}
+
+let pendingRender = false;
 function render() {
+  // Never rebuild the DOM under the operator's cursor; render once the field is left.
+  if (document.activeElement && document.activeElement.tagName === "INPUT" && document.activeElement.id !== "token") {
+    pendingRender = true;
+    return;
+  }
+  pendingRender = false;
   const root = state.components.get("root");
   $("surface").replaceChildren(root ? node("root") : document.createTextNode("waiting for root…"));
 }
@@ -91,6 +111,7 @@ function node(id) {
       input.placeholder = c.label || "";
       input.value = String(resolve(c.value) ?? "");
       if (c.value && c.value.path) input.oninput = () => pointerSet(state.data, c.value.path, input.value);
+      input.onblur = () => { if (pendingRender) render(); };
       el.appendChild(input); break;
     }
     case "Button": {
@@ -109,7 +130,8 @@ async function act(c) {
   const ev = c.action && c.action.event;
   if (!ev) return;
   const body = { name: ev.name, surfaceId: "console", sourceComponentId: c.id, timestamp: new Date().toISOString(), context: resolveContext(ev.context) };
-  await call("POST", `/rigs/${state.rig}/ui/action`, body);
+  const ok = await call("POST", `/rigs/${state.rig}/ui/action`, body);
+  if (ok && ev.name !== "refresh") { state.data.plan = { text: "" }; state.data.notes = {}; render(); }
 }
 
 async function call(method, path, body) {
@@ -117,10 +139,11 @@ async function call(method, path, body) {
   try {
     const r = await fetch(path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined });
     const json = await r.json();
-    if (!r.ok) { $("status").textContent = (json.error && (json.error.message || json.error)) || r.statusText; return; }
+    if (!r.ok) { $("status").textContent = (json.error && (json.error.message || json.error)) || r.statusText; return false; }
     $("status").textContent = new Date().toLocaleTimeString();
     process(json);
-  } catch (e) { $("status").textContent = String(e); }
+    return true;
+  } catch (e) { $("status").textContent = String(e); return false; }
 }
 
 async function connect() {
