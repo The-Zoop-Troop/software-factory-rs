@@ -92,6 +92,7 @@ impl McpConfig {
         let path = repo.join(".factory/mcp.json");
         match std::fs::read_to_string(&path) {
             Ok(text) => Self::parse(&text),
+            // fp-allow: reading the project's own config file is the boundary; translated to McpConfigError here
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
             Err(e) => Err(McpConfigError::Json {
                 detail: e.to_string(),
@@ -190,7 +191,7 @@ impl McpConfig {
                     }
                 }
                 McpServer::Remote { url, .. } => {
-                    out.push(format!("mcp_servers.{name}.url={}", q(url)))
+                    out.push(format!("mcp_servers.{name}.url={}", q(url)));
                 }
             }
         }

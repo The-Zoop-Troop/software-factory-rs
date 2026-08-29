@@ -54,7 +54,7 @@ pub(crate) async fn probe_harnesses(cwd: &Path) -> Vec<Check> {
         prompt: "pong".into(),
         schema: None,
         tools: ToolPolicy::None,
-        mcp: Default::default(),
+        mcp: infra::app::McpConfig::default(),
         max_turns: Turns::new(1),
         timeout: Duration::from_seconds(90),
     };
@@ -179,49 +179,9 @@ fn which(bin: &str) -> bool {
         .is_some_and(|p| std::env::split_paths(&p).any(|d| d.join(bin).is_file()))
 }
 
-/// Run every check. `workdir` holds `.beads`; `repo` is the project clone.
-pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
-    let mut checks = vec![
-        tool(
-            "bd",
-            "bd",
-            &["version"],
-            "install beads: https://github.com/gastownhall/beads (pinned in docker/Dockerfile.rig)",
-        ),
-        tool("git", "git", &["--version"], "install git"),
-        tool(
-            "claude",
-            "claude",
-            &["--version"],
-            "harness optional: install Claude Code or use --harness opencode|codex",
-        ),
-        tool(
-            "opencode",
-            "opencode",
-            &["--version"],
-            "harness optional: install OpenCode or use --harness claude|codex",
-        ),
-        tool(
-            "codex",
-            "codex",
-            &["--version"],
-            "harness optional: install Codex CLI or use --harness claude|opencode",
-        ),
-    ];
-    checks.push(Check {
-        name: "ledger",
-        ok: workdir.join(".beads").is_dir(),
-        detail: workdir.join(".beads").display().to_string(),
-        fix: "run `bd init --prefix <p>` in --workdir (the rig entrypoint does this)",
-    });
-    checks.push(Check {
-        name: "repo",
-        ok: repo.join(".git").exists(),
-        detail: repo.display().to_string(),
-        fix: "clone the project at --repo, or set RIG_REPO_URL for the rig",
-    });
-    checks.extend(runtime_checks(repo));
-    // Skills and MCP are repo-carried: report what each harness will see in this project.
+/// Skills and MCP are repo-carried: report what each harness will see in this project.
+fn project_checks(repo: &Path) -> Vec<Check> {
+    let mut checks = Vec::new();
     let skills = [
         ".claude/skills",
         ".codex/skills",
@@ -269,6 +229,52 @@ pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
             fix: "fix .factory/mcp.json ({\"mcpServers\": {name: {command,args,env} | {url}}})",
         },
     });
+    checks
+}
+
+/// Run every check. `workdir` holds `.beads`; `repo` is the project clone.
+pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
+    let mut checks = vec![
+        tool(
+            "bd",
+            "bd",
+            &["version"],
+            "install beads: https://github.com/gastownhall/beads (pinned in docker/Dockerfile.rig)",
+        ),
+        tool("git", "git", &["--version"], "install git"),
+        tool(
+            "claude",
+            "claude",
+            &["--version"],
+            "harness optional: install Claude Code or use --harness opencode|codex",
+        ),
+        tool(
+            "opencode",
+            "opencode",
+            &["--version"],
+            "harness optional: install OpenCode or use --harness claude|codex",
+        ),
+        tool(
+            "codex",
+            "codex",
+            &["--version"],
+            "harness optional: install Codex CLI or use --harness claude|opencode",
+        ),
+    ];
+    checks.push(Check {
+        name: "ledger",
+        ok: workdir.join(".beads").is_dir(),
+        detail: workdir.join(".beads").display().to_string(),
+        fix: "run `bd init --prefix <p>` in --workdir (the rig entrypoint does this)",
+    });
+    checks.push(Check {
+        name: "repo",
+        ok: repo.join(".git").exists(),
+        detail: repo.display().to_string(),
+        fix: "clone the project at --repo, or set RIG_REPO_URL for the rig",
+    });
+    checks.extend(runtime_checks(repo));
+    checks.extend(project_checks(repo));
     let creds = [
         "CLAUDE_CODE_OAUTH_TOKEN",
         "ANTHROPIC_API_KEY",

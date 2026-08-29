@@ -515,7 +515,7 @@ mod tests {
                 prompt: "Reply with exactly: pong".into(),
                 schema: None,
                 tools: ToolPolicy::None,
-                mcp: Default::default(),
+                mcp: app::McpConfig::default(),
                 max_turns: Turns::new(1),
                 timeout: Duration::from_seconds(120),
             })
