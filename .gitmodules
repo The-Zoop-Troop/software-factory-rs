@@ -1,0 +1,3 @@
+[submodule "skills/rust-fp-skill"]
+	path = skills/rust-fp-skill
+	url = https://github.com/mikezupper/rust-fp-skill

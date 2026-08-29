@@ -16,3 +16,9 @@ docker/rig.env
 
 # cargo-mutants output
 /mutants.out
+
+# local harness config (per-developer)
+.claude/settings.json
+.codex/config.toml
+.codex/hooks.json
+.agents/

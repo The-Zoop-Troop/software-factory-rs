@@ -12,11 +12,13 @@ Coding agents are good at tasks and bad at projects. Left alone on a project the
 
 ## The bet
 
-Three inversions make agent throughput safe to trust:
+Three inversions and one discipline make agent throughput safe to trust:
 
 1. **No orchestrator.** Work is a dependency graph in a ledger. Workers pull what is ready and hold a lease while they hold it. When a worker dies, its lease expires and the work returns. There is no agent whose failure stops the factory.
 2. **Done means verified.** Every task is planned with an executable check before any code exists. A task advances only when that check passes in a clean checkout, and lands only after the project's own checks pass on the rebased result. Models propose; verification disposes.
 3. **YOLO only inside a rig.** Agents get full tool access — that is where their productivity comes from — but only inside a rootless container with default-deny egress and no host credentials. The container is the blast radius.
+
+4. **The factory's control flow is a typed railway.** Every role turns facts into decisions and effects through one total state machine; every failure is a typed value that says what to do next. That is why an incident is something an agent or a person can act on, not a log to read. (See `docs/design-docs/railway.md`.)
 
 Everything else follows: stateless workers with a curated context packet, budgets on every task, incidents instead of infinite retries, and a harness port that lets any coding agent (Claude Code, OpenCode against any OpenAI-compatible provider, Codex) do the work.
 

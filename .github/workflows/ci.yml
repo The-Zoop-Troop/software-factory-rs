@@ -7,6 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { submodules: true }
       - uses: dtolnay/rust-toolchain@stable
         with: { components: rustfmt, clippy, llvm-tools-preview }
       - uses: Swatinem/rust-cache@v2
@@ -20,6 +21,9 @@ jobs:
       - run: cargo xtask lint-docs
       - run: cargo xtask lint-taste
       - run: cargo xtask gen-docs --check
+      # Red until the railway refactor's epic 5 flips it to blocking (see docs/exec-plans/active/railway-refactor.md).
+      - run: cargo xtask lint-fp
+        continue-on-error: true
   rig:
     runs-on: ubuntu-latest
     steps:

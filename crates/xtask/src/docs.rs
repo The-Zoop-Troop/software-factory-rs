@@ -68,7 +68,7 @@ pub(crate) fn lint(root: &Path) -> anyhow::Result<()> {
                 continue;
             }
             // Bare `name.md` mentions may refer to the same directory or to a top-level file.
-            let candidate = if target.starts_with("docs/") {
+            let candidate = if target.starts_with("docs/") || target.starts_with("skills/") {
                 root.join(&target)
             } else {
                 dir.join(&target)

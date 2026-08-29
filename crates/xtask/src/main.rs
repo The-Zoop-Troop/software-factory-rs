@@ -11,8 +11,10 @@
 )]
 
 mod docs;
+mod fp;
 mod gendocs;
 mod quality;
+mod skills;
 mod taste;
 
 use std::process::ExitCode;
@@ -27,9 +29,11 @@ fn main() -> ExitCode {
         "gen-docs" => {
             gendocs::generate(&root, std::env::args().nth(2).as_deref() == Some("--check"))
         }
+        "lint-fp" => fp::lint(&root),
+        "skills" => skills::check(&root),
         "quality" => quality::run(&root, std::env::args().nth(2).as_deref() == Some("--check")),
         _ => Err(anyhow::anyhow!(
-            "usage: cargo xtask <lint-docs|lint-taste|coverage|gen-docs [--check]|quality [--check]>"
+            "usage: cargo xtask <lint-docs|lint-taste|coverage|gen-docs [--check]|quality [--check]|lint-fp|skills --check>"
         )),
     };
     match result {

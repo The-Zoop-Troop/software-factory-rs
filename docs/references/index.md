@@ -9,3 +9,4 @@ Facts here were established by probing the real tools; re-verify when versions c
 | `opencode-server.md` | OpenCode 1.18.18 (`opencode serve` HTTP API) |
 | `codex-exec.md` | Codex CLI 0.149.1 (`codex exec`) |
 | `harness-engineering.md` | The engineering approach this repo follows |
+| `../../skills/rust-fp-skill/` | The Rust standard (railway-oriented FP), pinned submodule; `cargo xtask skills --check` reports drift |

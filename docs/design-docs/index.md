@@ -11,3 +11,4 @@ Each doc carries `Status` (draft | accepted | superseded) and `Verified` (how an
 | `harness-port.md` | The `Harness` port and the three adapters | accepted |
 | `rig-sandbox.md` | Container, egress, credentials, volumes | accepted |
 | `merge-policy.md` | Integrator behaviour and PR/merge philosophy | accepted |
+| `railway.md` | Railway-oriented control flow as a product principle; compatibility rule for stored metadata | accepted |
