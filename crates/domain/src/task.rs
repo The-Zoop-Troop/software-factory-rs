@@ -128,7 +128,7 @@ pub enum Event {
         detail: String,
     },
     Escalate {
-        detail: String,
+        reason: IncidentReason,
     },
 }
 
@@ -473,8 +473,8 @@ impl Task {
                 | TaskState::Leased { .. }
                 | TaskState::InVerify { .. }
                 | TaskState::Mergeable { .. },
-                Event::Escalate { detail },
-            ) => Ok(self.escalate(IncidentReason::Manual { detail })),
+                Event::Escalate { reason },
+            ) => Ok(self.escalate(reason)),
 
             // ---- everything else is illegal; listed exhaustively so new variants break the build
             (

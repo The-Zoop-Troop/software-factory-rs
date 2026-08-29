@@ -255,13 +255,7 @@ pub async fn cancel_task(
     let epic_id =
         BeadId::try_new(id).map_err(|_| RemoteError::TaskNotFound { id: id.to_owned() })?;
     let reason = format!("canceled by {}", who.client);
-    let mut closed = 0usize;
-    for child in rig.store.children(&epic_id).await? {
-        if child.status != BeadStatus::Closed {
-            rig.store.close(&child.id, &reason).await?;
-            closed += 1;
-        }
-    }
+    let closed = close_all_children(rig, &epic_id, &reason).await?;
     rig.store.label(&epic_id, CANCELED_LABEL).await?;
     rig.store.close(&epic_id, &reason).await?;
     audit(
@@ -300,6 +294,55 @@ pub async fn events_after(
         .filter(|r| r.bead.as_ref().is_some_and(|b| members.contains(b)))
         .collect();
     Ok((kept, next))
+}
+
+/// Close every open child, dependents before their blockers (the ledger refuses to close a
+/// bead whose blockers are open), then any incident filed on one of them. Returns the count.
+async fn close_all_children(rig: &Rig, epic: &BeadId, reason: &str) -> Result<usize, RemoteError> {
+    let mut pending: Vec<BeadId> = rig
+        .store
+        .children(epic)
+        .await?
+        .into_iter()
+        .filter(|c| c.status != BeadStatus::Closed)
+        .map(|c| c.id)
+        .collect();
+    let mut closed = 0usize;
+    // Each pass closes at least one bead (the ones nothing open depends on), so this ends.
+    while !pending.is_empty() {
+        let before = pending.len();
+        let mut blocked = Vec::new();
+        for id in pending {
+            match rig.store.close(&id, reason).await {
+                Ok(()) => closed += 1,
+                Err(StoreError::Blocked { .. }) => blocked.push(id),
+                Err(e) => return Err(e.into()),
+            }
+        }
+        if blocked.len() == before {
+            return Err(RemoteError::Store(StoreError::Rejected {
+                op: crate::ports::StoreOp::Close,
+                detail: format!(
+                    "could not close {} task(s) under {epic}: dependency cycle",
+                    blocked.len()
+                ),
+            }));
+        }
+        pending = blocked;
+    }
+    let members = context_members(rig, epic.as_ref()).await?;
+    for item in crate::console::inbox(rig.store.as_ref()).await? {
+        if item
+            .title
+            .strip_prefix("incident on ")
+            .and_then(|t| BeadId::try_new(t.trim()).ok())
+            .is_some_and(|t| members.contains(&t))
+        {
+            rig.store.close(&item.id, reason).await?;
+            closed += 1;
+        }
+    }
+    Ok(closed)
 }
 
 async fn context_members(rig: &Rig, ctx: &str) -> Result<Vec<BeadId>, RemoteError> {

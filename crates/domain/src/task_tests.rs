@@ -387,7 +387,9 @@ fn terminal_states_reject_everything() {
             detail: String::new(),
         },
         Event::Escalate {
-            detail: String::new(),
+            reason: IncidentReason::Manual {
+                detail: String::new(),
+            },
         },
     ];
     for e in events {
@@ -435,7 +437,9 @@ fn illegal_pairs_in_active_states() {
 #[test]
 fn escalate_from_any_active_state() {
     let e = || Event::Escalate {
-        detail: "stop".into(),
+        reason: IncidentReason::Manual {
+            detail: "stop".into(),
+        },
     };
     let open = fresh();
     assert!(matches!(
@@ -505,7 +509,9 @@ fn name_tables_match_the_types() {
             detail: String::new(),
         },
         Event::Escalate {
-            detail: String::new(),
+            reason: IncidentReason::Manual {
+                detail: String::new(),
+            },
         },
     ];
     assert_eq!(events.map(|e| e.name()), EVENT_NAMES);

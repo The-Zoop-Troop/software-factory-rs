@@ -212,7 +212,7 @@ async fn sweep_task(
         Decision::Reap { now } => (Event::LeaseExpired { now }, Outcome::Reaped),
         Decision::Escalate { exceeded } => (
             Event::Escalate {
-                detail: exceeded.to_string(),
+                reason: domain::task::IncidentReason::Budget { exceeded },
             },
             Outcome::Escalated(exceeded),
         ),

@@ -90,7 +90,9 @@ fn event(holder: AgentId) -> impl Strategy<Value = Event> {
         Just(Event::VerifyFailed { note: "f".into() }),
         sha().prop_map(|s| Event::Merged { merged: s }),
         Just(Event::MergeFailed { detail: "m".into() }),
-        Just(Event::Escalate { detail: "e".into() }),
+        Just(Event::Escalate {
+            reason: IncidentReason::Manual { detail: "e".into() }
+        }),
     ]
 }
 
