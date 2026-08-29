@@ -4,6 +4,7 @@ edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 description = "Factory domain: bead conventions, state machine, budgets, leases. Pure; no I/O."
 
 [dependencies]

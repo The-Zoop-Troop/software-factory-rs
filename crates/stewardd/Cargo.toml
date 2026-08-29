@@ -4,6 +4,7 @@ edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 description = "Steward daemon: lease sweep, budget enforcement, epic close, event log. No LLM."
 
 [[bin]]

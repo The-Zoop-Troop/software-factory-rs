@@ -71,8 +71,8 @@ docs/
 ## Progress
 
 - [x] repo split, `main`, beads moved, builds/tests green standalone
-- [ ] knowledge-base
-- [ ] enforcement
+- [x] knowledge-base (AGENTS.md map, docs/ tree, references, ops docs) — 2026-08-29
+- [x] enforcement (xtask lint-docs/lint-taste, CI workflow, deny policy, layering test); coverage gate deliberately not yet green — see coverage-85
 - [ ] coverage-85
 - [ ] legibility
 - [ ] gardening

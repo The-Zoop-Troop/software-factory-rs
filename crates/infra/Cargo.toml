@@ -4,6 +4,7 @@ edition.workspace = true
 version.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 description = "Adapters: bd CLI, git, claude headless, system clock, JSONL event log."
 
 [dependencies]
