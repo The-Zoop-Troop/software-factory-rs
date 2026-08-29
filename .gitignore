@@ -10,3 +10,6 @@
 
 # rig secrets
 docker/rig.env
+
+# IDE / local agent config
+.idea/
