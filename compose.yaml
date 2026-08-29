@@ -1,12 +1,11 @@
-# One rig. `docker compose up -d` starts the egress proxy and the three deterministic roles;
-# `docker compose run --rm plan --text "..."` submits a plan; workers come with fac-ec6.5.
+# One rig. Run `docker/build.sh [runtime]` first; `docker compose up -d` then starts the egress
+# proxy, the deterministic roles and a worker; `docker compose run --rm plan --text "..."` submits a plan.
 # Requires rootless Docker (ARCHITECTURE.md §6).
 
+# Images are built by `docker/build.sh [runtime]` (base + runtime + egress allowlist); pick one
+# with RIG_IMAGE (default: the rust runtime, which this repository itself needs).
 x-rig: &rig
-  build:
-    context: .
-    dockerfile: docker/Dockerfile.rig
-  image: factory-rig:dev
+  image: ${RIG_IMAGE:-factory-rig:rust}
   env_file:
     - path: docker/rig.env
       required: false
@@ -18,6 +17,7 @@ x-rig: &rig
   volumes:
     - ledger:/work/rig
     - repo:/work/rig/repo
+    - cache:/work/cache
   networks: [rig]
   # Blast-radius limits: the realistic failure is a runaway build, not an exploit.
   cap_drop: [ALL]
@@ -105,3 +105,4 @@ networks:
 volumes:
   ledger: {}
   repo: {}
+  cache: {} # runtime package caches (cargo, uv, pnpm, …) so worktree-per-task stays fast

@@ -27,6 +27,7 @@ git -C "$REPO_DIR" config user.email "${RIG_GIT_EMAIL:-factory@rig.local}"
 
 mkdir -p "$RIG_DIR/.factory"
 cd "$RIG_DIR"
+echo "[rig] runtime=${RIG_RUNTIME:-base} harness=${RIG_HARNESS:-claude}"
 
 # OpenCode provider config, generated from env so no credential is ever baked into the image.
 if [ -n "${OPENCODE_PROVIDER_ID:-}" ]; then

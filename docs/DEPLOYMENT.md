@@ -11,7 +11,7 @@
 ## First run
 ```sh
 cp docker/rig.env.example docker/rig.env   # fill in; gitignored
-docker compose build                        # rig image (~1.4 GB) + egress proxy
+docker/build.sh rust                        # base + runtime image + egress proxy (see docs/references/runtimes.md)
 docker compose up -d                        # egress, steward, verifier, integrator, worker (claude)
 docker compose run --rm shell doctor --probe   # tools, ledger, repo, credentials; --probe sends one token per harness
 ```
@@ -40,8 +40,11 @@ Each project gets its own `ledger`/`repo` volumes and network; tear it down with
 ## Logs
 Every role logs via `tracing` to stderr (`RUST_LOG=info` by default). Set `FACTORY_LOG_FORMAT=json` for one JSON object per line (`docker compose logs --no-log-prefix steward | jq`). State transitions are additionally appended to `.factory/events.jsonl` in the `ledger` volume.
 
+## Runtimes
+One image per language toolchain layered on `factory-rig:base`: `docker/build.sh python|node|go|rust`, then `RIG_IMAGE=factory-rig:<runtime> docker compose up -d`. A project can ship `.factory/Dockerfile` (`FROM` the runtime) and `.factory/allowlist`; `docker/build.sh <runtime> --project <dir>` builds it. `factory doctor` reads `.factory/runtime.toml` and says which runtime the project needs.
+
 ## Upgrade
-`git pull && docker compose build && docker compose up -d --force-recreate`. Ledger and repo volumes persist; the image is stateless.
+`git pull && docker/build.sh <runtime> && docker compose up -d --force-recreate`. Ledger and repo volumes persist; the image is stateless.
 
 ## Backup / restore
 Volumes `ledger` and `repo` are the state: `docker run --rm -v <project>_ledger:/v -v $PWD:/b alpine tar czf /b/ledger.tgz -C /v .` (same for `repo`). Restore by extracting into a fresh volume before `up`.

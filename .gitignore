@@ -40,3 +40,4 @@ docker/rig.env.*
 *~
 *.orig
 *.log
+/docker/egress/allowlist

@@ -98,6 +98,84 @@ pub(crate) async fn probe_harnesses(cwd: &Path) -> Vec<Check> {
     checks
 }
 
+/// What a project declares it needs from the rig (`.factory/runtime.toml`).
+#[derive(Debug, serde::Deserialize)]
+struct RuntimeSpec {
+    runtime: RuntimeName,
+    #[serde(default)]
+    tools: Vec<ToolSpec>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct RuntimeName {
+    name: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ToolSpec {
+    bin: String,
+    #[serde(default)]
+    version_cmd: Option<String>,
+}
+
+/// The `runtime` check: every tool the project declares must be runnable in this image.
+/// A missing tool names the runtime image that provides it, so an agent can file the fix.
+pub(crate) fn runtime_checks(repo: &Path) -> Vec<Check> {
+    let path = repo.join(".factory/runtime.toml");
+    let Ok(text) = std::fs::read_to_string(&path) else {
+        return vec![Check {
+            name: "runtime",
+            ok: true,
+            detail: "no .factory/runtime.toml (base image is enough)".into(),
+            fix: "",
+        }];
+    };
+    let spec: RuntimeSpec = match toml::from_str(&text) {
+        Ok(s) => s,
+        Err(e) => {
+            return vec![Check {
+                name: "runtime",
+                ok: false,
+                detail: format!("{}: {e}", path.display()),
+                fix: "fix the TOML: [runtime] name = \"…\" and [[tools]] bin = \"…\"",
+            }];
+        }
+    };
+    let current = std::env::var("RIG_RUNTIME").unwrap_or_else(|_| "base".into());
+    let mut out = vec![Check {
+        name: "runtime",
+        ok: true,
+        detail: format!("wants `{}`, image is `{current}`", spec.runtime.name),
+        fix: "",
+    }];
+    for t in spec.tools {
+        let ok = which(&t.bin);
+        let detail = match (&ok, &t.version_cmd) {
+            (true, Some(cmd)) => version("sh", &["-c", cmd]).unwrap_or_else(|| "present".into()),
+            (true, None) => "present".into(),
+            (false, _) => format!("`{}` not on PATH", t.bin),
+        };
+        out.push(Check {
+            name: "runtime tool",
+            ok,
+            detail: format!("{}: {detail}", t.bin),
+            fix: "run this rig on the runtime image the project declares: docker/build.sh <runtime> && RIG_IMAGE=factory-rig:<runtime> docker compose up -d (or add the tool to .factory/Dockerfile)",
+        });
+    }
+    if !spec.runtime.name.is_empty() && spec.runtime.name != current && current != "project" {
+        if let Some(c) = out.first_mut() {
+            c.ok = false;
+            c.fix = "build and select the declared runtime: docker/build.sh <name>; RIG_IMAGE=factory-rig:<name>";
+        }
+    }
+    out
+}
+
+fn which(bin: &str) -> bool {
+    std::env::var_os("PATH")
+        .is_some_and(|p| std::env::split_paths(&p).any(|d| d.join(bin).is_file()))
+}
+
 /// Run every check. `workdir` holds `.beads`; `repo` is the project clone.
 pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
     let mut checks = vec![
@@ -139,6 +217,7 @@ pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
         detail: repo.display().to_string(),
         fix: "clone the project at --repo, or set RIG_REPO_URL for the rig",
     });
+    checks.extend(runtime_checks(repo));
     let creds = [
         "CLAUDE_CODE_OAUTH_TOKEN",
         "ANTHROPIC_API_KEY",
@@ -185,7 +264,7 @@ pub(crate) fn render(checks: &[Check]) -> (String, bool) {
 }
 
 #[cfg(test)]
-#[allow(clippy::unwrap_used)]
+#[allow(clippy::unwrap_used, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 
@@ -201,6 +280,22 @@ mod tests {
         assert!(!all_ok);
         assert!(text.contains("FAIL ledger") && text.contains("fix: run `bd init"));
         assert!(text.contains("git"));
+    }
+
+    #[test]
+    fn runtime_spec_reports_missing_tools_and_wrong_image() {
+        let dir = std::env::temp_dir().join(format!("factory-rt-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join(".factory")).unwrap();
+        std::fs::write(dir.join(".factory/runtime.toml"), "[runtime]\nname = \"python\"\n[[tools]]\nbin = \"sh\"\nversion_cmd = \"sh -c 'echo v1'\"\n[[tools]]\nbin = \"definitely-not-a-binary\"\n").unwrap();
+        let checks = runtime_checks(&dir);
+        assert_eq!(checks.len(), 3);
+        assert!(!checks[0].ok, "declared runtime differs from the image");
+        assert!(checks[1].ok && checks[1].detail.contains("v1"));
+        assert!(!checks[2].ok && checks[2].fix.contains("docker/build.sh"));
+        let none = runtime_checks(&std::env::temp_dir());
+        assert!(none[0].ok);
+        std::fs::write(dir.join(".factory/runtime.toml"), "not toml [[[").unwrap();
+        assert!(!runtime_checks(&dir)[0].ok);
     }
 
     #[test]

@@ -287,7 +287,9 @@ dependencies = [
  "app",
  "clap",
  "infra",
+ "serde",
  "tokio",
+ "toml",
  "tracing",
  "tracing-subscriber",
 ]

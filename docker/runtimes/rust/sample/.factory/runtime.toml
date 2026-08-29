@@ -1,0 +1,11 @@
+# What this project needs from the rig. `factory doctor` checks it and names the runtime to use.
+[runtime]
+name = "rust"
+
+[[tools]]
+bin = "cargo"
+version_cmd = "cargo --version"
+
+[[tools]]
+bin = "cargo-nextest"
+version_cmd = "cargo nextest --version"

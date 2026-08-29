@@ -100,7 +100,7 @@ Prerequisites: Linux, **rootless** Docker with Compose v2, and one credential fo
 git clone --recurse-submodules https://github.com/The-Zoop-Troop/software-factory-rs
 cd software-factory-rs
 cp docker/rig.env.example docker/rig.env      # fill in one harness credential (gitignored)
-docker compose build                           # rig image (~1.4 GB) + egress proxy
+docker/build.sh rust                           # base + runtime image + egress proxy (python|node|go too)
 docker compose up -d                           # egress, steward, verifier, integrator, worker
 docker compose run --rm shell doctor           # tools, ledger, repo, credentials — with fixes
 docker compose run --rm -e RIG_HARNESS=opencode plan \
