@@ -17,10 +17,9 @@ git, harness output, CLI — is parsed exactly once into domain types. Measured 
 - A rewrite. Crates, ports, and the state machine stay; bodies get stricter types and errors.
 - Breaking stored ledger metadata (`META_VERSION` stays 1; see decision log).
 
-## Baseline (2026-08-29, `cargo xtask lint-fp`: 73 unexplained hits)
+## Baseline (2026-08-29, `cargo xtask lint-fp`: 54 unexplained hits)
 
-26 string-payload error variants; 19 unwrap/expect in domain/app (mostly nutype-generated or
-test helpers — to be justified or moved); 13 unjustified `let _ =` discards; 9 substring-based
+26 string-payload error variants; 13 unjustified `let _ =` discards; 9 substring-based
 error classifications; 2 `as` casts; 2 clock calls outside the adapter; 1 catch-all arm; ~20
 naked-primitive public fields; 1 proptest module; 0 atomicity tests. `lint-fp` runs in CI as
 non-blocking until epic 5 flips it.
@@ -43,7 +42,7 @@ non-blocking until epic 5 flips it.
    Integrator as a compensation stack (rebase → checks → ff → push, undo on failure); every
    `let _ =` either justified in a comment or turned into a typed outcome.
 5. **proof** — proptests: round-trip for every newtype, invariants for `Budget`, `Lease`, `Plan`
-   topo-sort, `Task::apply` totality; mutation gate ≥ 90 % on `domain`; `code-review.md`
+   topo-sort, `Task::apply` totality; mutation gate ≥ 90 % on `domain`; `skills/rust-fp-skill/references/code-review.md`
    walked with each item fixed or explicitly not applicable; `lint-fp` green in CI.
 
 ## Acceptance
