@@ -95,7 +95,7 @@ project-provided: .factory/Dockerfile  FROM ghcr.io/the-zoop-troop/rig-<runtime>
 ## Progress
 
 - [x] base-split (`factory-rig:base` on debian-slim + ergonomics tools; `factory-rig:rust` layer; `docker/build.sh` assembles egress allowlist and runs conformance; compose `RIG_IMAGE`; `doctor` runtime check from `.factory/runtime.toml`) — 2026-08-29
-- [ ] runtimes-v1
+- [x] runtimes-v1 (python/uv, node/pnpm, go — samples, conformance, allowlist fragments, cache paths; all green locally) — 2026-08-29
 - [ ] ci-and-registry
 - [ ] byo-and-mcp
 - [ ] runtimes-v2

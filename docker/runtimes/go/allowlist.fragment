@@ -1,0 +1,5 @@
+# Go: module proxy and checksum database, Go downloads.
+proxy.golang.org
+sum.golang.org
+go.dev
+storage.googleapis.com

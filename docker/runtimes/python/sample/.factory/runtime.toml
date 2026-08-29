@@ -1,0 +1,6 @@
+[runtime]
+name = "python"
+
+[[tools]]
+bin = "uv"
+version_cmd = "uv --version"

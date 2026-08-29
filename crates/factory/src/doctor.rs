@@ -162,11 +162,13 @@ pub(crate) fn runtime_checks(repo: &Path) -> Vec<Check> {
             fix: "run this rig on the runtime image the project declares: docker/build.sh <runtime> && RIG_IMAGE=factory-rig:<runtime> docker compose up -d (or add the tool to .factory/Dockerfile)",
         });
     }
-    if !spec.runtime.name.is_empty() && spec.runtime.name != current && current != "project" {
-        if let Some(c) = out.first_mut() {
-            c.ok = false;
-            c.fix = "build and select the declared runtime: docker/build.sh <name>; RIG_IMAGE=factory-rig:<name>";
-        }
+    if !spec.runtime.name.is_empty()
+        && spec.runtime.name != current
+        && current != "project"
+        && let Some(c) = out.first_mut()
+    {
+        c.ok = false;
+        c.fix = "build and select the declared runtime: docker/build.sh <name>; RIG_IMAGE=factory-rig:<name>";
     }
     out
 }

@@ -1,0 +1,10 @@
+[runtime]
+name = "node"
+
+[[tools]]
+bin = "node"
+version_cmd = "node --version"
+
+[[tools]]
+bin = "pnpm"
+version_cmd = "pnpm --version"

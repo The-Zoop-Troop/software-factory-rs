@@ -1,0 +1,6 @@
+[runtime]
+name = "go"
+
+[[tools]]
+bin = "go"
+version_cmd = "go version"
