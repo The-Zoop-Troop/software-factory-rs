@@ -102,12 +102,22 @@ pub async fn work_once(
     let worktree = repo.branch_worktree(&branch, &from).await?;
 
     let remaining = remaining_wall_clock(&tr.task);
+    let mcp = match crate::mcp::McpConfig::load(&worktree.path) {
+        Ok(m) => m,
+        Err(e) => {
+            store
+                .note(&id, &format!("ignoring .factory/mcp.json: {e}"))
+                .await?;
+            crate::mcp::McpConfig::default()
+        }
+    };
     let session = harness.run(HarnessRequest {
         cwd: worktree.path.clone(),
         system_prompt: WORKER_SYSTEM_PROMPT.to_owned(),
         prompt: packet.render(),
         schema: None,
         tools: ToolPolicy::Full,
+        mcp,
         max_turns: cfg.max_turns,
         timeout: remaining,
     });

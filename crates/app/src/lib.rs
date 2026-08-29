@@ -19,6 +19,7 @@ pub mod console;
 pub mod errors;
 pub mod events;
 pub mod integrator;
+pub mod mcp;
 pub mod planner;
 pub mod ports;
 pub mod steward;
@@ -37,6 +38,7 @@ pub use errors::{
 };
 pub use events::{EventKind, FactoryEvent};
 pub use integrator::{IntegrateConfig, IntegrateReport, IntegratorError, integrate_once};
+pub use mcp::{McpConfig, McpConfigError, McpServer};
 pub use planner::{PlanReport, PlannerError, plan};
 pub use ports::{
     BeadStore, Clock, EventSink, Harness, HarnessOutcome, HarnessRequest, Repo, RunOutput, Runner,

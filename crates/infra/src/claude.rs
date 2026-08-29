@@ -153,6 +153,11 @@ impl Harness for ClaudeCli {
         if let Some(schema) = &req.schema {
             cmd.arg("--json-schema").arg(schema.to_string());
         }
+        if !req.mcp.is_empty() {
+            cmd.arg("--mcp-config")
+                .arg(req.mcp.to_claude_json().to_string())
+                .arg("--strict-mcp-config");
+        }
         if let Some(model) = &self.model {
             cmd.arg("--model").arg(model);
         }

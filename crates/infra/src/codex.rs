@@ -229,6 +229,9 @@ impl Harness for CodexCli {
         if let Some(m) = &self.model {
             cmd.arg("-m").arg(m);
         }
+        for o in req.mcp.to_codex_overrides() {
+            cmd.arg("-c").arg(o);
+        }
         let prompt = format!(
             "## Instructions\n{}\n\n## Task\n{}",
             req.system_prompt, req.prompt
@@ -335,6 +338,7 @@ mod tests {
                 prompt: "Reply with exactly: pong".into(),
                 schema: None,
                 tools: ToolPolicy::None,
+                mcp: Default::default(),
                 max_turns: Turns::new(1),
                 timeout: app::domain::Duration::from_seconds(120),
             })

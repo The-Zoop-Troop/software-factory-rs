@@ -96,6 +96,6 @@ project-provided: .factory/Dockerfile  FROM ghcr.io/the-zoop-troop/rig-<runtime>
 
 - [x] base-split (`factory-rig:base` on debian-slim + ergonomics tools; `factory-rig:rust` layer; `docker/build.sh` assembles egress allowlist and runs conformance; compose `RIG_IMAGE`; `doctor` runtime check from `.factory/runtime.toml`) — 2026-08-29
 - [x] runtimes-v1 (python/uv, node/pnpm, go — samples, conformance, allowlist fragments, cache paths; all green locally) — 2026-08-29
-- [ ] ci-and-registry
-- [ ] byo-and-mcp
+- [x] ci-and-registry (`runtimes.yml`: matrix base/rust/python/node/go, conformance + sandbox invariants, GHCR publish with date tags, weekly rebuild) — 2026-08-29
+- [x] byo-and-mcp (`.factory/Dockerfile` + `.factory/allowlist` via build.sh; `.factory/mcp.json` → Claude/OpenCode/Codex; skills + MCP reported by doctor) — 2026-08-29
 - [ ] runtimes-v2

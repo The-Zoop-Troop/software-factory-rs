@@ -127,8 +127,7 @@ baked into the image.
 | `FACTORY_LOG_FORMAT=json` | any role | one JSON object per log line |
 | `RUST_LOG` | any role | tracing filter (default `info`) |
 
-Egress is default-deny: edit [`docker/egress/allowlist`](docker/egress/allowlist) for your git
-remote, provider host and package registries. Per-task budgets (tokens, wall clock, attempts)
+Egress is default-deny: `docker/egress/allowlist.base` plus the runtime's fragment and the project's `.factory/allowlist` are assembled by `docker/build.sh`. A project may also ship `.factory/Dockerfile` (own image `FROM` a runtime), `.factory/mcp.json` (MCP servers for all three harnesses) and its harness skills directories — see [`docs/references/runtimes.md`](docs/references/runtimes.md). Per-task budgets (tokens, wall clock, attempts)
 default to `400000 / 45 min / 3` and live on the task bead.
 
 ## Build and test

@@ -63,6 +63,7 @@ pub async fn plan(
             prompt: plan_text.to_owned(),
             schema: Some(plan_schema()),
             tools: ToolPolicy::None,
+            mcp: crate::mcp::McpConfig::default(),
             max_turns: domain::Turns::new(4),
             timeout: domain::Duration::from_minutes(10),
         })

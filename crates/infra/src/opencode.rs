@@ -220,7 +220,11 @@ struct Server {
 }
 
 impl Server {
-    async fn start(cfg: &OpencodeServer, cwd: &std::path::Path) -> Result<Self, HarnessError> {
+    async fn start(
+        cfg: &OpencodeServer,
+        cwd: &std::path::Path,
+        mcp: &app::McpConfig,
+    ) -> Result<Self, HarnessError> {
         let port = free_port().await?;
         let mut cmd = Command::new(&cfg.bin);
         cmd.args([
@@ -240,6 +244,11 @@ impl Server {
         let content = match &cfg.config_content {
             Some(extra) => merge_permission(extra),
             None => r#"{"permission":"allow"}"#.to_owned(),
+        };
+        let content = if mcp.is_empty() {
+            content
+        } else {
+            merge_mcp(&content, mcp)
         };
         cmd.env("OPENCODE_CONFIG_CONTENT", content);
         let child = cmd.spawn().map_err(|e| HarnessError::Spawn {
@@ -279,6 +288,19 @@ impl Drop for Server {
     fn drop(&mut self) {
         // fp-allow: Drop cannot report; the server is disposable
         let _ = self.child.start_kill();
+    }
+}
+
+/// Add the project's MCP servers to the runtime config JSON.
+fn merge_mcp(content: &str, mcp: &app::McpConfig) -> String {
+    match serde_json::from_str::<serde_json::Value>(content) {
+        Ok(serde_json::Value::Object(mut m)) => {
+            if let Some(servers) = mcp.to_opencode_json().get("mcp").cloned() {
+                m.insert("mcp".into(), servers);
+            }
+            serde_json::Value::Object(m).to_string()
+        }
+        _ => content.to_owned(),
     }
 }
 
@@ -331,7 +353,7 @@ struct Created {
 impl Harness for OpencodeServer {
     async fn run(&self, req: HarnessRequest) -> Result<HarnessOutcome, HarnessError> {
         tracing::info!(cwd = %req.cwd.display(), tools = ?req.tools, model = %format!("{}/{}", self.provider_id, self.model_id), "opencode serve");
-        let server = Server::start(self, &req.cwd).await?;
+        let server = Server::start(self, &req.cwd, &req.mcp).await?;
         tracing::debug!(base = %server.base, "opencode serve healthy");
         let client = local_client()?;
         let http = |stage: HarnessStage| {
@@ -457,6 +479,16 @@ mod tests {
     }
 
     #[test]
+    fn merge_mcp_adds_servers() {
+        let mcp = app::McpConfig::parse(r#"{"mcpServers":{"fs":{"command":"npx","args":["x"]}}}"#)
+            .unwrap();
+        let out = merge_mcp(r#"{"permission":"allow"}"#, &mcp);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["mcp"]["fs"]["type"], "local");
+        assert_eq!(v["permission"], "allow");
+    }
+
+    #[test]
     fn merge_permission_keeps_extra() {
         let s = merge_permission(r#"{"provider":{"x":{}}}"#);
         let v: serde_json::Value = serde_json::from_str(&s).unwrap();
@@ -483,6 +515,7 @@ mod tests {
                 prompt: "Reply with exactly: pong".into(),
                 schema: None,
                 tools: ToolPolicy::None,
+                mcp: Default::default(),
                 max_turns: Turns::new(1),
                 timeout: Duration::from_seconds(120),
             })

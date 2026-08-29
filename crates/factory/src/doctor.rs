@@ -54,6 +54,7 @@ pub(crate) async fn probe_harnesses(cwd: &Path) -> Vec<Check> {
         prompt: "pong".into(),
         schema: None,
         tools: ToolPolicy::None,
+        mcp: Default::default(),
         max_turns: Turns::new(1),
         timeout: Duration::from_seconds(90),
     };
@@ -220,6 +221,54 @@ pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
         fix: "clone the project at --repo, or set RIG_REPO_URL for the rig",
     });
     checks.extend(runtime_checks(repo));
+    // Skills and MCP are repo-carried: report what each harness will see in this project.
+    let skills = [
+        ".claude/skills",
+        ".codex/skills",
+        ".opencode/skills",
+        ".agents/skills",
+    ]
+    .iter()
+    .filter_map(|d| {
+        std::fs::read_dir(repo.join(d))
+            .ok()
+            .map(|it| format!("{d}={}", it.count()))
+    })
+    .collect::<Vec<_>>();
+    checks.push(Check {
+        name: "skills",
+        ok: true,
+        detail: if skills.is_empty() {
+            "none in the project repo (harness defaults apply)".into()
+        } else {
+            skills.join(" ")
+        },
+        fix: "",
+    });
+    checks.push(match infra::app::McpConfig::load(repo) {
+        Ok(m) if m.is_empty() => Check {
+            name: "mcp",
+            ok: true,
+            detail: "no .factory/mcp.json".into(),
+            fix: "",
+        },
+        Ok(m) => Check {
+            name: "mcp",
+            ok: true,
+            detail: format!(
+                "{} server(s); remote hosts: {:?} (must be in the egress allowlist)",
+                m.servers.len(),
+                m.remote_hosts()
+            ),
+            fix: "",
+        },
+        Err(e) => Check {
+            name: "mcp",
+            ok: false,
+            detail: e.to_string(),
+            fix: "fix .factory/mcp.json ({\"mcpServers\": {name: {command,args,env} | {url}}})",
+        },
+    });
     let creds = [
         "CLAUDE_CODE_OAUTH_TOKEN",
         "ANTHROPIC_API_KEY",

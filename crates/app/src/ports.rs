@@ -196,6 +196,8 @@ pub struct HarnessRequest {
     pub schema: Option<serde_json::Value>,
     /// Whether the harness may edit files / run commands, or only think and answer.
     pub tools: ToolPolicy,
+    /// MCP servers the session may use (from the project's `.factory/mcp.json`).
+    pub mcp: crate::mcp::McpConfig,
     pub max_turns: Turns,
     pub timeout: Duration,
 }

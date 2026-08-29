@@ -19,3 +19,9 @@ egress proxy, and optionally runs `docker/runtimes/conformance.sh` against the r
 (verify commands executed exactly as the Verifier does: `/bin/sh`, repo root, repo root on `PATH`).
 
 Published images: `ghcr.io/the-zoop-troop/rig-base` and `ghcr.io/the-zoop-troop/rig-<runtime>`, tags `<yyyymmdd>` and `latest`, built by `.github/workflows/runtimes.yml` (matrix + conformance on every change under `docker/`).
+
+## Bring your own image, MCP servers, skills
+
+- `.factory/Dockerfile` in the project (`ARG BASE` / `FROM ${BASE}`; `docker/build.sh <runtime> --project <dir>` passes the runtime image as `BASE`) adds project-specific tools; `.factory/allowlist` adds egress hosts. The sandbox is unchanged: `doctor` and conformance still require uid 10001 and zero capabilities.
+- `.factory/mcp.json` (`{"mcpServers": {name: {command, args, env} | {url, headers}}}`) is parsed once (`app::mcp`) and rendered per harness: Claude `--mcp-config … --strict-mcp-config`, OpenCode `mcp` config block, Codex `-c mcp_servers.<name>.*`. Remote hosts must be in the allowlist; `doctor` lists them.
+- Skills travel with the project repo (`.claude/skills`, `.codex/skills`, `.opencode/skills`, `.agents/skills`) and are picked up by the harness in the worktree; `doctor` reports what it sees. Nothing skill-related is baked into images.

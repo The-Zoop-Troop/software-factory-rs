@@ -26,6 +26,7 @@ fn req(prompt: &str, tools: ToolPolicy, schema: bool) -> HarnessRequest {
         prompt: prompt.into(),
         schema: schema.then(|| serde_json::json!({"type":"object"})),
         tools,
+        mcp: Default::default(),
         max_turns: Turns::new(3),
         timeout: Duration::from_seconds(2),
     }
