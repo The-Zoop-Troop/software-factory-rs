@@ -49,7 +49,10 @@ fn coverage() -> anyhow::Result<()> {
     let status = std::process::Command::new("cargo")
         .args([
             "llvm-cov",
+            "nextest",
             "--workspace",
+            "--exclude",
+            "xtask",
             "--all-features",
             "--fail-under-lines",
             "85",

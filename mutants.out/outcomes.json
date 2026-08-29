@@ -5857,15 +5857,938 @@
           ]
         }
       ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:407:29: delete field state from struct Task expression in Task::apply",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::apply",
+            "return_type": "-> Result<Transition, IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 229,
+                "column": 5
+              },
+              "end": {
+                "line": 483,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 407,
+              "column": 29
+            },
+            "end": {
+              "line": 407,
+              "column": 52
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_407_col_29.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_407_col_29.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.878804067,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.204046849,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:489:17: delete field state from struct Task expression in Task::escalate",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::escalate",
+            "return_type": "-> Transition",
+            "span": {
+              "start": {
+                "line": 485,
+                "column": 5
+              },
+              "end": {
+                "line": 496,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 489,
+              "column": 17
+            },
+            "end": {
+              "line": 491,
+              "column": 19
+            }
+          },
+          "replacement": "",
+          "genre": "StructField"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_489_col_17.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_489_col_17.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.920388521,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.203986742,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:503:9: replace Task::require_holder -> Result<(), IllegalTransition> with Ok(())",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::require_holder",
+            "return_type": "-> Result<(), IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 498,
+                "column": 5
+              },
+              "end": {
+                "line": 512,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 503,
+              "column": 9
+            },
+            "end": {
+              "line": 511,
+              "column": 10
+            }
+          },
+          "replacement": "Ok(())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_503_col_9.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_503_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 2.022291796,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.155502783,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:15:9: replace Timestamp::from_unix_seconds -> Self with Default::default()",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "Timestamp::from_unix_seconds",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 13,
+                "column": 5
+              },
+              "end": {
+                "line": 16,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 15,
+              "column": 9
+            },
+            "end": {
+              "line": 15,
+              "column": 19
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__domain__src__time.rs_line_15_col_9.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_15_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.168076475,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/task.rs:503:26: replace == with != in Task::require_holder",
+          "package": "domain",
+          "file": "crates/domain/src/task.rs",
+          "function": {
+            "function_name": "Task::require_holder",
+            "return_type": "-> Result<(), IllegalTransition>",
+            "span": {
+              "start": {
+                "line": 498,
+                "column": 5
+              },
+              "end": {
+                "line": 512,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 503,
+              "column": 26
+            },
+            "end": {
+              "line": 503,
+              "column": 28
+            }
+          },
+          "replacement": "!=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__task.rs_line_503_col_26.log",
+      "diff_path": "diff/crates__domain__src__task.rs_line_503_col_26.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.914492638,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.205946972,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with 0",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "Timestamp::unix_seconds",
+            "return_type": "-> i64",
+            "span": {
+              "start": {
+                "line": 18,
+                "column": 5
+              },
+              "end": {
+                "line": 21,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 20,
+              "column": 9
+            },
+            "end": {
+              "line": 20,
+              "column": 15
+            }
+          },
+          "replacement": "0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__domain__src__time.rs_line_20_col_9.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_20_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.8105195429999998,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.353404489,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with 1",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "Timestamp::unix_seconds",
+            "return_type": "-> i64",
+            "span": {
+              "start": {
+                "line": 18,
+                "column": 5
+              },
+              "end": {
+                "line": 21,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 20,
+              "column": 9
+            },
+            "end": {
+              "line": 20,
+              "column": 15
+            }
+          },
+          "replacement": "1",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__domain__src__time.rs_line_20_col_9_001.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_20_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.707898398,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.363182848,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with -1",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "Timestamp::unix_seconds",
+            "return_type": "-> i64",
+            "span": {
+              "start": {
+                "line": 18,
+                "column": 5
+              },
+              "end": {
+                "line": 21,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 20,
+              "column": 9
+            },
+            "end": {
+              "line": 20,
+              "column": 15
+            }
+          },
+          "replacement": "-1",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__domain__src__time.rs_line_20_col_9_002.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_20_col_9_002.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.724284195,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.308478675,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:26:9: replace Timestamp::since -> Duration with Default::default()",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "Timestamp::since",
+            "return_type": "-> Duration",
+            "span": {
+              "start": {
+                "line": 23,
+                "column": 5
+              },
+              "end": {
+                "line": 27,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 26,
+              "column": 9
+            },
+            "end": {
+              "line": 26,
+              "column": 93
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__time.rs_line_26_col_9.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_26_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.65940358,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.151860913,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:50:9: replace Duration::from_minutes -> Self with Default::default()",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "Duration::from_minutes",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 48,
+                "column": 5
+              },
+              "end": {
+                "line": 51,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 50,
+              "column": 9
+            },
+            "end": {
+              "line": 50,
+              "column": 38
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__domain__src__time.rs_line_50_col_9.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_50_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.955402409,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:45:9: replace Duration::from_seconds -> Self with Default::default()",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "Duration::from_seconds",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 43,
+                "column": 5
+              },
+              "end": {
+                "line": 46,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 45,
+              "column": 9
+            },
+            "end": {
+              "line": 45,
+              "column": 19
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__domain__src__time.rs_line_45_col_9.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_45_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.06446738,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:32:9: replace <impl fmt::Display for Timestamp>::fmt -> fmt::Result with Ok(Default::default())",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "<impl fmt::Display for Timestamp>::fmt",
+            "return_type": "-> fmt::Result",
+            "span": {
+              "start": {
+                "line": 31,
+                "column": 5
+              },
+              "end": {
+                "line": 33,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 32,
+              "column": 9
+            },
+            "end": {
+              "line": 32,
+              "column": 32
+            }
+          },
+          "replacement": "Ok(Default::default())",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "MissedMutant",
+      "log_path": "log/crates__domain__src__time.rs_line_32_col_9.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_32_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.771206649,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.351896641,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:63:9: replace <impl Add<Duration> for Timestamp>::add -> Self with Default::default()",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "<impl Add<Duration> for Timestamp>::add",
+            "return_type": "-> Self",
+            "span": {
+              "start": {
+                "line": 62,
+                "column": 5
+              },
+              "end": {
+                "line": 65,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 63,
+              "column": 9
+            },
+            "end": {
+              "line": 64,
+              "column": 42
+            }
+          },
+          "replacement": "Default::default()",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "Unviable",
+      "log_path": "log/crates__domain__src__time.rs_line_63_col_9.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_63_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.857206672,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:55:9: replace Duration::seconds -> u64 with 0",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "Duration::seconds",
+            "return_type": "-> u64",
+            "span": {
+              "start": {
+                "line": 53,
+                "column": 5
+              },
+              "end": {
+                "line": 56,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 55,
+              "column": 9
+            },
+            "end": {
+              "line": 55,
+              "column": 15
+            }
+          },
+          "replacement": "0",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__time.rs_line_55_col_9.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_55_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.561843426,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.152847396,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "crates/domain/src/time.rs:55:9: replace Duration::seconds -> u64 with 1",
+          "package": "domain",
+          "file": "crates/domain/src/time.rs",
+          "function": {
+            "function_name": "Duration::seconds",
+            "return_type": "-> u64",
+            "span": {
+              "start": {
+                "line": 53,
+                "column": 5
+              },
+              "end": {
+                "line": 56,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 55,
+              "column": 9
+            },
+            "end": {
+              "line": 55,
+              "column": 15
+            }
+          },
+          "replacement": "1",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/crates__domain__src__time.rs_line_55_col_9_001.log",
+      "diff_path": "diff/crates__domain__src__time.rs_line_55_col_9_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.306227843,
+          "process_status": "Success",
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.100969222,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "/home/mazup/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--verbose",
+            "--package=domain@0.1.0"
+          ]
+        }
+      ]
     }
   ],
-  "total_mutants": 94,
-  "missed": 15,
-  "caught": 56,
+  "total_mutants": 109,
+  "missed": 19,
+  "caught": 63,
   "timeout": 0,
-  "unviable": 23,
+  "unviable": 27,
   "success": 0,
   "start_time": "2026-08-29T12:01:32.392271092Z",
-  "end_time": null,
+  "end_time": "2026-08-29T12:03:13.328235384Z",
   "cargo_mutants_version": "27.1.0"
 }

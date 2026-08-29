@@ -1,0 +1,21 @@
+--- crates/domain/src/time.rs
++++ replace Duration::seconds -> u64 with 0
+@@ -47,17 +47,17 @@
+ 
+     #[must_use]
+     pub const fn from_minutes(mins: u64) -> Self {
+         Self(mins.saturating_mul(60))
+     }
+ 
+     #[must_use]
+     pub const fn seconds(self) -> u64 {
+-        self.0
++        0 /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl Add<Duration> for Timestamp {
+     type Output = Self;
+ 
+     fn add(self, rhs: Duration) -> Self {
+         let secs = i64::try_from(rhs.0).unwrap_or(i64::MAX);

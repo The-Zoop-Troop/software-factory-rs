@@ -13,3 +13,7 @@ crates/domain/src/task.rs:314:25: delete field usage from struct Task expression
 crates/domain/src/task.rs:315:25: delete field lease_expiries from struct Task expression in Task::apply
 crates/domain/src/task.rs:322:25: delete field usage from struct Task expression in Task::apply
 crates/domain/src/task.rs:381:32: delete field usage from struct Task expression in Task::apply
+crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with 0
+crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with 1
+crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with -1
+crates/domain/src/time.rs:32:9: replace <impl fmt::Display for Timestamp>::fmt -> fmt::Result with Ok(Default::default())

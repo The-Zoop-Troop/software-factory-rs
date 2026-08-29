@@ -21,3 +21,7 @@ crates/domain/src/plan.rs:192:5: replace topo_sort -> Result<Vec<PlannedTask>, P
 crates/domain/src/plan.rs:212:17: replace && with || in topo_sort
 crates/domain/src/task.rs:238:9: replace Task::apply -> Result<Transition, IllegalTransition> with Ok(Default::default())
 crates/domain/src/task.rs:486:9: replace Task::escalate -> Transition with Default::default()
+crates/domain/src/time.rs:15:9: replace Timestamp::from_unix_seconds -> Self with Default::default()
+crates/domain/src/time.rs:50:9: replace Duration::from_minutes -> Self with Default::default()
+crates/domain/src/time.rs:45:9: replace Duration::from_seconds -> Self with Default::default()
+crates/domain/src/time.rs:63:9: replace <impl Add<Duration> for Timestamp>::add -> Self with Default::default()
