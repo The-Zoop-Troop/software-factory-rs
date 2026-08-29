@@ -59,6 +59,13 @@ enum Command {
     },
     /// Print the sha256 of a token read from stdin, for the token file.
     HashToken,
+    /// Print the Agent Card a rig would publish (used to generate the API reference).
+    Card {
+        #[arg(long, default_value = "toy")]
+        rig: String,
+        #[arg(long, default_value = "https://console.example")]
+        public_url: String,
+    },
 }
 
 #[tokio::main]
@@ -71,6 +78,14 @@ async fn main() -> anyhow::Result<()> {
             let mut token = String::new();
             std::io::stdin().read_line(&mut token)?;
             println!("{}", auth::hash(token.trim()));
+            Ok(())
+        }
+        Command::Card { rig, public_url } => {
+            let rig = domain::RigName::try_new(&rig)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&server::agent_card(&public_url, &rig))?
+            );
             Ok(())
         }
         Command::Serve {

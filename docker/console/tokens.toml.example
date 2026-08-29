@@ -1,0 +1,8 @@
+# Console clients. Copy to tokens.toml (gitignored). One [[token]] per client; the value the
+# client sends is `Authorization: Bearer <token>`; store only its sha256:
+#   openssl rand -hex 32 > phone.token && console hash-token < phone.token
+# Scopes per rig: watch (read + subscribe), plan (submit/stop), resolve (answer inbox), admin (all).
+[[token]]
+client = "phone"
+sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+grants = { toy = ["watch", "plan", "resolve"] }

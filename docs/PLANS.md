@@ -4,3 +4,4 @@ Roadmap phases live in `ARCHITECTURE.md §9`; each phase item becomes an exec pl
 
 Completed: `exec-plans/completed/harness-engineering-rescaffold.md` (2026-08-29).
 Completed: `exec-plans/completed/railway-refactor.md` (2026-08-29).
+Completed: `exec-plans/completed/runtime-images.md` (2026-08-29).

@@ -1,6 +1,6 @@
 # Exec plan: runtime images
 
-- **Status:** active · **Owner:** human steers, agents execute · **Started:** 2026-08-29
+- **Status:** completed 2026-08-29 · **Owner:** human steers, agents execute · **Started:** 2026-08-29
 - **Beads epic:** `fac-cvv`
 - **Related:** `docs/design-docs/rig-sandbox.md`, `docs/DEPLOYMENT.md`, debt item "per-project toolchain baked into one image"
 
@@ -92,10 +92,14 @@ project-provided: .factory/Dockerfile  FROM ghcr.io/the-zoop-troop/rig-<runtime>
 - 2026-08-29 — The image is chosen by humans/registry, never by an agent.
 - 2026-08-29 — v1 runtimes: rust, python (uv), node (pnpm), go. v2: jvm, c-cpp, web-e2e, ruby (Rails), php, elixir, polyglot (user).
 
+- 2026-08-29 — apt-sourced language versions (JDK 17, Ruby 3.1, PHP 8.2, Elixir 1.14) follow Debian bookworm rather than upstream latest: reproducible, security-patched by the base, and a project needing newer adds it in `.factory/Dockerfile`.
+- 2026-08-29 — `build.sh` resolves a runtime's parent from its Dockerfile `ARG BASE` (web-e2e on node, polyglot on rust) instead of a hard-coded list.
+- 2026-08-29 — Datastore sidecars are compose profiles on the rig network, not baked into runtime images; verify commands reach them by service name.
+
 ## Progress
 
 - [x] base-split (`factory-rig:base` on debian-slim + ergonomics tools; `factory-rig:rust` layer; `docker/build.sh` assembles egress allowlist and runs conformance; compose `RIG_IMAGE`; `doctor` runtime check from `.factory/runtime.toml`) — 2026-08-29
 - [x] runtimes-v1 (python/uv, node/pnpm, go — samples, conformance, allowlist fragments, cache paths; all green locally) — 2026-08-29
 - [x] ci-and-registry (`runtimes.yml`: matrix base/rust/python/node/go, conformance + sandbox invariants, GHCR publish with date tags, weekly rebuild) — 2026-08-29
 - [x] byo-and-mcp (`.factory/Dockerfile` + `.factory/allowlist` via build.sh; `.factory/mcp.json` → Claude/OpenCode/Codex; skills + MCP reported by doctor) — 2026-08-29
-- [ ] runtimes-v2
+- [x] runtimes-v2 (jvm, c-cpp, ruby, php, elixir, web-e2e, polyglot — samples + conformance green locally; postgres/redis sidecar profiles; matrix + docs) — 2026-08-29

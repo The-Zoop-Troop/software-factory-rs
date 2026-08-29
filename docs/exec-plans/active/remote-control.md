@@ -91,9 +91,13 @@ The Agent Card lists skills per rig (`plan`, `watch`, `inbox`, `resolve`, `docto
   work, and everything before the web app is usable without it.
 - 2026-08-29 — Remote humans cannot approve merges. Done means verified, remotely too.
 
+- 2026-08-29 — Plans reach the rig through a `plan_request` bead served by the rig's `planner` service, not by the console running a harness: the console never holds a provider credential and the design stays pull-based. `plan_cmd` remains as an opt-in for hosts that run the planner locally.
+- 2026-08-29 — `serde_json::json!` is not used in the console (its expansion unwraps); values are built with explicit serde types and small helpers so the deny-tier lints hold.
+- 2026-08-29 — `CancelTask` closes an epic's open tasks and labels the epic `fac:canceled`; a worker mid-session loses its task at the next persist rather than being killed.
+
 ## Progress
 
-- [ ] console-api
+- [x] console-api (`crates/console`: cards, SendMessage/GetTask/ListTasks/CancelTask, SSE SubscribeToTask, hashed scoped tokens, audit, budgets; compose `console` + `planner`; generated API doc) — 2026-08-29
 - [ ] cli-remote + telegram
 - [ ] rig-registry + multi-project
 - [ ] ops-hardening

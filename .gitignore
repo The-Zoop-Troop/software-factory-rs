@@ -41,3 +41,7 @@ docker/rig.env.*
 *.orig
 *.log
 /docker/egress/allowlist
+
+# Console client tokens (hashed, but still per-deployment)
+docker/console/tokens.toml
+docker/console/rigs.toml

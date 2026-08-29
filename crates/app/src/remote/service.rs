@@ -131,9 +131,14 @@ pub async fn get_task(
             Ok(epic_task(&bead, &children, &now))
         }
         Some(BeadKind::Incident | BeadKind::Question) => Ok(inbox_task(&bead, &now)),
-        Some(BeadKind::Task | BeadKind::Verify | BeadKind::Merge | BeadKind::Reference) | None => {
-            Err(RemoteError::TaskNotFound { id: id.to_owned() })
-        }
+        Some(
+            BeadKind::Task
+            | BeadKind::Verify
+            | BeadKind::Merge
+            | BeadKind::Reference
+            | BeadKind::PlanRequest,
+        )
+        | None => Err(RemoteError::TaskNotFound { id: id.to_owned() }),
     }
 }
 

@@ -83,6 +83,28 @@ services:
     command: [work, --interval, "10"]
 
   # One-shot roles; run with `docker compose run --rm <name> ...`.
+  # Serves the plan queue: plan_request beads left by the console become epics here, so the
+  # harness credential stays inside the rig.
+  planner:
+    <<: *rig
+    command: [planner]
+
+  # Remote control (docs/exec-plans/active/remote-control.md). Only the console is reachable
+  # from outside the rig network, on the loopback port below; put TLS in front for real use.
+  console:
+    <<: *rig
+    command: [console]
+    env_file: []   # no provider credentials here, ever
+    environment:
+      RIG_NAME: ${RIG_NAME:-toy}
+      CONSOLE_URL: ${CONSOLE_URL:-http://127.0.0.1:7700}
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      - ledger:/work/rig
+      - ./docker/console:/work/console
+    ports:
+      - "127.0.0.1:${CONSOLE_PORT:-7700}:7700"
+
   plan:
     <<: *rig
     restart: "no"

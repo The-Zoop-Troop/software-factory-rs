@@ -12,3 +12,4 @@ Each doc carries `Status` (draft | accepted | superseded) and `Verified` (how an
 | `rig-sandbox.md` | Container, egress, credentials, volumes | accepted |
 | `merge-policy.md` | Integrator behaviour and PR/merge philosophy | accepted |
 | `railway.md` | Railway-oriented control flow as a product principle; compatibility rule for stored metadata | accepted |
+| `remote-control.md` | The console: A2A over rigs, plan queue, scoped tokens, audit, budgets | accepted |

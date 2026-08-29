@@ -19,7 +19,7 @@ Bring your project in: set `RIG_REPO_URL` in `rig.env` (cloned on first start), 
 
 ## Operate
 ```sh
-docker compose run --rm -e RIG_HARNESS=opencode plan --text "…"      # submit a plan
+docker compose run --rm -e RIG_HARNESS=opencode plan --text "…"      # submit a plan (or via the console, below)
 docker compose up -d worker-opencode                                  # OpenCode worker
 docker compose --profile codex up -d worker-codex                     # Codex worker
 docker compose up -d --scale worker=3                                 # more Claude workers
@@ -29,6 +29,18 @@ docker compose exec steward bd ready                                  # the ledg
 docker compose exec steward tail -f .factory/events.jsonl             # the event log
 ```
 Landing on a remote: pass `--remote origin` to `integrate` (edit the service command) and protect `main` on the remote so only the rig's deploy key can fast-forward it.
+
+## Remote control (console)
+The `console` service exposes the rig over A2A on `127.0.0.1:7700` (`CONSOLE_PORT`); put TLS and a real hostname in front of it (`CONSOLE_URL` goes into the Agent Card). It shares only the `ledger` volume with the rig and gets no `rig.env`.
+```sh
+openssl rand -hex 32 > phone.token
+docker compose run --rm console console hash-token < phone.token    # → sha256 for tokens.toml
+cp docker/console/tokens.toml.example docker/console/tokens.toml   # paste the hash, set grants
+docker compose up -d planner console                               # planner serves the plan queue
+curl -s localhost:7700/rigs/toy/.well-known/agent-card.json | jq .skills[].id
+curl -s -H "Authorization: Bearer $(cat phone.token)" -d '{"jsonrpc":"2.0","id":1,"method":"ListTasks"}' localhost:7700/rigs/toy/a2a
+```
+Operations, scopes, and error codes: `docs/generated/console-api.md`. Multiple rigs on one host: mount your own `docker/console/rigs.toml` (one `[[rig]]` per ledger, optional `max_tokens`/`max_usd_micros`, optional `plan_cmd`).
 
 ## One rig per worktree
 Compose names volumes and containers after the project name, so an isolated factory per branch is one variable away:

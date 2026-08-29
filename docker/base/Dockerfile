@@ -18,9 +18,10 @@ COPY Cargo.toml Cargo.lock rust-toolchain.toml clippy.toml rustfmt.toml ./
 COPY crates ./crates
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
-    cargo build --release --locked -p factory -p stewardd \
+    cargo build --release --locked -p factory -p stewardd -p console \
     && install -D target/release/factory /out/factory \
-    && install -D target/release/stewardd /out/stewardd
+    && install -D target/release/stewardd /out/stewardd \
+    && install -D target/release/console /out/console
 
 # --- the base runtime ---
 FROM debian:bookworm-slim AS base
@@ -79,7 +80,7 @@ RUN set -eu; cd /tmp; \
       tar -xzf "${a}-x86_64-unknown-linux-musl.tar.gz"; install -m 0755 "${a}-x86_64-unknown-linux-musl" "/home/factory/.local/bin/${a}"; \
     done; rm -rf /tmp/*; codex --version
 
-COPY --from=build --chmod=0755 /out/factory /out/stewardd /usr/local/bin/
+COPY --from=build --chmod=0755 /out/factory /out/stewardd /out/console /usr/local/bin/
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/rig-entrypoint
 
 # /work/rig: .beads + .factory (ledger volume); /work/rig/repo: project clone (repo volume);

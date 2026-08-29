@@ -13,9 +13,18 @@ pub(crate) struct RigSpec {
     pub ledger: PathBuf,
     /// The rig's `events.jsonl`.
     pub events: PathBuf,
-    /// Command that plans inside the rig; the plan text is appended as `--text <plan>`.
-    pub plan_cmd: Vec<String>,
+    /// How plans reach the rig: the ledger queue (default) or a command run here.
+    pub planner: PlannerSpec,
     pub budget: RigBudget,
+}
+
+/// Where a submitted plan goes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum PlannerSpec {
+    /// Leave a `plan_request` bead; the rig's `planner` service answers within `timeout`.
+    Queue { timeout: std::time::Duration },
+    /// Run this command with `--text <plan>` and read `epic <id>` from its stdout.
+    Command { argv: Vec<String> },
 }
 
 /// A client token: the sha256 hex of the bearer value and what it grants.
@@ -53,7 +62,10 @@ struct RawRig {
     name: String,
     ledger: PathBuf,
     events: PathBuf,
+    #[serde(default)]
     plan_cmd: Vec<String>,
+    #[serde(default)]
+    plan_timeout_secs: Option<u64>,
     #[serde(default)]
     max_tokens: Option<u64>,
     #[serde(default)]
@@ -69,14 +81,18 @@ impl TryFrom<RawRig> for RigSpec {
             detail,
         };
         let name = RigName::try_new(&raw.name).map_err(|e| err(e.to_string()))?;
-        if raw.plan_cmd.is_empty() {
-            return Err(err("plan_cmd must name a command".to_owned()));
-        }
+        let planner = if raw.plan_cmd.is_empty() {
+            PlannerSpec::Queue {
+                timeout: std::time::Duration::from_secs(raw.plan_timeout_secs.unwrap_or(900)),
+            }
+        } else {
+            PlannerSpec::Command { argv: raw.plan_cmd }
+        };
         Ok(Self {
             name,
             ledger: raw.ledger,
             events: raw.events,
-            plan_cmd: raw.plan_cmd,
+            planner,
             budget: RigBudget {
                 max_tokens: raw.max_tokens.map(Tokens::new),
                 max_usd: raw.max_usd_micros.map(MicroUsd::new),
@@ -195,6 +211,7 @@ mod tests {
         .expect("toml");
         let rigs = parse_registry(raw).expect("valid");
         assert_eq!(rigs[0].name.as_ref(), "toy");
+        assert!(matches!(rigs[0].planner, PlannerSpec::Command { .. }));
         assert_eq!(rigs[0].budget.max_tokens, Some(Tokens::new(5000)));
         assert_eq!(rigs[0].budget.max_usd, None);
 
@@ -203,15 +220,15 @@ mod tests {
         )
         .expect("toml");
         assert!(matches!(parse_registry(bad), Err(ConfigError::Rig { .. })));
-        let empty: RawRegistry = toml::from_str(
-            "[[rig]]\nname = \"toy\"\nledger = \"a\"\nevents = \"b\"\nplan_cmd = []\n",
+        let queued: RawRegistry = toml::from_str(
+            "[[rig]]\nname = \"toy\"\nledger = \"a\"\nevents = \"b\"\nplan_timeout_secs = 5\n",
         )
         .expect("toml");
-        assert!(
-            parse_registry(empty)
-                .unwrap_err()
-                .to_string()
-                .contains("plan_cmd")
+        assert_eq!(
+            parse_registry(queued).expect("ok")[0].planner,
+            PlannerSpec::Queue {
+                timeout: std::time::Duration::from_secs(5)
+            }
         );
         let dup: RawRegistry = toml::from_str(
             "[[rig]]\nname = \"toy\"\nledger = \"a\"\nevents = \"b\"\nplan_cmd = [\"x\"]\n[[rig]]\nname = \"toy\"\nledger = \"a\"\nevents = \"b\"\nplan_cmd = [\"x\"]\n",

@@ -22,6 +22,8 @@ pub enum BeadKind {
     Incident,
     /// Architecture notes and decisions injected into every worker's context packet.
     Reference,
+    /// A plan submitted remotely, waiting for the rig's Planner to turn it into an epic.
+    PlanRequest,
 }
 
 impl BeadKind {
@@ -38,6 +40,7 @@ impl BeadKind {
             Self::Question => "question",
             Self::Incident => "incident",
             Self::Reference => "reference",
+            Self::PlanRequest => "plan_request",
         }
     }
 
@@ -78,6 +81,7 @@ impl FromStr for BeadKind {
             "question" => Ok(Self::Question),
             "incident" => Ok(Self::Incident),
             "reference" => Ok(Self::Reference),
+            "plan_request" => Ok(Self::PlanRequest),
             other => Err(UnknownKind(other.to_owned())),
         }
     }
@@ -103,6 +107,7 @@ mod tests {
             BeadKind::Question,
             BeadKind::Incident,
             BeadKind::Reference,
+            BeadKind::PlanRequest,
         ] {
             let label = k.label();
             assert_eq!(BeadKind::from_labels([label.as_str(), "other"]), Some(k));

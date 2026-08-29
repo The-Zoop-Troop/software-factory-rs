@@ -117,6 +117,12 @@ Options:
           
           [default: 2]
 
+      --queue
+          Serve the plan queue instead: plan each open `plan_request` bead (from the console)
+
+      --interval <INTERVAL>
+          With --queue: keep polling every N seconds (one sweep when omitted)
+
   -h, --help
           Print help (see a summary with '-h')
 ```

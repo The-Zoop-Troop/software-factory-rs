@@ -10,6 +10,7 @@ pub(crate) fn generate(root: &Path, check: bool) -> anyhow::Result<()> {
         ("state-machine.md", state_machine()),
         ("bead-schema.md", bead_schema()?),
         ("cli.md", cli_reference(root)?),
+        ("console-api.md", console_api(root)?),
     ];
     let dir = root.join("docs/generated");
     std::fs::create_dir_all(&dir)?;
@@ -117,6 +118,7 @@ fn bead_schema() -> anyhow::Result<String> {
             "question",
             "incident",
             "reference",
+            "plan_request",
         ]
         .iter()
         .map(|k| format!("`{}{k}`", domain::BeadKind::LABEL_PREFIX))
@@ -162,5 +164,51 @@ fn cli_reference(root: &Path) -> anyhow::Result<String> {
         };
         s.push_str(&format!("## `{title}`\n\n```text\n{}```\n\n", help(&cmd)?));
     }
+    Ok(s)
+}
+
+fn console_api(root: &Path) -> anyhow::Result<String> {
+    let run = |args: &[&str]| -> anyhow::Result<String> {
+        let out = std::process::Command::new("cargo")
+            .args(["run", "-q", "-p", "console", "--"])
+            .args(args)
+            .current_dir(root)
+            .output()?;
+        anyhow::ensure!(
+            out.status.success(),
+            "console {args:?} failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    };
+    let mut s = header("Console A2A API (generated)");
+    s.push_str("Source: `crates/console` via `console card` and `console --help`. Protocol: A2A v1 JSON-RPC binding (`docs/references/a2a.md`); every request carries `Authorization: Bearer <token>`.\n\n");
+    s.push_str(
+        "## Agent Card (per rig, `GET /rigs/<rig>/.well-known/agent-card.json`)\n\n```json\n",
+    );
+    s.push_str(&run(&[
+        "card",
+        "--rig",
+        "toy",
+        "--public-url",
+        "https://console.example",
+    ])?);
+    s.push_str("```\n\n## Operations (`POST /rigs/<rig>/a2a`)\n\n");
+    s.push_str(
+        "| Method | Scope | Params | Result |\n|---|---|---|---|\n\
+| `SendMessage` | `plan` | `{message: {parts: [{text}]}}` | `{task}` — the new epic |\n\
+| `SendMessage` | `resolve` | `{message: {taskId, parts: [{text}]}}` | `{task}` — the resolved inbox item |\n\
+| `GetTask` | `watch` | `{id}` | `Task` (epic or inbox item) |\n\
+| `ListTasks` | `watch` | `{status?: \"TASK_STATE_INPUT_REQUIRED\"}` | `{tasks: [Task]}` |\n\
+| `CancelTask` | `plan` | `{id}` | `Task` in `TASK_STATE_CANCELED` |\n\
+| `SubscribeToTask` | `watch` | `{id}` | SSE: `{task}` then `{statusUpdate}` per event, `final: true` at a terminal state |\n\n\
+Errors: HTTP 401 (no/unknown token), 403 + code -32040 (missing scope), 404 + -32001 (task/rig), 400 (-32601/-32602/-32004), -32041 (rig budget cap), -32002 (terminal task).\n\n",
+    );
+    s.push_str("Task states: an epic is `SUBMITTED` until a task is claimed, `WORKING` while tasks move, `INPUT_REQUIRED` while any task is in incident, `COMPLETED` when closed, `CANCELED` after `CancelTask`. Incidents and questions are their own `INPUT_REQUIRED` tasks whose `contextId` is the epic.\n\n");
+    s.push_str("## CLI\n\n```text\n");
+    s.push_str(&run(&["--help"])?);
+    s.push_str("```\n\n```text\n");
+    s.push_str(&run(&["serve", "--help"])?);
+    s.push_str("```\n");
     Ok(s)
 }

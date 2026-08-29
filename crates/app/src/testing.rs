@@ -295,6 +295,12 @@ impl BeadStore for FakeStore {
     }
 }
 
+/// A bare bead of `kind` for tests that need one outside the seeders.
+#[must_use]
+pub fn plain_bead(id: BeadId, kind: Option<BeadKind>) -> Bead {
+    plain(id, "bead", kind, None, BeadStatus::Open)
+}
+
 fn plain(
     id: BeadId,
     title: &str,

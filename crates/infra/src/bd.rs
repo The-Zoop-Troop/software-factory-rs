@@ -428,7 +428,11 @@ impl BeadStore for BdCli {
 const fn bd_type(kind: BeadKind) -> &'static str {
     match kind {
         BeadKind::Epic => "epic",
-        BeadKind::Task | BeadKind::Verify | BeadKind::Merge | BeadKind::Reference => "task",
+        BeadKind::Task
+        | BeadKind::Verify
+        | BeadKind::Merge
+        | BeadKind::Reference
+        | BeadKind::PlanRequest => "task",
         BeadKind::Question => "decision",
         BeadKind::Incident => "bug",
     }

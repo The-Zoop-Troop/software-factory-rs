@@ -89,6 +89,12 @@ pub(crate) enum Command {
         /// Spend cap for the planner run, USD (claude only).
         #[arg(long, default_value_t = 2.0)]
         max_budget_usd: f64,
+        /// Serve the plan queue instead: plan each open `plan_request` bead (from the console).
+        #[arg(long, conflicts_with_all = ["text", "file"])]
+        queue: bool,
+        /// With --queue: keep polling every N seconds (one sweep when omitted).
+        #[arg(long)]
+        interval: Option<u64>,
     },
     /// Run a Worker: claim ready tasks and hand each to a fresh Claude Code session.
     Work {
@@ -288,7 +294,36 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             harness,
             model,
             max_budget_usd,
+            queue,
+            interval,
         } => {
+            if queue {
+                let harness = build_harness(harness, model, max_budget_usd)?;
+                let git = GitCli::new(&repo, repo.join(".factory-worktrees"));
+                let store = BdCli::new(&cli.workdir).with_actor("planner");
+                let main = BranchName::try_new(main)?;
+                loop {
+                    let out = app::plan_queued_once(
+                        &store,
+                        harness.as_ref(),
+                        &git,
+                        &repo,
+                        &main,
+                        PlanDefaults::default(),
+                    )
+                    .await?;
+                    if let Some(o) = out {
+                        let line = match o.result {
+                            Ok(r) => format!("epic {} ({} tasks)", r.epic, r.tasks.len()),
+                            Err(e) => format!("failed: {e}"),
+                        };
+                        println!("{}: {line}", o.request);
+                    }
+                    let Some(secs) = interval else { break };
+                    tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
+                }
+                return Ok(());
+            }
             let plan_text = match (file, text) {
                 (Some(f), _) => std::fs::read_to_string(f)?,
                 (None, Some(t)) => t,

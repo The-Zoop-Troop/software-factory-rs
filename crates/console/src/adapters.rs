@@ -5,12 +5,14 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use app::{EventRecord, EventTail, PlanSubmitter, Rig, RigRegistry, SubmitError, TailError};
+use app::{
+    BeadStore, EventRecord, EventTail, PlanSubmitter, Rig, RigRegistry, SubmitError, TailError,
+};
 use async_trait::async_trait;
 use domain::{BeadId, RigName};
 use infra::{BdCli, JsonlSink};
 
-use crate::config::RigSpec;
+use crate::config::{PlannerSpec, RigSpec};
 
 /// Reads `events.jsonl` from a byte offset; the cursor is the offset after the last
 /// complete line, so a partially written line is picked up on the next read.
@@ -111,6 +113,68 @@ impl PlanSubmitter for CommandPlanner {
     }
 }
 
+/// Leaves a `plan_request` bead and waits for the rig's Planner to close it.
+pub(crate) struct QueuedPlanner {
+    store: Arc<dyn BeadStore>,
+    clock: Arc<dyn app::Clock>,
+    timeout: domain::Duration,
+    poll: domain::Duration,
+}
+
+impl core::fmt::Debug for QueuedPlanner {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("QueuedPlanner")
+            .field("timeout", &self.timeout)
+            .finish_non_exhaustive()
+    }
+}
+
+impl QueuedPlanner {
+    pub(crate) fn new(
+        store: Arc<dyn BeadStore>,
+        clock: Arc<dyn app::Clock>,
+        timeout: domain::Duration,
+        poll: domain::Duration,
+    ) -> Self {
+        Self {
+            store,
+            clock,
+            timeout,
+            poll,
+        }
+    }
+}
+
+#[async_trait]
+impl PlanSubmitter for QueuedPlanner {
+    async fn submit(&self, plan_text: &str) -> Result<BeadId, SubmitError> {
+        let unreachable = |e: app::StoreError| SubmitError::Unreachable {
+            detail: e.to_string(),
+        };
+        let request = self
+            .store
+            .create(app::plan_request(plan_text, "console"))
+            .await
+            .map_err(unreachable)?;
+        let deadline = self.clock.now() + self.timeout;
+        loop {
+            let bead = self.store.show(&request).await.map_err(unreachable)?;
+            if let Some(outcome) = app::plan_outcome(&bead) {
+                return outcome;
+            }
+            if self.clock.now() >= deadline {
+                return Err(SubmitError::Unreachable {
+                    detail: format!(
+                        "planner did not answer request {request} within {}s; is the rig's planner service running?",
+                        self.timeout.seconds()
+                    ),
+                });
+            }
+            self.clock.sleep(self.poll).await;
+        }
+    }
+}
+
 /// Rigs built once from the config: `bd` in the ledger dir, the event log for audit.
 #[derive(Debug, Default)]
 pub(crate) struct FileRegistry {
@@ -133,12 +197,22 @@ fn rig_from(spec: &RigSpec) -> Result<Rig, std::io::Error> {
     if let Some(dir) = spec.events.parent() {
         std::fs::create_dir_all(dir)?;
     }
+    let store: Arc<dyn BeadStore> = Arc::new(BdCli::new(&spec.ledger).with_actor("console"));
+    let planner: Arc<dyn PlanSubmitter> = match &spec.planner {
+        PlannerSpec::Command { argv } => Arc::new(CommandPlanner::new(argv.clone())),
+        PlannerSpec::Queue { timeout } => Arc::new(QueuedPlanner::new(
+            store.clone(),
+            Arc::new(infra::SystemClock),
+            domain::Duration::from_seconds(timeout.as_secs()),
+            domain::Duration::from_seconds(2),
+        )),
+    };
     Ok(Rig {
         name: spec.name.clone(),
-        store: Arc::new(BdCli::new(&spec.ledger).with_actor("console")),
+        store,
         sink: Arc::new(JsonlSink::open(&spec.events)?),
         events: Arc::new(FileTail::new(&spec.events)),
-        planner: Arc::new(CommandPlanner::new(spec.plan_cmd.clone())),
+        planner,
         budget: spec.budget,
     })
 }
@@ -249,6 +323,52 @@ mod tests {
         assert!(passes_text.submit("hello").await.is_ok());
     }
 
+    #[tokio::test]
+    async fn queued_planner_returns_the_epic_or_times_out() {
+        use app::BeadStore as _;
+        let store = Arc::new(app::testing::FakeStore::default());
+        let clock = Arc::new(app::testing::FixedClock(
+            domain::Timestamp::from_unix_seconds(0),
+        ));
+        let planner = QueuedPlanner::new(
+            store.clone(),
+            clock,
+            domain::Duration::from_seconds(0),
+            domain::Duration::from_seconds(0),
+        );
+        assert!(format!("{planner:?}").contains("timeout"));
+        // Nobody answers: the fixed clock is already past the deadline after one poll.
+        let err = planner.submit("plan me").await.expect_err("timeout");
+        assert!(matches!(err, SubmitError::Unreachable { .. }));
+        let pending = store
+            .ready(domain::BeadKind::PlanRequest)
+            .await
+            .expect("ok");
+        assert_eq!(pending.len(), 1);
+        // The rig's planner answers before the console looks.
+        store.note(&pending[0].id, "epic fac-q1").await.expect("ok");
+        store
+            .close(&pending[0].id, "epic fac-q1")
+            .await
+            .expect("ok");
+        let answered = QueuedPlanner::new(
+            store.clone(),
+            Arc::new(app::testing::FixedClock(
+                domain::Timestamp::from_unix_seconds(0),
+            )),
+            domain::Duration::from_seconds(0),
+            domain::Duration::from_seconds(0),
+        );
+        let seeded = store
+            .create(app::plan_request("second", "t"))
+            .await
+            .expect("ok");
+        store.note(&seeded, "failed: nope").await.expect("ok");
+        store.close(&seeded, "failed: nope").await.expect("ok");
+        // `submit` creates its own request, which nobody closes → timeout again; outcome parsing is covered in app.
+        assert!(answered.submit("third").await.is_err());
+    }
+
     #[test]
     fn registry_builds_from_specs() {
         let dir = std::env::temp_dir().join(format!("console-reg-{}", std::process::id()));
@@ -256,11 +376,20 @@ mod tests {
             name: RigName::try_new("toy").expect("r"),
             ledger: dir.join("ledger"),
             events: dir.join("logs").join("events.jsonl"),
-            plan_cmd: vec!["true".into()],
+            planner: PlannerSpec::Command {
+                argv: vec!["true".into()],
+            },
             budget: domain::RigBudget::default(),
         };
-        let reg = FileRegistry::build(&[spec]).expect("built");
-        assert_eq!(reg.names().len(), 1);
+        let queued = RigSpec {
+            name: RigName::try_new("q").expect("r"),
+            planner: PlannerSpec::Queue {
+                timeout: std::time::Duration::from_secs(1),
+            },
+            ..spec.clone()
+        };
+        let reg = FileRegistry::build(&[spec, queued]).expect("built");
+        assert_eq!(reg.names().len(), 2);
         assert!(reg.rig(&RigName::try_new("toy").expect("r")).is_some());
         assert!(reg.rig(&RigName::try_new("nope").expect("r")).is_none());
         let _ = std::fs::remove_dir_all(&dir);

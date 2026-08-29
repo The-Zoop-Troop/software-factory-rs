@@ -20,6 +20,7 @@ pub mod errors;
 pub mod events;
 pub mod integrator;
 pub mod mcp;
+pub mod plan_queue;
 pub mod planner;
 pub mod ports;
 pub mod remote;
@@ -40,6 +41,7 @@ pub use errors::{
 pub use events::{EventKind, FactoryEvent};
 pub use integrator::{IntegrateConfig, IntegrateReport, IntegratorError, integrate_once};
 pub use mcp::{McpConfig, McpConfigError, McpServer};
+pub use plan_queue::{QueuedOutcome, plan_outcome, plan_queued_once, plan_request};
 pub use planner::{PlanReport, PlannerError, plan};
 pub use ports::{
     BeadStore, Clock, EventSink, Harness, HarnessOutcome, HarnessRequest, Repo, RunOutput, Runner,
