@@ -81,6 +81,7 @@ plan text ──▶ Planner ──▶ epic of task + verify beads (dependency gr
 | Verifier | run the task's verify commands verbatim; pass/fail is a fact | no |
 | Integrator | rebase onto main, run project checks, fast-forward, push; the only thing that pushes | no |
 | Steward | leases, budgets, epic closure, merge-bead repair, event log | no |
+| Console | A2A control plane over one or many rigs: plan, watch, inbox, resolve, stop — scoped tokens, audit, budgets, alerts, A2UI web UI | no |
 
 **Crates** (dependency direction enforced by `cargo xtask lint-taste`):
 `domain` (pure: ids, budgets, leases, plan validation, the task state machine) ←
@@ -100,12 +101,13 @@ Prerequisites: Linux, **rootless** Docker with Compose v2, and one credential fo
 git clone --recurse-submodules https://github.com/The-Zoop-Troop/software-factory-rs
 cd software-factory-rs
 cp docker/rig.env.example docker/rig.env      # fill in one harness credential (gitignored)
-docker/build.sh rust                           # base + runtime image + egress proxy (python|node|go too)
+docker/build.sh rust                           # base + runtime image + egress proxy (12 runtimes: see docs/references/runtimes.md)
 docker compose up -d                           # egress, steward, verifier, integrator, worker
 docker compose run --rm shell doctor           # tools, ledger, repo, credentials — with fixes
 docker compose run --rm -e RIG_HARNESS=opencode plan \
   --text "Add a --verbose flag to the CLI, with a test and a README section."
 docker compose exec steward factory watch      # progress per epic; `factory inbox` for incidents
+docker compose up -d planner console           # remote control: A2A console on 127.0.0.1:7700 (+ browser UI at /)
 ```
 
 Bring your project in with `RIG_REPO_URL` in `docker/rig.env` (cloned on first start) or by
@@ -150,9 +152,11 @@ garbage-collection job is [`gardening.yml`](.github/workflows/gardening.yml).
 
 ## Deployment
 
-One rig = one project. The full runbook — prerequisites, first run, upgrade, backup/restore of the
-`ledger` and `repo` volumes, one-rig-per-worktree via `COMPOSE_PROJECT_NAME`, logs, and
-troubleshooting — is [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). The sandbox model (non-root,
+One rig = one project; `factory rig create|list|destroy|doctor|backup|restore|console` runs many
+rigs on one host with one console over all of them. The full runbook — prerequisites, first run,
+remote control (console, `factory --rig`, Telegram bot, browser UI), TLS, service units,
+telemetry, alerts, upgrade, backup/restore, logs, and troubleshooting — is
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). The sandbox model (non-root,
 `cap_drop: ALL`, internal network, allowlisted egress, no host mounts) is
 [`docs/design-docs/rig-sandbox.md`](docs/design-docs/rig-sandbox.md).
 
@@ -168,11 +172,14 @@ factory watch [--interval 30]       # tasks per epic by state, incidents, questi
 factory inbox [--resolve <id> --note "..."]   # what needs a human; resolving reopens the task
 factory bead show <id>              # a bead through the factory's typed view
 bd ready | bd blocked | bd show <id>          # the ledger itself
+factory --rig https://host/rigs/toy --token … watch|inbox|plan|stop|doctor   # the same, remotely, over A2A
+factory telegram --bot-token … --chat <id>    # chat bot: /plan /watch /inbox /resolve /stop + push notifications
+factory rig create toy --repo-url … --runtime python --harness codex          # many rigs on one host
 ```
 
 Inside the rig the same commands are compose services (`steward`, `verifier`, `integrator`,
-`worker`, `worker-opencode`, `worker-codex`) and one-shots (`plan`, `shell`, `doctor`, `watch`,
-`inbox`). Scale workers with `docker compose up -d --scale worker=3`. Every state transition is
+`worker`, `worker-opencode`, `worker-codex`, `planner`, `console`, `telegram`, `caddy`) and
+one-shots (`plan`, `shell`, `doctor`, `watch`, `inbox`). Scale workers with `docker compose up -d --scale worker=3`. Every state transition is
 appended to `.factory/events.jsonl` in the `ledger` volume.
 
 ## Harnesses
