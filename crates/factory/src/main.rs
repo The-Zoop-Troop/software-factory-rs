@@ -1,5 +1,9 @@
 //! `factory` — operator CLI. Parses, runs `cli::run`, prints the error. Nothing else lives here.
 #![forbid(unsafe_code)]
+#![allow(
+    clippy::disallowed_methods,
+    reason = "tokio::main expands to expect; the binary is the wiring site"
+)]
 
 mod cli;
 
