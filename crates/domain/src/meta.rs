@@ -5,8 +5,11 @@
 //! bead metadata directly.
 
 use crate::budget::{Budget, Usage};
+use crate::counts::Attempts;
 use crate::ids::{BeadId, Sha};
+use crate::nonempty::NonEmpty;
 use crate::task::{Task, TaskState};
+use crate::text::VerifyCommand;
 
 /// Key under a bead's metadata object where the factory keeps a task's fields.
 pub const META_KEY: &str = "fac";
@@ -30,7 +33,7 @@ pub struct FactoryMeta {
     pub base: Sha,
     pub budget: Budget,
     pub usage: Usage,
-    pub lease_expiries: u32,
+    pub lease_expiries: Attempts,
     pub state: TaskState,
 }
 
@@ -90,7 +93,7 @@ impl TryFrom<RawFactoryMeta> for FactoryMeta {
             })?,
             budget: raw.budget.unwrap_or_default(),
             usage: raw.usage,
-            lease_expiries: raw.lease_expiries,
+            lease_expiries: Attempts::new(raw.lease_expiries),
             state: raw.state,
         })
     }
@@ -104,7 +107,7 @@ impl From<FactoryMeta> for RawFactoryMeta {
             base: m.base.into_inner(),
             budget: Some(m.budget),
             usage: m.usage,
-            lease_expiries: m.lease_expiries,
+            lease_expiries: m.lease_expiries.get(),
             state: m.state,
         }
     }
@@ -136,7 +139,7 @@ impl FactoryMeta {
 pub struct VerifyMeta {
     pub task: BeadId,
     /// Shell commands run in order inside a fresh worktree; the first non-zero exit fails.
-    pub commands: Vec<String>,
+    pub commands: NonEmpty<VerifyCommand>,
     pub timeout: crate::time::Duration,
 }
 
@@ -167,6 +170,10 @@ pub enum VerifyMetaParseError {
     },
     #[error("verify bead has no commands")]
     NoCommands,
+    #[error("invalid verify command: {source}")]
+    Command {
+        source: crate::text::VerifyCommandError,
+    },
 }
 
 impl TryFrom<RawVerifyMeta> for VerifyMeta {
@@ -179,9 +186,15 @@ impl TryFrom<RawVerifyMeta> for VerifyMeta {
                 expected: META_VERSION,
             });
         }
-        if raw.commands.iter().all(|c| c.trim().is_empty()) {
-            return Err(VerifyMetaParseError::NoCommands);
-        }
+        let commands = raw
+            .commands
+            .into_iter()
+            .filter(|c| !c.trim().is_empty())
+            .map(VerifyCommand::try_new)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|source| VerifyMetaParseError::Command { source })?;
+        let commands =
+            NonEmpty::try_from(commands).map_err(|_| VerifyMetaParseError::NoCommands)?;
         Ok(Self {
             task: BeadId::try_new(raw.task.clone()).map_err(|source| {
                 VerifyMetaParseError::Task {
@@ -189,11 +202,7 @@ impl TryFrom<RawVerifyMeta> for VerifyMeta {
                     source,
                 }
             })?,
-            commands: raw
-                .commands
-                .into_iter()
-                .filter(|c| !c.trim().is_empty())
-                .collect(),
+            commands,
             timeout: raw.timeout,
         })
     }
@@ -204,7 +213,10 @@ impl From<VerifyMeta> for RawVerifyMeta {
         Self {
             version: META_VERSION,
             task: m.task.into_inner(),
-            commands: m.commands,
+            commands: Vec::from(m.commands)
+                .into_iter()
+                .map(VerifyCommand::into_inner)
+                .collect(),
             timeout: m.timeout,
         }
     }
@@ -343,8 +355,8 @@ mod tests {
             verify_bead: BeadId::try_new("fac-2").unwrap(),
             base: Sha::try_new("a".repeat(40)).unwrap(),
             budget: Budget::default(),
-            usage: Usage::default().add_tokens(5),
-            lease_expiries: 1,
+            usage: Usage::default().add_tokens(crate::counts::Tokens::new(5)),
+            lease_expiries: Attempts::new(1),
             state: TaskState::Leased {
                 lease: Lease::grant(
                     AgentId::try_new("w1").unwrap(),
@@ -375,7 +387,14 @@ mod tests {
         let ok = r#"{"version":1,"task":"fac-1","commands":["  ","cargo test",""]}"#;
         let m: VerifyMeta = serde_json::from_str(ok).unwrap();
         assert_eq!(m.timeout, crate::time::Duration::from_minutes(20));
-        assert_eq!(m.commands, vec!["cargo test"], "blank commands are dropped");
+        assert_eq!(
+            Vec::from(m.commands)
+                .into_iter()
+                .map(VerifyCommand::into_inner)
+                .collect::<Vec<_>>(),
+            vec!["cargo test"],
+            "blank commands are dropped"
+        );
     }
 
     #[test]
@@ -428,13 +447,13 @@ mod tests {
             base: Sha::try_new("a".repeat(40)).unwrap(),
             budget: Budget::default(),
             usage: Usage::default(),
-            lease_expiries: 0,
+            lease_expiries: Attempts::new(0),
             state: TaskState::Open,
         };
         assert_eq!(BeadMeta::Task(m.clone()).key(), META_KEY);
         let v = VerifyMeta {
             task: BeadId::try_new("fac-1").unwrap(),
-            commands: vec!["true".into()],
+            commands: NonEmpty::singleton(VerifyCommand::try_new("true").unwrap()),
             timeout: crate::time::Duration::from_seconds(1),
         };
         assert_eq!(BeadMeta::Verify(v).key(), VERIFY_META_KEY);

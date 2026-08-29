@@ -5,6 +5,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::budget::Budget;
+use crate::nonempty::NonEmpty;
+use crate::text::{Title, VerifyCommand};
 use crate::time::Duration;
 
 /// Stable key the model uses to reference tasks within one plan (not a bead id).
@@ -30,11 +32,11 @@ impl core::fmt::Display for TaskKey {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlannedTask {
     pub key: TaskKey,
-    pub title: String,
+    pub title: Title,
     pub description: String,
     pub acceptance: Vec<String>,
     /// Shell commands proving `acceptance`; run in order in a fresh worktree of the branch.
-    pub verify: Vec<String>,
+    pub verify: NonEmpty<VerifyCommand>,
     /// Keys of tasks this one NEEDS (blocks edges).
     pub needs: Vec<TaskKey>,
     pub budget: Budget,
@@ -44,11 +46,11 @@ pub struct PlannedTask {
 /// A validated plan: non-empty, unique keys, every `needs` resolves, acyclic.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plan {
-    pub summary: String,
+    pub summary: Title,
     /// Architecture notes / decisions the Planner wants every worker to see.
     pub reference: Option<String>,
     /// Tasks in a topological order (needs before dependents).
-    pub tasks: Vec<PlannedTask>,
+    pub tasks: NonEmpty<PlannedTask>,
 }
 
 /// Wire shape: what the JSON schema handed to the model describes.
@@ -84,8 +86,18 @@ pub enum PlanError {
     BadKey { key: String },
     #[error("duplicate task key `{key}`")]
     DuplicateKey { key: String },
-    #[error("task `{key}` has an empty title")]
-    EmptyTitle { key: String },
+    #[error("task `{key}` has an invalid title: {source}")]
+    EmptyTitle {
+        key: String,
+        source: crate::text::TitleError,
+    },
+    #[error("plan summary is invalid: {source}")]
+    BadSummary { source: crate::text::TitleError },
+    #[error("task `{key}` has an invalid verify command: {source}")]
+    BadVerify {
+        key: String,
+        source: crate::text::VerifyCommandError,
+    },
     #[error("task `{key}` has no verify commands")]
     NoVerify { key: String },
     #[error("task `{task}` needs unknown task `{needs}`")]
@@ -112,17 +124,23 @@ impl RawPlan {
             if !seen.insert(key.clone()) {
                 return Err(PlanError::DuplicateKey { key: raw.key });
             }
-            if raw.title.trim().is_empty() {
-                return Err(PlanError::EmptyTitle { key: raw.key });
-            }
-            let verify: Vec<String> = raw
+            let title = Title::try_new(raw.title).map_err(|source| PlanError::EmptyTitle {
+                key: raw.key.clone(),
+                source,
+            })?;
+            let verify = raw
                 .verify
                 .into_iter()
                 .filter(|c| !c.trim().is_empty())
-                .collect();
-            if verify.is_empty() {
-                return Err(PlanError::NoVerify { key: raw.key });
-            }
+                .map(VerifyCommand::try_new)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|source| PlanError::BadVerify {
+                    key: raw.key.clone(),
+                    source,
+                })?;
+            let verify = NonEmpty::try_from(verify).map_err(|_| PlanError::NoVerify {
+                key: raw.key.clone(),
+            })?;
             let needs = raw
                 .needs
                 .iter()
@@ -133,7 +151,7 @@ impl RawPlan {
             }
             tasks.push(PlannedTask {
                 key,
-                title: raw.title.trim().to_owned(),
+                title,
                 description: raw.description,
                 acceptance: raw.acceptance,
                 verify,
@@ -151,8 +169,11 @@ impl RawPlan {
             }
         }
         let tasks = topo_sort(tasks)?;
+        let tasks = NonEmpty::try_from(tasks).map_err(|_| PlanError::Empty)?;
+        let summary =
+            Title::try_new(self.summary).map_err(|source| PlanError::BadSummary { source })?;
         Ok(Plan {
-            summary: self.summary,
+            summary,
             reference: self.reference.filter(|r| !r.trim().is_empty()),
             tasks,
         })
@@ -256,8 +277,8 @@ mod tests {
         p.reference = Some("   ".into());
         let v = p.validate(PlanDefaults::default()).unwrap();
         assert_eq!(v.reference, None);
-        assert_eq!(v.tasks[0].key.to_string(), "a");
-        assert_eq!(v.tasks[0].key.as_str(), "a");
+        assert_eq!(v.tasks.first().key.to_string(), "a");
+        assert_eq!(v.tasks.first().key.as_str(), "a");
         assert!(matches!(
             plan(vec![raw("has space", &[])]).validate(PlanDefaults::default()),
             Err(PlanError::BadKey { .. })

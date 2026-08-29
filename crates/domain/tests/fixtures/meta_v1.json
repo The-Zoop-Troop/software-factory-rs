@@ -1,0 +1,6 @@
+{
+  "fac": {"version":1,"verify_bead":"rig-v3e.2","base":"7ef7c29d0e7d1e0b0f1c0a9c2f3d4e5f60718293","budget":{"tokens":400000,"wall_clock":2700,"attempts":3},"usage":{"tokens":7362,"wall_clock":19,"attempts":0},"lease_expiries":0,"state":{"state":"closed","merged":"8e44385a1b2c3d4e5f60718293a4b5c6d7e8f901"}},
+  "fac_leased": {"version":1,"verify_bead":"rig-v3e.2","base":"7ef7c29d0e7d1e0b0f1c0a9c2f3d4e5f60718293","state":{"state":"leased","lease":{"holder":"worker-e0c055547fa4","claimed_at":1787948184,"expires":1787948484}}},
+  "fac_verify": {"version":1,"task":"rig-v3e.3","commands":["sh -n lib.sh",". ./lib.sh && trim '  hi  ' | grep -q '^hi$'"],"timeout":1200},
+  "fac_merge": {"version":1,"task":"rig-v3e.3","branch":"task/rig-v3e.3","head":"8e44385a1b2c3d4e5f60718293a4b5c6d7e8f901"}
+}

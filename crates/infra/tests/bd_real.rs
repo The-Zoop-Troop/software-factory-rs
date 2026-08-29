@@ -6,7 +6,8 @@ use std::process::Command;
 
 use infra::BdCli;
 use infra::app::domain::{
-    BeadId, BeadKind, BeadMeta, Budget, FactoryMeta, MergeMeta, Sha, TaskState, Usage, VerifyMeta,
+    Attempts, BeadId, BeadKind, BeadMeta, Budget, FactoryMeta, MergeMeta, NonEmpty, Priority, Sha,
+    TaskState, Title, Usage, VerifyCommand, VerifyMeta,
 };
 use infra::app::{BeadStatus, BeadStore, NewBead, StoreError};
 
@@ -48,10 +49,10 @@ async fn full_ledger_roundtrip() {
 
     let epic = store
         .create(NewBead {
-            title: "epic".into(),
+            title: Title::derived("epic"),
             description: "d".into(),
             kind: BeadKind::Epic,
-            priority: 1,
+            priority: Priority::HIGH,
             parent: None,
             needs: vec![],
             acceptance: None,
@@ -61,10 +62,10 @@ async fn full_ledger_roundtrip() {
         .unwrap();
     let verify = store
         .create(NewBead {
-            title: "verify".into(),
+            title: Title::derived("verify"),
             description: String::new(),
             kind: BeadKind::Verify,
-            priority: 2,
+            priority: Priority::MEDIUM,
             parent: Some(epic.clone()),
             needs: vec![],
             acceptance: None,
@@ -77,15 +78,15 @@ async fn full_ledger_roundtrip() {
         base: sha('a'),
         budget: Budget::default(),
         usage: Usage::default(),
-        lease_expiries: 0,
+        lease_expiries: Attempts::new(0),
         state: TaskState::Open,
     };
     let task = store
         .create(NewBead {
-            title: "task".into(),
+            title: Title::derived("task"),
             description: "do it".into(),
             kind: BeadKind::Task,
-            priority: 1,
+            priority: Priority::HIGH,
             parent: Some(epic.clone()),
             needs: vec![],
             acceptance: Some("works".into()),
@@ -96,10 +97,10 @@ async fn full_ledger_roundtrip() {
     // A dependent task, created deferred until its edge exists, then un-deferred.
     let dependent = store
         .create(NewBead {
-            title: "after".into(),
+            title: Title::derived("after"),
             description: String::new(),
             kind: BeadKind::Task,
-            priority: 1,
+            priority: Priority::HIGH,
             parent: Some(epic.clone()),
             needs: vec![task.clone()],
             acceptance: None,
@@ -112,7 +113,7 @@ async fn full_ledger_roundtrip() {
             &verify,
             &VerifyMeta {
                 task: task.clone(),
-                commands: vec!["true".into()],
+                commands: NonEmpty::singleton(VerifyCommand::try_new("true").unwrap()),
                 timeout: infra::app::domain::Duration::from_seconds(5),
             },
         )
@@ -121,10 +122,10 @@ async fn full_ledger_roundtrip() {
     store.add_needs(&verify, &task).await.unwrap();
     let merge = store
         .create(NewBead {
-            title: "merge".into(),
+            title: Title::derived("merge"),
             description: String::new(),
             kind: BeadKind::Merge,
-            priority: 1,
+            priority: Priority::HIGH,
             parent: None,
             needs: vec![],
             acceptance: None,

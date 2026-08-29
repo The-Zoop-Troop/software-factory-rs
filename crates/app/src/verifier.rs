@@ -3,7 +3,7 @@
 
 use std::fmt::Write as _;
 
-use domain::{BeadKind, Event, TaskState, VerifyMeta};
+use domain::{BeadKind, Event, NonEmpty, TaskState, VerifyCommand, VerifyMeta};
 
 use crate::events::{EventKind, FactoryEvent};
 use crate::ports::{BeadStore, Clock, EventSink, Repo, RunOutput, Runner, StoreError};
@@ -115,7 +115,7 @@ async fn run_all(
 ) -> Vec<Result<RunOutput, crate::ports::RunError>> {
     let mut results = Vec::with_capacity(meta.commands.len());
     for cmd in &meta.commands {
-        let r = runner.run(cwd, cmd, meta.timeout).await;
+        let r = runner.run(cwd, cmd.as_ref(), meta.timeout).await;
         let stop = !matches!(&r, Ok(o) if o.succeeded());
         results.push(r);
         if stop {
@@ -127,7 +127,7 @@ async fn run_all(
 
 /// Pure: decide pass/fail and build the note that goes on the task bead.
 fn summarize(
-    commands: &[String],
+    commands: &NonEmpty<VerifyCommand>,
     results: &[Result<RunOutput, crate::ports::RunError>],
 ) -> (bool, String) {
     let all_ran = results.len() == commands.len();
@@ -179,6 +179,7 @@ mod tests {
 
     use super::*;
     use crate::testing::{FakeRepo, FakeRunner, FakeStore, FixedClock, MemorySink};
+    use domain::{Attempts, Tokens};
 
     fn id(s: &str) -> BeadId {
         BeadId::try_new(s).unwrap()
@@ -196,11 +197,11 @@ mod tests {
                     verify_bead: id("fac-v"),
                     base: sha('a'),
                     budget: Budget {
-                        attempts: 1,
+                        attempts: Attempts::new(1),
                         ..Budget::default()
                     },
                     usage: Usage::default(),
-                    lease_expiries: 0,
+                    lease_expiries: Attempts::new(0),
                     state: TaskState::Open,
                 },
             )
@@ -225,7 +226,7 @@ mod tests {
                 branch: BranchName::try_new("task/fac-t").unwrap(),
                 head: sha('b'),
                 now,
-                tokens: 1,
+                tokens: Tokens::new(1),
             },
         )
         .await
@@ -326,7 +327,7 @@ mod tests {
                     base: sha('a'),
                     budget: Budget::default(),
                     usage: Usage::default(),
-                    lease_expiries: 0,
+                    lease_expiries: Attempts::new(0),
                     state: TaskState::Open,
                 },
             )
@@ -357,7 +358,8 @@ mod tests {
             stderr: String::new(),
             timed_out: true,
         };
-        let (passed, note) = summarize(&["sleep 99".into()], &[Ok(out)]);
+        let cmds = NonEmpty::singleton(VerifyCommand::try_new("sleep 99").unwrap());
+        let (passed, note) = summarize(&cmds, &[Ok(out)]);
         assert!(!passed);
         assert!(note.contains("timed out"));
     }

@@ -12,7 +12,8 @@ use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 
 use domain::{
-    BeadId, BeadKind, BeadMeta, BranchName, Duration, FactoryMeta, Sha, Timestamp, VerifyMeta,
+    BeadId, BeadKind, BeadMeta, BranchName, Duration, FactoryMeta, MicroUsd, NonEmpty, Sha,
+    Timestamp, Tokens, Turns, VerifyCommand, VerifyMeta,
 };
 use tokio::sync::Mutex;
 
@@ -86,7 +87,13 @@ impl FakeStore {
         let mut bead = plain(id, "verify", Some(BeadKind::Verify), None, BeadStatus::Open);
         bead.verify = Some(VerifyMeta {
             task,
-            commands: commands.iter().map(|c| (*c).to_owned()).collect(),
+            commands: NonEmpty::try_from(
+                commands
+                    .iter()
+                    .map(|c| VerifyCommand::try_new(*c).expect("test command"))
+                    .collect::<Vec<_>>(),
+            )
+            .expect("test commands non-empty"),
             timeout: Duration::from_minutes(1),
         });
         self.beads.lock().await.insert(bead.id.clone(), bead);
@@ -231,7 +238,7 @@ impl BeadStore for FakeStore {
             id.clone(),
             Bead {
                 id: id.clone(),
-                title: new.title,
+                title: new.title.to_string(),
                 description: new.description,
                 acceptance: new.acceptance,
                 notes: None,
@@ -501,9 +508,9 @@ impl FakeHarness {
             outcome: Some(HarnessOutcome {
                 text: value.to_string(),
                 structured: Some(value),
-                tokens: 100,
-                cost_micro_usd: 1000,
-                turns: 1,
+                tokens: Tokens::new(100),
+                cost_micro_usd: MicroUsd::new(1000),
+                turns: Turns::new(1),
                 is_error: false,
             }),
             requests: std::sync::Mutex::default(),

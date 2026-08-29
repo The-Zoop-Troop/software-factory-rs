@@ -1,6 +1,6 @@
 //! Read model of a bead as the factory sees it, plus the write model for creating one.
 
-use domain::{BeadId, BeadKind, BeadMeta, FactoryMeta, MergeMeta, VerifyMeta};
+use domain::{BeadId, BeadKind, BeadMeta, FactoryMeta, MergeMeta, Priority, Title, VerifyMeta};
 
 /// The beads-native status of an issue (distinct from the factory's `TaskState`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,10 +74,10 @@ pub struct Bead {
 /// What the factory needs to create a bead.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NewBead {
-    pub title: String,
+    pub title: Title,
     pub description: String,
     pub kind: BeadKind,
-    pub priority: u8,
+    pub priority: Priority,
     pub parent: Option<BeadId>,
     /// `blocks` edges: this bead NEEDS each of these.
     pub needs: Vec<BeadId>,

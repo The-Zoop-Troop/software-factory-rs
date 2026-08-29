@@ -1,5 +1,6 @@
 //! Per-bead budgets (ARCHITECTURE.md §1.6). Exceeding one is a state transition, not a loop.
 
+use crate::counts::{Attempts, Tokens};
 use crate::time::Duration;
 
 /// Limits a task may consume before it becomes an incident.
@@ -7,19 +8,19 @@ use crate::time::Duration;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Budget {
     /// Total LLM tokens across all attempts.
-    pub tokens: u64,
+    pub tokens: Tokens,
     /// Wall clock across all attempts.
     pub wall_clock: Duration,
     /// Number of worker attempts (claims that reach verification).
-    pub attempts: u32,
+    pub attempts: Attempts,
 }
 
 impl Default for Budget {
     fn default() -> Self {
         Self {
-            tokens: 400_000,
+            tokens: Tokens::new(400_000),
             wall_clock: Duration::from_minutes(45),
-            attempts: 3,
+            attempts: Attempts::new(3),
         }
     }
 }
@@ -28,16 +29,16 @@ impl Default for Budget {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Usage {
-    pub tokens: u64,
+    pub tokens: Tokens,
     pub wall_clock: Duration,
-    pub attempts: u32,
+    pub attempts: Attempts,
 }
 
 impl Usage {
     #[must_use]
-    pub fn add_tokens(self, n: u64) -> Self {
+    pub fn add_tokens(self, n: Tokens) -> Self {
         Self {
-            tokens: self.tokens.saturating_add(n),
+            tokens: self.tokens + n,
             ..self
         }
     }
@@ -55,7 +56,7 @@ impl Usage {
     #[must_use]
     pub fn add_attempt(self) -> Self {
         Self {
-            attempts: self.attempts.saturating_add(1),
+            attempts: self.attempts.incr(),
             ..self
         }
     }
@@ -67,11 +68,11 @@ impl Usage {
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
 pub enum BudgetExceeded {
     #[error("token budget exceeded: used {used} of {limit}")]
-    Tokens { used: u64, limit: u64 },
+    Tokens { used: Tokens, limit: Tokens },
     #[error("wall-clock budget exceeded: used {used}s of {limit}s")]
     WallClock { used: u64, limit: u64 },
     #[error("attempt budget exhausted: {used} of {limit}")]
-    Attempts { used: u32, limit: u32 },
+    Attempts { used: Attempts, limit: Attempts },
 }
 
 impl Budget {
@@ -111,39 +112,42 @@ mod tests {
     #[test]
     fn attempts_take_precedence() {
         let b = Budget {
-            tokens: 10,
+            tokens: Tokens::new(10),
             wall_clock: Duration::from_seconds(10),
-            attempts: 1,
+            attempts: Attempts::new(1),
         };
         let u = Usage {
-            tokens: 100,
+            tokens: Tokens::new(100),
             wall_clock: Duration::from_seconds(100),
-            attempts: 1,
+            attempts: Attempts::new(1),
         };
         assert_eq!(
             b.check(u),
-            Err(BudgetExceeded::Attempts { used: 1, limit: 1 })
+            Err(BudgetExceeded::Attempts {
+                used: Attempts::new(1),
+                limit: Attempts::new(1)
+            })
         );
     }
 
     #[test]
     fn limits_are_inclusive_for_tokens_and_wall_clock() {
         let b = Budget {
-            tokens: 10,
+            tokens: Tokens::new(10),
             wall_clock: Duration::from_seconds(10),
-            attempts: 5,
+            attempts: Attempts::new(5),
         };
         let at = Usage {
-            tokens: 10,
+            tokens: Tokens::new(10),
             wall_clock: Duration::from_seconds(10),
-            attempts: 0,
+            attempts: Attempts::new(0),
         };
         assert_eq!(b.check(at), Ok(()), "exactly at the limit is fine");
         assert_eq!(
-            b.check(at.add_tokens(1)),
+            b.check(at.add_tokens(Tokens::new(1))),
             Err(BudgetExceeded::Tokens {
-                used: 11,
-                limit: 10
+                used: Tokens::new(11),
+                limit: Tokens::new(10)
             })
         );
         assert_eq!(
@@ -153,7 +157,13 @@ mod tests {
                 limit: 10
             })
         );
-        assert_eq!(b.check(Usage { attempts: 4, ..at }), Ok(()));
+        assert_eq!(
+            b.check(Usage {
+                attempts: Attempts::new(4),
+                ..at
+            }),
+            Ok(())
+        );
     }
 
     #[test]
@@ -165,8 +175,8 @@ mod tests {
         #[test]
         fn check_is_monotone_in_usage(tokens in 0u64..1_000_000, extra in 0u64..1_000_000) {
             let b = Budget::default();
-            let u = Usage { tokens, ..Usage::default() };
-            let more = u.add_tokens(extra);
+            let u = Usage { tokens: Tokens::new(tokens), ..Usage::default() };
+            let more = u.add_tokens(Tokens::new(extra));
             // If the smaller usage is over budget, the larger one must be too.
             if b.check(u).is_err() { prop_assert!(b.check(more).is_err()); }
         }

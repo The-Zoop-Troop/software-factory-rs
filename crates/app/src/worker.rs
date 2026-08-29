@@ -4,7 +4,10 @@
 
 use std::fmt::Write as _;
 
-use domain::{AgentId, BeadId, BeadKind, BranchName, Duration, Event, Task, TaskState};
+use domain::{
+    AgentId, Attempts, BeadId, BeadKind, BranchName, Duration, Event, Task, TaskState, Tokens,
+    Turns, VerifyCommand,
+};
 use futures::FutureExt as _;
 use futures::future::{Either, select};
 
@@ -22,7 +25,7 @@ pub struct WorkerConfig {
     pub main: BranchName,
     pub lease_ttl: Duration,
     /// Harness turn cap per session.
-    pub max_turns: u32,
+    pub max_turns: Turns,
 }
 
 /// What one session did.
@@ -31,8 +34,8 @@ pub struct WorkReport {
     pub task: BeadId,
     pub branch: BranchName,
     pub head: domain::Sha,
-    pub tokens: u64,
-    pub turns: u32,
+    pub tokens: Tokens,
+    pub turns: Turns,
 }
 
 /// Worker failures. A claimed task is released (lease left to expire) on any error after claim.
@@ -245,11 +248,11 @@ struct ContextPacket {
     title: String,
     description: String,
     acceptance: Option<String>,
-    verify_commands: Vec<String>,
+    verify_commands: Vec<VerifyCommand>,
     prior_notes: Option<String>,
     references: Vec<String>,
-    attempt: u32,
-    attempts_allowed: u32,
+    attempt: Attempts,
+    attempts_allowed: Attempts,
 }
 
 impl ContextPacket {
@@ -258,7 +261,7 @@ impl ContextPacket {
             .show(&task.verify_bead)
             .await?
             .verify
-            .map(|v| v.commands)
+            .map(|v| Vec::from(v.commands))
             .unwrap_or_default();
         let references = match &bead.parent {
             Some(epic) => store
@@ -278,7 +281,7 @@ impl ContextPacket {
             verify_commands,
             prior_notes: bead.notes.clone(),
             references,
-            attempt: task.usage.attempts.saturating_add(1),
+            attempt: task.usage.attempts.incr(),
             attempts_allowed: task.budget.attempts,
         })
     }
@@ -359,7 +362,7 @@ mod tests {
             agent: AgentId::try_new("worker-1").unwrap(),
             main: BranchName::try_new("main").unwrap(),
             lease_ttl: Duration::from_seconds(30),
-            max_turns: 10,
+            max_turns: Turns::new(10),
         }
     }
     fn harness_text(text: &str) -> FakeHarness {
@@ -367,9 +370,9 @@ mod tests {
             outcome: Some(crate::ports::HarnessOutcome {
                 text: text.into(),
                 structured: None,
-                tokens: 5000,
-                cost_micro_usd: 10,
-                turns: 7,
+                tokens: Tokens::new(5000),
+                cost_micro_usd: domain::MicroUsd::new(10),
+                turns: Turns::new(7),
                 is_error: false,
             }),
             requests: std::sync::Mutex::default(),
@@ -393,7 +396,7 @@ mod tests {
                         ..Budget::default()
                     },
                     usage: Usage::default(),
-                    lease_expiries: 0,
+                    lease_expiries: Attempts::new(0),
                     state: TaskState::Open,
                 },
             )
@@ -434,7 +437,7 @@ mod tests {
         assert_eq!(report.head, sha('b'));
         let task = load_task(&store, &id("fac-e.1")).await.unwrap();
         assert!(matches!(task.state, TaskState::InVerify { ref head, .. } if *head == sha('b')));
-        assert_eq!(task.usage.tokens, 5000);
+        assert_eq!(task.usage.tokens, Tokens::new(5000));
         assert_eq!(repo.commits.lock().unwrap().len(), 1);
         assert_eq!(repo.removed.lock().unwrap().len(), 1);
 
@@ -459,11 +462,7 @@ mod tests {
         assert!(matches!(kinds[0], EventKind::Claimed { .. }));
         assert!(matches!(
             kinds.last().unwrap(),
-            EventKind::Submitted {
-                tokens: 5000,
-                turns: 7,
-                ..
-            }
+            EventKind::Submitted { tokens, turns, .. } if tokens.get() == 5000 && turns.get() == 7
         ));
     }
 

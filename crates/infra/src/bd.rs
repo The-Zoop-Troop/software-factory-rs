@@ -329,11 +329,11 @@ impl BeadStore for BdCli {
     }
 
     async fn create(&self, new: NewBead) -> Result<BeadId, StoreError> {
-        let priority = new.priority.to_string();
+        let priority = new.priority.get().to_string();
         let label = new.kind.label();
         let mut args: Vec<String> = vec![
             "create".into(),
-            new.title,
+            new.title.to_string(),
             "--type".into(),
             bd_type(new.kind).into(),
             "--priority".into(),

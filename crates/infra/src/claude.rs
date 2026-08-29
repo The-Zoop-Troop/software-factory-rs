@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 use std::process::Stdio;
 
+use app::domain::{MicroUsd, Tokens, Turns};
 use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, HarnessStage, ToolPolicy};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -93,12 +94,14 @@ impl From<Envelope> for HarnessOutcome {
         Self {
             text: e.result,
             structured: e.structured_output,
-            tokens: u.input_tokens
-                + u.output_tokens
-                + u.cache_creation_input_tokens
-                + u.cache_read_input_tokens,
-            cost_micro_usd: micro_usd(e.total_cost_usd),
-            turns: e.num_turns,
+            tokens: Tokens::new(
+                u.input_tokens
+                    + u.output_tokens
+                    + u.cache_creation_input_tokens
+                    + u.cache_read_input_tokens,
+            ),
+            cost_micro_usd: MicroUsd::new(micro_usd(e.total_cost_usd)),
+            turns: Turns::new(e.num_turns),
             is_error: e.is_error,
         }
     }
@@ -129,7 +132,7 @@ impl Harness for ClaudeCli {
             .arg(&req.prompt)
             .args(["--output-format", "json", "--no-session-persistence"])
             .arg("--max-turns")
-            .arg(req.max_turns.to_string())
+            .arg(req.max_turns.get().to_string())
             .arg("--system-prompt")
             .arg(&req.system_prompt)
             .stdin(Stdio::null())
@@ -156,7 +159,7 @@ impl Harness for ClaudeCli {
         if let Some(usd) = self.max_budget_usd {
             cmd.arg("--max-budget-usd").arg(usd.to_string());
         }
-        tracing::info!(cwd = %req.cwd.display(), tools = ?req.tools, max_turns = req.max_turns, "claude -p");
+        tracing::info!(cwd = %req.cwd.display(), tools = ?req.tools, max_turns = req.max_turns.get(), "claude -p");
 
         let child = cmd.spawn().map_err(|e| HarnessError::Spawn {
             bin: self.bin.clone(),
@@ -208,8 +211,8 @@ mod tests {
             "cache_creation_input_tokens":4231,"cache_read_input_tokens":0,"other":1},"extra":"ignored"}"#;
         let e: Envelope = serde_json::from_str(json).unwrap();
         let o = HarnessOutcome::from(e);
-        assert_eq!(o.tokens, 4315);
-        assert_eq!(o.cost_micro_usd, 89_700);
+        assert_eq!(o.tokens.get(), 4315);
+        assert_eq!(o.cost_micro_usd.get(), 89_700);
         assert_eq!(o.structured, Some(serde_json::json!({"ok": true})));
         assert!(!o.is_error);
     }
@@ -219,7 +222,7 @@ mod tests {
         let json = r#"{"type":"result","is_error":true,"result":"Not logged in","num_turns":1}"#;
         let o: HarnessOutcome = serde_json::from_str::<Envelope>(json).unwrap().into();
         assert!(o.is_error);
-        assert_eq!(o.tokens, 0);
+        assert_eq!(o.tokens.get(), 0);
         assert_eq!(o.structured, None);
     }
 }

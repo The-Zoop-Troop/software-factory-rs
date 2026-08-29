@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use domain::{BeadId, BeadKind, TaskState};
+use domain::{Attempts, BeadId, BeadKind, TaskState};
 
 use crate::bead::Bead;
 use crate::ports::{BeadStore, StoreError};
@@ -93,10 +93,10 @@ pub async fn resolve(
         let reopened = domain::FactoryMeta {
             state: TaskState::Open,
             usage: domain::Usage {
-                attempts: 0,
+                attempts: Attempts::new(0),
                 ..meta.usage
             },
-            lease_expiries: 0,
+            lease_expiries: Attempts::new(0),
             ..meta
         };
         store.set_meta(&task_id, &reopened).await?;
@@ -135,10 +135,10 @@ mod tests {
             base: Sha::try_new("a".repeat(40)).unwrap(),
             budget: Budget::default(),
             usage: Usage {
-                attempts: 3,
+                attempts: Attempts::new(3),
                 ..Usage::default()
             },
-            lease_expiries: 2,
+            lease_expiries: Attempts::new(2),
             state,
         }
     }
@@ -163,10 +163,10 @@ mod tests {
             .await;
         store
             .create(NewBead {
-                title: "incident on fac-e.2".into(),
+                title: domain::Title::derived("incident on fac-e.2"),
                 description: String::new(),
                 kind: BeadKind::Incident,
-                priority: 0,
+                priority: domain::Priority::CRITICAL,
                 parent: None,
                 needs: vec![],
                 acceptance: None,
@@ -196,10 +196,10 @@ mod tests {
             .await;
         let inc = store
             .create(NewBead {
-                title: "incident on fac-t".into(),
+                title: domain::Title::derived("incident on fac-t"),
                 description: String::new(),
                 kind: BeadKind::Incident,
-                priority: 0,
+                priority: domain::Priority::CRITICAL,
                 parent: None,
                 needs: vec![],
                 acceptance: None,
@@ -215,16 +215,19 @@ mod tests {
         let t = store.show(&id("fac-t")).await.unwrap();
         let m = t.meta.unwrap();
         assert_eq!(m.state, TaskState::Open);
-        assert_eq!((m.usage.attempts, m.lease_expiries), (0, 0));
+        assert_eq!(
+            (m.usage.attempts, m.lease_expiries),
+            (Attempts::new(0), Attempts::new(0))
+        );
         assert!(t.notes.unwrap().contains("fixed the verify"));
         assert!(inbox(&store).await.unwrap().is_empty());
         // A question resolves without touching any task.
         let q = store
             .create(NewBead {
-                title: "which db?".into(),
+                title: domain::Title::derived("which db?"),
                 description: String::new(),
                 kind: BeadKind::Question,
-                priority: 1,
+                priority: domain::Priority::HIGH,
                 parent: None,
                 needs: vec![],
                 acceptance: None,

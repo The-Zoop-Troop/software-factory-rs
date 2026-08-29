@@ -3,7 +3,10 @@
 use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
-use domain::{BeadId, BeadKind, BranchName, Duration, FactoryMeta, Sha, Timestamp, VerifyMeta};
+use domain::{
+    BeadId, BeadKind, BranchName, Duration, FactoryMeta, MicroUsd, Sha, Timestamp, Tokens, Turns,
+    VerifyMeta,
+};
 
 pub use crate::errors::{
     GitOp, HarnessError, HarnessStage, RepoError, RunError, StoreError, StoreOp, Unavailable,
@@ -186,7 +189,7 @@ pub struct HarnessRequest {
     pub schema: Option<serde_json::Value>,
     /// Whether the harness may edit files / run commands, or only think and answer.
     pub tools: ToolPolicy,
-    pub max_turns: u32,
+    pub max_turns: Turns,
     pub timeout: Duration,
 }
 
@@ -206,9 +209,9 @@ pub enum ToolPolicy {
 pub struct HarnessOutcome {
     pub text: String,
     pub structured: Option<serde_json::Value>,
-    pub tokens: u64,
-    pub cost_micro_usd: u64,
-    pub turns: u32,
+    pub tokens: Tokens,
+    pub cost_micro_usd: MicroUsd,
+    pub turns: Turns,
     pub is_error: bool,
 }
 

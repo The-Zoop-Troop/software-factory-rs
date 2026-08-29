@@ -11,6 +11,7 @@
 use std::path::PathBuf;
 use std::process::Stdio;
 
+use app::domain::{MicroUsd, Tokens, Turns};
 use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, HarnessStage, ToolPolicy};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -149,9 +150,9 @@ fn fold(events: &str, last_message: Option<String>, schema_requested: bool) -> H
         HarnessOutcome {
             text,
             structured,
-            tokens,
-            cost_micro_usd: 0,
-            turns,
+            tokens: Tokens::new(tokens),
+            cost_micro_usd: MicroUsd::new(0),
+            turns: Turns::new(turns),
             is_error,
         }
     }
@@ -166,9 +167,9 @@ fn text_or(
     HarnessOutcome {
         text,
         structured,
-        tokens,
-        cost_micro_usd: 0,
-        turns,
+        tokens: Tokens::new(tokens),
+        cost_micro_usd: MicroUsd::new(0),
+        turns: Turns::new(turns),
         is_error: true,
     }
 }
@@ -291,8 +292,8 @@ mod tests {
     fn folds_message_and_usage() {
         let o = fold(EVENTS, None, false);
         assert_eq!(o.text, "pong");
-        assert_eq!(o.tokens, 12938 + 9984 + 5);
-        assert_eq!(o.turns, 1);
+        assert_eq!(o.tokens.get(), 12938 + 9984 + 5);
+        assert_eq!(o.turns.get(), 1);
         assert!(!o.is_error);
     }
 
@@ -334,13 +335,13 @@ mod tests {
                 prompt: "Reply with exactly: pong".into(),
                 schema: None,
                 tools: ToolPolicy::None,
-                max_turns: 1,
+                max_turns: Turns::new(1),
                 timeout: app::domain::Duration::from_seconds(120),
             })
             .await
             .unwrap();
         assert!(!o.is_error, "{}", o.text);
         assert!(o.text.to_lowercase().contains("pong"));
-        assert!(o.tokens > 0);
+        assert!(o.tokens.get() > 0);
     }
 }

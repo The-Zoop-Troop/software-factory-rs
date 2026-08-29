@@ -5,7 +5,8 @@
 
 use domain::task::Effect;
 use domain::{
-    BeadId, BeadKind, BeadMeta, Event, FactoryMeta, IllegalTransition, MergeMeta, Task, Transition,
+    BeadId, BeadKind, BeadMeta, Event, FactoryMeta, IllegalTransition, MergeMeta, Priority, Task,
+    Title, Transition,
 };
 
 use crate::bead::NewBead;
@@ -77,12 +78,12 @@ async fn run_effect(store: &dyn BeadStore, task: &Task, effect: &Effect) -> Resu
             head,
         } => store
             .create(NewBead {
-                title: format!("merge {branch} for {id}"),
+                title: Title::derived(&format!("merge {branch} for {id}")),
                 description: format!(
                     "Branch `{branch}` at {head} passed verification and awaits the Integrator."
                 ),
                 kind: BeadKind::Merge,
-                priority: 1,
+                priority: Priority::HIGH,
                 parent: None,
                 needs: vec![],
                 acceptance: None,
@@ -96,10 +97,10 @@ async fn run_effect(store: &dyn BeadStore, task: &Task, effect: &Effect) -> Resu
             .map(|_| ()),
         Effect::OpenIncidentBead { task: id, reason } => store
             .create(NewBead {
-                title: format!("incident on {id}"),
+                title: Title::derived(&format!("incident on {id}")),
                 description: format!("{reason:?}"),
                 kind: BeadKind::Incident,
-                priority: 0,
+                priority: Priority::CRITICAL,
                 parent: None,
                 needs: vec![],
                 acceptance: None,
@@ -118,6 +119,7 @@ mod tests {
 
     use super::*;
     use crate::testing::FakeStore;
+    use domain::{Attempts, Tokens};
 
     fn id(s: &str) -> BeadId {
         BeadId::try_new(s).unwrap()
@@ -135,11 +137,11 @@ mod tests {
                     verify_bead: id("fac-2"),
                     base: sha('a'),
                     budget: Budget {
-                        attempts: 1,
+                        attempts: Attempts::new(1),
                         ..Budget::default()
                     },
                     usage: Usage::default(),
-                    lease_expiries: 0,
+                    lease_expiries: Attempts::new(0),
                     state: TaskState::Open,
                 },
             )
@@ -189,7 +191,7 @@ mod tests {
                 branch: domain::BranchName::try_new("task/fac-1").unwrap(),
                 head: sha('b'),
                 now,
-                tokens: 10,
+                tokens: Tokens::new(10),
             },
         )
         .await

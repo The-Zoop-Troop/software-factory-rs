@@ -2,7 +2,7 @@
 //! time — rebase, run the project's own check suite, fast-forward, push. The only
 //! component that pushes to the remote. Batch-then-bisect is Phase 1.
 
-use domain::{BeadId, BeadKind, BranchName, Duration, Event, MergeMeta, TaskState};
+use domain::{BeadId, BeadKind, BranchName, Duration, Event, MergeMeta, TaskState, VerifyCommand};
 
 use crate::events::{EventKind, FactoryEvent};
 use crate::ports::{BeadStore, Clock, EventSink, Repo, RepoError, RunError, Runner, StoreError};
@@ -15,7 +15,7 @@ pub struct IntegrateConfig {
     /// Remote to push `main` to after landing; `None` for local-only rigs.
     pub remote: Option<String>,
     /// Project-wide checks run on the rebased head before it lands. Empty = trust the verify bead.
-    pub checks: Vec<String>,
+    pub checks: Vec<VerifyCommand>,
     pub check_timeout: Duration,
 }
 
@@ -104,7 +104,7 @@ pub enum LandRejection {
         paths: Vec<std::path::PathBuf>,
     },
     CheckFailed {
-        command: String,
+        command: VerifyCommand,
         exit_code: Option<i32>,
         timed_out: bool,
         tail: String,
@@ -244,7 +244,7 @@ async fn land(
 
     for check in &cfg.checks {
         let out = runner
-            .run(&worktree.path, check, cfg.check_timeout)
+            .run(&worktree.path, check.as_ref(), cfg.check_timeout)
             .await
             .map_err(LandError::Runner)?;
         if !out.succeeded() {
@@ -281,10 +281,11 @@ async fn land(
 
 #[cfg(test)]
 mod tests {
-    use domain::{AgentId, Budget, FactoryMeta, Sha, Timestamp, Usage};
+    use domain::{AgentId, Attempts, Budget, FactoryMeta, Sha, Timestamp, Usage};
 
     use super::*;
     use crate::testing::{FakeRepo, FakeRunner, FakeStore, FixedClock, MemorySink};
+    use domain::Tokens;
 
     fn id(s: &str) -> BeadId {
         BeadId::try_new(s).unwrap()
@@ -296,13 +297,16 @@ mod tests {
         IntegrateConfig {
             main: BranchName::try_new("main").unwrap(),
             remote: remote.map(str::to_owned),
-            checks: checks.iter().map(|c| (*c).to_owned()).collect(),
+            checks: checks
+                .iter()
+                .map(|c| VerifyCommand::try_new(*c).expect("test command"))
+                .collect(),
             check_timeout: Duration::from_seconds(10),
         }
     }
 
     /// A task in `mergeable` at branch task/fac-t @ 'b', with a merge bead.
-    async fn store_mergeable(attempts: u32) -> FakeStore {
+    async fn store_mergeable(attempts: Attempts) -> FakeStore {
         let store = FakeStore::default();
         store
             .seed_task(
@@ -315,7 +319,7 @@ mod tests {
                         ..Budget::default()
                     },
                     usage: Usage::default(),
-                    lease_expiries: 0,
+                    lease_expiries: Attempts::new(0),
                     state: TaskState::Open,
                 },
             )
@@ -342,7 +346,7 @@ mod tests {
                 branch: BranchName::try_new("task/fac-t").unwrap(),
                 head: sha('b'),
                 now,
-                tokens: 1,
+                tokens: Tokens::new(1),
             },
         )
         .await
@@ -355,7 +359,7 @@ mod tests {
 
     #[tokio::test]
     async fn lands_rebased_head_runs_checks_pushes_and_closes() {
-        let store = store_mergeable(3).await;
+        let store = store_mergeable(Attempts::new(3)).await;
         let mut repo = FakeRepo::default();
         repo.rebased_to.insert(sha('b'), sha('c'));
         let mut runner = FakeRunner::default();
@@ -404,7 +408,7 @@ mod tests {
 
     #[tokio::test]
     async fn conflict_reopens_task_with_detail_and_closes_merge_bead() {
-        let store = store_mergeable(3).await;
+        let store = store_mergeable(Attempts::new(3)).await;
         let mut repo = FakeRepo::default();
         repo.conflicting.push(sha('b'));
         let runner = FakeRunner::default();
@@ -423,7 +427,7 @@ mod tests {
         assert_eq!(report.failed, 1);
         let task = load_task(&store, &id("fac-t")).await.unwrap();
         assert_eq!(task.state, TaskState::Open);
-        assert_eq!(task.usage.attempts, 1);
+        assert_eq!(task.usage.attempts, Attempts::new(1));
         assert!(
             store
                 .show(&id("fac-t"))
@@ -439,7 +443,7 @@ mod tests {
 
     #[tokio::test]
     async fn failing_check_rejects_without_touching_main() {
-        let store = store_mergeable(3).await;
+        let store = store_mergeable(Attempts::new(3)).await;
         let repo = FakeRepo::default();
         let mut runner = FakeRunner::default();
         runner
@@ -472,7 +476,7 @@ mod tests {
 
     #[tokio::test]
     async fn push_failure_is_infra_error_and_leaves_task_mergeable() {
-        let store = store_mergeable(3).await;
+        let store = store_mergeable(Attempts::new(3)).await;
         let repo = FakeRepo {
             push_fails: true,
             ..FakeRepo::default()
@@ -513,7 +517,7 @@ mod tests {
                     base: sha('a'),
                     budget: Budget::default(),
                     usage: Usage::default(),
-                    lease_expiries: 0,
+                    lease_expiries: Attempts::new(0),
                     state: TaskState::Open,
                 },
             )

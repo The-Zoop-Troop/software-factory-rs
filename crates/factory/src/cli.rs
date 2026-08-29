@@ -334,7 +334,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
                 agent: AgentId::try_new(agent)?,
                 main: BranchName::try_new(main)?,
                 lease_ttl: Duration::from_seconds(lease_ttl),
-                max_turns,
+                max_turns: infra::app::domain::Turns::new(max_turns),
             };
             loop {
                 match work_once(&store, &git, harness.as_ref(), &SystemClock, &log, &cfg).await {
@@ -386,7 +386,10 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             let cfg = IntegrateConfig {
                 main: BranchName::try_new(main)?,
                 remote,
-                checks,
+                checks: checks
+                    .into_iter()
+                    .map(infra::app::domain::VerifyCommand::try_new)
+                    .collect::<Result<Vec<_>, _>>()?,
                 check_timeout: Duration::from_seconds(check_timeout),
             };
             loop {

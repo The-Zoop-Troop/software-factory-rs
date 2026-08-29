@@ -53,6 +53,7 @@ mod tests {
     use infra::app::testing::{FakeStore, FixedClock, MemorySink};
 
     use super::*;
+    use infra::app::domain::Attempts;
 
     #[tokio::test]
     async fn once_sweeps_exactly_once_and_reaps() {
@@ -65,7 +66,7 @@ mod tests {
                     base: Sha::try_new("a".repeat(40)).unwrap(),
                     budget: Budget::default(),
                     usage: Usage::default(),
-                    lease_expiries: 0,
+                    lease_expiries: Attempts::new(0),
                     state: TaskState::Leased {
                         lease: Lease::grant(
                             AgentId::try_new("w").unwrap(),

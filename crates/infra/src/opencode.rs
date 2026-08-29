@@ -11,6 +11,7 @@
 use std::path::PathBuf;
 use std::process::Stdio;
 
+use app::domain::{MicroUsd, Tokens, Turns};
 use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, HarnessStage, ToolPolicy};
 use async_trait::async_trait;
 use serde::Deserialize;
@@ -91,7 +92,7 @@ struct MessageResponse {
 #[derive(Debug, Deserialize)]
 struct Info {
     #[serde(default)]
-    tokens: Tokens,
+    tokens: TokenUsage,
     #[serde(default)]
     cost: f64,
     #[serde(default)]
@@ -103,7 +104,7 @@ struct Info {
 }
 
 #[derive(Debug, Default, Deserialize)]
-struct Tokens {
+struct TokenUsage {
     #[serde(default)]
     total: u64,
 }
@@ -139,10 +140,10 @@ impl From<MessageResponse> for HarnessOutcome {
         Self {
             text,
             structured: r.info.structured.filter(|v| !v.is_null()),
-            tokens: r.info.tokens.total,
-            cost_micro_usd: micro_usd(r.info.cost),
+            tokens: Tokens::new(r.info.tokens.total),
+            cost_micro_usd: MicroUsd::new(micro_usd(r.info.cost)),
             // OpenCode doesn't report turn count; `finish` present means one completed step.
-            turns: u32::from(r.info.finish.is_some()),
+            turns: Turns::new(u32::from(r.info.finish.is_some())),
             is_error,
         }
     }
@@ -417,9 +418,9 @@ mod tests {
             .unwrap()
             .into();
         assert_eq!(o.text, "pong");
-        assert_eq!(o.tokens, 9095);
-        assert_eq!(o.cost_micro_usd, 3640);
-        assert_eq!(o.turns, 1);
+        assert_eq!(o.tokens.get(), 9095);
+        assert_eq!(o.cost_micro_usd.get(), 3640);
+        assert_eq!(o.turns.get(), 1);
         assert!(!o.is_error);
         assert_eq!(o.structured, None);
     }
@@ -482,13 +483,13 @@ mod tests {
                 prompt: "Reply with exactly: pong".into(),
                 schema: None,
                 tools: ToolPolicy::None,
-                max_turns: 1,
+                max_turns: Turns::new(1),
                 timeout: Duration::from_seconds(120),
             })
             .await
             .unwrap();
         assert!(!o.is_error, "{}", o.text);
         assert!(o.text.to_lowercase().contains("pong"));
-        assert!(o.tokens > 0);
+        assert!(o.tokens.get() > 0);
     }
 }

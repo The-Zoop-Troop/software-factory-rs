@@ -7,6 +7,7 @@
 )]
 
 use super::*;
+use crate::counts::{Attempts, Tokens};
 
 fn id(s: &str) -> BeadId {
     BeadId::try_new(s).unwrap()
@@ -26,7 +27,7 @@ fn fresh() -> Task {
         id("fac-2"),
         sha('a'),
         Budget {
-            attempts: 2,
+            attempts: Attempts::new(2),
             ..Budget::default()
         },
     )
@@ -44,7 +45,7 @@ fn submit(now: i64) -> Event {
         branch: BranchName::try_new("task/fac-1").unwrap(),
         head: sha('b'),
         now: t(now),
-        tokens: 1000,
+        tokens: Tokens::new(1000),
     }
 }
 
@@ -61,7 +62,7 @@ fn happy_path() {
         .unwrap();
     let tr = tr.task.apply(submit(50)).unwrap();
     assert_eq!(tr.task.state.name(), "in_verify");
-    assert_eq!(tr.task.usage.tokens, 1000);
+    assert_eq!(tr.task.usage.tokens, Tokens::new(1000));
     assert_eq!(tr.task.usage.wall_clock, Duration::from_seconds(50));
     let tr = tr.task.apply(Event::VerifyPassed).unwrap();
     assert_eq!(tr.task.state.name(), "mergeable");
@@ -93,7 +94,7 @@ fn verify_failure_reopens_then_escalates() {
         })
         .unwrap();
     assert_eq!(tr.task.state, TaskState::Open);
-    assert_eq!(tr.task.usage.attempts, 1);
+    assert_eq!(tr.task.usage.attempts, Attempts::new(1));
     assert!(matches!(tr.effects.as_slice(), [Effect::AppendNote { .. }]));
 
     let tr = tr
@@ -113,9 +114,9 @@ fn verify_failure_reopens_then_escalates() {
         tr.task.state,
         TaskState::Incident {
             reason: IncidentReason::Budget {
-                exceeded: BudgetExceeded::Attempts { used: 2, limit: 2 }
+                exceeded: BudgetExceeded::Attempts { used, limit }
             }
-        }
+        } if used.get() == 2 && limit.get() == 2
     ));
     assert!(matches!(
         tr.effects.as_slice(),
@@ -126,7 +127,7 @@ fn verify_failure_reopens_then_escalates() {
 #[test]
 fn lease_expiry_reopens_and_storms() {
     let mut task = fresh();
-    for i in 0..MAX_LEASE_EXPIRIES - 1 {
+    for i in 0..MAX_LEASE_EXPIRIES.get() - 1 {
         let base = i64::from(i) * 1000;
         task = task.apply(claim(base)).unwrap().task;
         let tr = task
@@ -168,7 +169,7 @@ fn terminal_flags_and_state_names() {
 fn lease_expiry_updates_usage_and_counter() {
     let task = fresh().apply(claim(0)).unwrap().task;
     let tr = task.apply(Event::LeaseExpired { now: t(90) }).unwrap();
-    assert_eq!(tr.task.lease_expiries, 1);
+    assert_eq!(tr.task.lease_expiries, Attempts::new(1));
     assert_eq!(tr.task.usage.wall_clock, Duration::from_seconds(90));
     assert_eq!(tr.task.state, TaskState::Open);
     assert!(
@@ -192,14 +193,14 @@ fn verify_failure_and_merge_failure_accumulate_usage() {
     assert_eq!(
         tr.task.usage,
         Usage {
-            tokens: 1000,
+            tokens: Tokens::new(1000),
             wall_clock: Duration::from_seconds(20),
-            attempts: 1
+            attempts: Attempts::new(1)
         }
     );
     let task = Task {
         budget: Budget {
-            attempts: 5,
+            attempts: Attempts::new(5),
             ..Budget::default()
         },
         ..fresh()
@@ -216,8 +217,8 @@ fn verify_failure_and_merge_failure_accumulate_usage() {
         .task
         .apply(Event::MergeFailed { detail: "c".into() })
         .unwrap();
-    assert_eq!(tr.task.usage.attempts, 1);
-    assert_eq!(tr.task.usage.tokens, 1000);
+    assert_eq!(tr.task.usage.attempts, Attempts::new(1));
+    assert_eq!(tr.task.usage.tokens, Tokens::new(1000));
 }
 
 #[test]
@@ -238,7 +239,7 @@ fn heartbeat_renews_from_now() {
 #[test]
 fn lease_storm_incident_keeps_usage_and_counter() {
     let mut task = fresh();
-    for i in 0..MAX_LEASE_EXPIRIES {
+    for i in 0..MAX_LEASE_EXPIRIES.get() {
         let base = i64::from(i) * 100;
         task = task.apply(claim(base)).unwrap().task;
         task = task
@@ -249,7 +250,7 @@ fn lease_storm_incident_keeps_usage_and_counter() {
     assert_eq!(task.lease_expiries, MAX_LEASE_EXPIRIES);
     assert_eq!(
         task.usage.wall_clock,
-        Duration::from_seconds(60 * u64::from(MAX_LEASE_EXPIRIES))
+        Duration::from_seconds(60 * u64::from(MAX_LEASE_EXPIRIES.get()))
     );
     assert!(matches!(
         task.state,
@@ -283,7 +284,7 @@ fn release_reopens_and_counts_attempt_then_escalates() {
     };
     let tr = task.apply(rel(5)).unwrap();
     assert_eq!(tr.task.state, TaskState::Open);
-    assert_eq!(tr.task.usage.attempts, 1);
+    assert_eq!(tr.task.usage.attempts, Attempts::new(1));
     assert!(matches!(tr.effects.as_slice(), [Effect::AppendNote { .. }]));
     let tr = tr
         .task
@@ -315,7 +316,7 @@ fn wrong_holder_cannot_submit_or_heartbeat() {
         branch: BranchName::try_new("task/fac-1").unwrap(),
         head: sha('b'),
         now: t(1),
-        tokens: 0,
+        tokens: Tokens::new(0),
     };
     assert!(matches!(
         task.apply(bad),

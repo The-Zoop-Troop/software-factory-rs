@@ -2,6 +2,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use super::*;
+use infra::app::domain::Attempts;
 
 use infra::app::domain::{
     AgentId, Budget, Duration, FactoryMeta, Lease, Sha, TaskState, Timestamp, Usage,
@@ -102,7 +103,7 @@ fn meta(state: TaskState) -> FactoryMeta {
         base: Sha::try_new("a".repeat(40)).unwrap(),
         budget: Budget::default(),
         usage: Usage::default(),
-        lease_expiries: 0,
+        lease_expiries: Attempts::new(0),
         state,
     }
 }

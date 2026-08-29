@@ -66,10 +66,14 @@ non-blocking until epic 5 flips it.
 
 - 2026-08-29 — `lint-fp` became a blocking CI gate at the end of epic 2 (already green) instead of epic 5.
 
+- 2026-08-29 — Prose stays `String`: `description`, `acceptance`, `reference`, incident `detail` and
+  bead notes are free text by nature; newtyping them would add ceremony without a validator. Every
+  field that carries a *rule* (title length, command non-empty, priority range, counts) is typed.
+
 ## Progress
 
 - [x] skill-in-repo (submodule pinned 2d34087, harness symlinks, `xtask skills --check`, `xtask lint-fp` non-blocking in CI, railway.md, vision/beliefs/principles/AGENTS updated) — 2026-08-29
 - [x] error-tracks (26 string payloads → structured variants with `op`/`cause`/ids/paths; `bd`/`git` stderr parsed once in `parse_*_stderr` with per-variant tests; `LandRejection`, `Decision`, typed events; `lint-fp` green and blocking in CI) — 2026-08-29
-- [ ] boundary-types
+- [x] boundary-types (`NonEmpty<T>`, `Title`, `VerifyCommand`, `Priority`, transparent `Tokens`/`Attempts`/`Turns`/`MicroUsd`; `VerifyMeta.commands` and `Plan.tasks` non-empty by type; harness outcomes and CLI inputs parsed once; v1 metadata fixture round-trips byte-identically) — 2026-08-29
 - [ ] effects-and-sagas
 - [ ] proof

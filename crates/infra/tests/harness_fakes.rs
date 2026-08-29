@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use infra::app::domain::Duration;
+use infra::app::domain::{Duration, Turns};
 use infra::app::{Harness, HarnessError, HarnessRequest, ToolPolicy};
 use infra::{ClaudeCli, CodexCli};
 
@@ -26,7 +26,7 @@ fn req(prompt: &str, tools: ToolPolicy, schema: bool) -> HarnessRequest {
         prompt: prompt.into(),
         schema: schema.then(|| serde_json::json!({"type":"object"})),
         tools,
-        max_turns: 3,
+        max_turns: Turns::new(3),
         timeout: Duration::from_seconds(2),
     }
 }
@@ -41,13 +41,16 @@ async fn claude_text_structured_error_timeout_garbage() {
         .run(req("pong please", ToolPolicy::None, false))
         .await
         .unwrap();
-    assert_eq!((o.text.as_str(), o.tokens, o.is_error), ("pong", 4, false));
+    assert_eq!(
+        (o.text.as_str(), o.tokens.get(), o.is_error),
+        ("pong", 4, false)
+    );
     let o = h
         .run(req("plan", ToolPolicy::ReadOnly, true))
         .await
         .unwrap();
     assert_eq!(o.structured, Some(serde_json::json!({"ok": true})));
-    assert_eq!(o.cost_micro_usd, 10_000);
+    assert_eq!(o.cost_micro_usd.get(), 10_000);
     let o = h.run(req("ERROR", ToolPolicy::Full, false)).await.unwrap();
     assert!(o.is_error);
     assert!(matches!(
@@ -75,7 +78,7 @@ async fn codex_text_structured_failure() {
         .await
         .unwrap();
     assert_eq!(
-        (o.text.as_str(), o.tokens, o.turns, o.is_error),
+        (o.text.as_str(), o.tokens.get(), o.turns.get(), o.is_error),
         ("pong", 125, 1, false)
     );
     let o = h
@@ -108,7 +111,12 @@ async fn opencode_server_paths() {
         .await
         .unwrap();
     assert_eq!(
-        (o.text.as_str(), o.tokens, o.cost_micro_usd, o.is_error),
+        (
+            o.text.as_str(),
+            o.tokens.get(),
+            o.cost_micro_usd.get(),
+            o.is_error
+        ),
         ("pong", 42, 1000, false)
     );
     let o = h

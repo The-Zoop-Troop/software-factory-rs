@@ -75,12 +75,15 @@ fn bead_schema() -> anyhow::Result<String> {
         base: sha.clone(),
         budget: domain::Budget::default(),
         usage: domain::Usage::default(),
-        lease_expiries: 0,
+        lease_expiries: domain::Attempts::new(0),
         state: domain::TaskState::Open,
     };
     let verify = domain::VerifyMeta {
         task: id("fac-1")?,
-        commands: vec!["cargo test".into()],
+        commands: domain::NonEmpty::singleton(
+            domain::VerifyCommand::try_new("cargo test")
+                .map_err(|e| anyhow::anyhow!(e.to_string()))?,
+        ),
         timeout: domain::Duration::from_minutes(20),
     };
     let merge = domain::MergeMeta {

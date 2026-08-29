@@ -15,19 +15,25 @@
 )]
 
 pub mod budget;
+pub mod counts;
 pub mod ids;
 pub mod kind;
 pub mod lease;
 pub mod meta;
+pub mod nonempty;
 pub mod plan;
 pub mod task;
+pub mod text;
 pub mod time;
 
 pub use budget::{Budget, BudgetExceeded, Usage};
+pub use counts::{Attempts, MicroUsd, Priority, PriorityError, Tokens, Turns};
 pub use ids::{AgentId, BeadId, BranchName, Sha};
 pub use kind::BeadKind;
 pub use lease::Lease;
 pub use meta::{BeadMeta, FactoryMeta, MergeMeta, MetaParseError, VerifyMeta};
+pub use nonempty::{EmptyError, NonEmpty};
 pub use plan::{Plan, PlanDefaults, PlanError, PlannedTask, RawPlan, RawPlannedTask, TaskKey};
 pub use task::{Event, IllegalTransition, Task, TaskState, Transition};
+pub use text::{Title, VerifyCommand};
 pub use time::{Duration, Timestamp};

@@ -203,6 +203,7 @@ mod tests {
     use super::*;
     use crate::testing::{FakeStore, FixedClock, MemorySink};
     use crate::transition::load_task;
+    use domain::Attempts;
 
     fn id(s: &str) -> BeadId {
         BeadId::try_new(s).unwrap()
@@ -216,7 +217,7 @@ mod tests {
             base: sha('a'),
             budget,
             usage: Usage::default(),
-            lease_expiries: 0,
+            lease_expiries: Attempts::new(0),
             state: TaskState::Leased {
                 lease: Lease::grant(
                     AgentId::try_new("w1").unwrap(),

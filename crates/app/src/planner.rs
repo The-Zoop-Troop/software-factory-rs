@@ -6,8 +6,8 @@ use std::path::Path;
 
 use domain::plan::TaskKey;
 use domain::{
-    BeadId, BeadKind, BeadMeta, BranchName, FactoryMeta, Plan, PlanDefaults, PlanError, RawPlan,
-    Sha, TaskState, Usage, VerifyMeta,
+    Attempts, BeadId, BeadKind, BeadMeta, BranchName, FactoryMeta, Plan, PlanDefaults, PlanError,
+    Priority, RawPlan, Sha, TaskState, Title, Tokens, Usage, VerifyMeta,
 };
 
 use crate::bead::NewBead;
@@ -20,7 +20,7 @@ use crate::ports::{
 pub struct PlanReport {
     pub epic: BeadId,
     pub tasks: Vec<(TaskKey, BeadId)>,
-    pub tokens: u64,
+    pub tokens: domain::Tokens,
 }
 
 /// Planning failures.
@@ -63,7 +63,7 @@ pub async fn plan(
             prompt: plan_text.to_owned(),
             schema: Some(plan_schema()),
             tools: ToolPolicy::None,
-            max_turns: 4,
+            max_turns: domain::Turns::new(4),
             timeout: domain::Duration::from_minutes(10),
         })
         .await?;
@@ -105,7 +105,7 @@ async fn materialize(
                 .collect::<Vec<_>>()
                 .join("\n"),
             kind: BeadKind::Epic,
-            priority: 1,
+            priority: Priority::HIGH,
             parent: None,
             needs: vec![],
             acceptance: None,
@@ -117,10 +117,10 @@ async fn materialize(
         // and never hold the epic open. Workers read them via `children` regardless of status.
         let reference_id = store
             .create(NewBead {
-                title: format!("reference: {}", plan.summary),
+                title: Title::derived(&format!("reference: {}", plan.summary)),
                 description: reference.clone(),
                 kind: BeadKind::Reference,
-                priority: 3,
+                priority: Priority::LOW,
                 parent: Some(epic.clone()),
                 needs: vec![],
                 acceptance: None,
@@ -142,7 +142,7 @@ async fn materialize(
         // Verify bead first so the task can point at it; it NEEDS the task so `bd ready` hides it.
         let verify_placeholder = store
             .create(NewBead {
-                title: format!("verify: {}", t.title),
+                title: Title::derived(&format!("verify: {}", t.title)),
                 description: t
                     .acceptance
                     .iter()
@@ -150,7 +150,7 @@ async fn materialize(
                     .collect::<Vec<_>>()
                     .join("\n"),
                 kind: BeadKind::Verify,
-                priority: 2,
+                priority: Priority::MEDIUM,
                 parent: Some(epic.clone()),
                 needs: vec![],
                 acceptance: None,
@@ -162,7 +162,7 @@ async fn materialize(
                 title: t.title.clone(),
                 description: t.description.clone(),
                 kind: BeadKind::Task,
-                priority: 1,
+                priority: Priority::HIGH,
                 parent: Some(epic.clone()),
                 needs,
                 acceptance: Some(t.acceptance.join("\n")),
@@ -171,7 +171,7 @@ async fn materialize(
                     base: base.clone(),
                     budget: t.budget,
                     usage: Usage::default(),
-                    lease_expiries: 0,
+                    lease_expiries: Attempts::new(0),
                     state: TaskState::Open,
                 })),
             })
@@ -193,7 +193,7 @@ async fn materialize(
     Ok(PlanReport {
         epic,
         tasks,
-        tokens: 0,
+        tokens: Tokens::new(0),
     })
 }
 
@@ -335,8 +335,8 @@ mod tests {
             .find(|v| v.verify.as_ref().unwrap().task == endpoint.id)
             .unwrap();
         assert_eq!(
-            v.verify.as_ref().unwrap().commands,
-            vec!["cargo test -p http login"]
+            Vec::from(v.verify.as_ref().unwrap().commands.clone()),
+            vec![domain::VerifyCommand::try_new("cargo test -p http login").unwrap()]
         );
         assert_eq!(endpoint.meta.as_ref().unwrap().verify_bead, v.id);
         assert_eq!(

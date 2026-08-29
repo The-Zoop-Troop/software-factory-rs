@@ -15,6 +15,7 @@
 //! state or an `IllegalTransition`. Adding a state or event must break the build.
 
 use crate::budget::{Budget, BudgetExceeded, Usage};
+use crate::counts::{Attempts, Tokens};
 use crate::ids::{AgentId, BeadId, BranchName, Sha};
 use crate::lease::Lease;
 use crate::time::{Duration, Timestamp};
@@ -48,7 +49,7 @@ pub enum IncidentReason {
     },
     /// Reopened by lease expiry too many times without ever reaching verification.
     LeaseStorm {
-        expiries: u32,
+        expiries: Attempts,
     },
     /// The Integrator could not land it.
     MergeConflict {
@@ -78,7 +79,7 @@ pub enum Event {
         branch: BranchName,
         head: Sha,
         now: Timestamp,
-        tokens: u64,
+        tokens: Tokens,
     },
     LeaseExpired {
         now: Timestamp,
@@ -113,7 +114,7 @@ pub struct Task {
     pub base: Sha,
     pub budget: Budget,
     pub usage: Usage,
-    pub lease_expiries: u32,
+    pub lease_expiries: Attempts,
     pub state: TaskState,
 }
 
@@ -141,7 +142,7 @@ pub const EVENT_NAMES: [&str; 10] = [
 ];
 
 /// Maximum times a lease may expire before the task is treated as a lease storm.
-pub const MAX_LEASE_EXPIRIES: u32 = 3;
+pub const MAX_LEASE_EXPIRIES: Attempts = Attempts::new(3);
 
 /// Result of a successful transition: the new task plus what the shell should do about it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -244,7 +245,7 @@ impl Task {
             base,
             budget,
             usage: Usage::default(),
-            lease_expiries: 0,
+            lease_expiries: Attempts::new(0),
             state: TaskState::Open,
         }
     }
@@ -325,7 +326,7 @@ impl Task {
                 if !lease.is_expired(now) {
                     return Err(illegal(&self.state, &Event::LeaseExpired { now }));
                 }
-                let expiries = self.lease_expiries.saturating_add(1);
+                let expiries = self.lease_expiries.incr();
                 let usage = self.usage.add_wall_clock(now.since(lease.claimed_at));
                 let note = format!(
                     "lease held by {} expired at {}",

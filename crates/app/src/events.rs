@@ -19,8 +19,8 @@ pub enum EventKind {
     /// A worker finished a session and submitted a branch.
     Submitted {
         holder: String,
-        tokens: u64,
-        turns: u32,
+        tokens: domain::Tokens,
+        turns: domain::Turns,
         head: domain::Sha,
     },
     /// A worker gave a task back without submitting (errored session, no changes).
