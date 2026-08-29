@@ -74,8 +74,8 @@ pub(crate) enum Command {
     },
     /// Manage rigs on this host: one compose project per rig, one console over all of them.
     Rig {
-        /// Where rig files live (registry, per-rig env and secrets, console config).
-        #[arg(long, env = "FACTORY_ROOT", default_value_os_t = default_root())]
+        /// Where rig files live (registry, per-rig env and secrets, console config); `~` expands.
+        #[arg(long, env = "FACTORY_ROOT", default_value = "~/.factory")]
         root: PathBuf,
         /// The shared rig compose file.
         #[arg(long, env = "FACTORY_COMPOSE", default_value = "compose.yaml")]
@@ -297,7 +297,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             command,
         } => {
             let layout = crate::rig::Layout {
-                root,
+                root: expand_home(root),
                 compose_file: compose,
             };
             print!(

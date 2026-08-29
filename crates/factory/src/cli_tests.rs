@@ -181,3 +181,23 @@ async fn run_version_and_missing_plan_text() {
     let err = run(Cli::parse_from(["factory", "plan"])).await.unwrap_err();
     assert!(err.to_string().contains("--text or --file"));
 }
+
+#[test]
+fn tilde_expands_to_home() {
+    use std::path::PathBuf;
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .expect("HOME set in tests");
+    assert_eq!(
+        super::expand_home(PathBuf::from("~/.factory")),
+        home.join(".factory")
+    );
+    assert_eq!(
+        super::expand_home(PathBuf::from("/abs/x")),
+        PathBuf::from("/abs/x")
+    );
+    assert_eq!(
+        super::expand_home(PathBuf::from("rel")),
+        PathBuf::from("rel")
+    );
+}
