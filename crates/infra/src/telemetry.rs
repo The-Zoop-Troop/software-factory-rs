@@ -28,7 +28,7 @@ impl Drop for TelemetryGuard {
         if let Some(p) = self.provider.take()
             && let Err(e) = p.shutdown()
         {
-            eprintln!("telemetry shutdown: {e}");
+            tracing::warn!(error = %e, "telemetry shutdown");
         }
     }
 }
