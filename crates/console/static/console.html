@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>factory console</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { margin: 0; padding: 1rem; max-width: 60rem; margin-inline: auto; }
+  header { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+  input, select, button, textarea { font: inherit; padding: .4rem .6rem; }
+  .Card { border: 1px solid color-mix(in srgb, currentColor 25%, transparent); border-radius: .5rem; padding: .75rem; margin: .5rem 0; }
+  .Row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  .Column { display: flex; flex-direction: column; gap: .4rem; }
+  .Text { white-space: pre-wrap; }
+  .TextField input { min-width: 20rem; }
+  .Divider { border-top: 1px solid currentColor; opacity: .3; }
+  #status { opacity: .7; font-size: .9em; }
+</style>
+</head>
+<body>
+<header>
+  <strong>factory</strong>
+  <select id="rig"></select>
+  <input id="token" type="password" placeholder="bearer token" autocomplete="off">
+  <button id="connect">Connect</button>
+  <span id="status"></span>
+</header>
+<main id="surface"></main>
+<script>
+// A minimal A2UI v0.9.1 renderer for the basic-catalog subset the console emits:
+// Column, Row, Card, Text, TextField, Button, Divider. Flat id-keyed registry, JSON-Pointer
+// data model, actions resolve {path} bindings then POST to the console.
+const state = { components: new Map(), data: {}, rig: null };
+const $ = (id) => document.getElementById(id);
+const token = () => $("token").value || localStorage.getItem("factory.token") || "";
+const headers = () => ({ "Authorization": "Bearer " + token(), "Content-Type": "application/json" });
+
+function pointerGet(obj, path) {
+  if (!path || path === "/") return obj;
+  return path.split("/").slice(1).map(p => p.replace(/~1/g, "/").replace(/~0/g, "~"))
+    .reduce((o, k) => (o == null ? undefined : o[k]), obj);
+}
+function pointerSet(obj, path, value) {
+  const keys = path.split("/").slice(1).map(p => p.replace(/~1/g, "/").replace(/~0/g, "~"));
+  let cur = obj;
+  keys.slice(0, -1).forEach(k => { if (typeof cur[k] !== "object" || cur[k] === null) cur[k] = {}; cur = cur[k]; });
+  cur[keys[keys.length - 1]] = value;
+}
+const resolve = (v) => (v && typeof v === "object" && "path" in v) ? pointerGet(state.data, v.path) : v;
+function resolveContext(ctx) {
+  const out = {};
+  for (const [k, v] of Object.entries(ctx || {})) out[k] = resolve(v);
+  return out;
+}
+
+function process(envelopes) {
+  for (const env of envelopes) {
+    if (env.createSurface) { state.components = new Map(); state.data = {}; }
+    if (env.updateComponents) for (const c of env.updateComponents.components) state.components.set(c.id, c);
+    if (env.updateDataModel) {
+      const { path, value } = env.updateDataModel;
+      if (!path || path === "/") state.data = value; else pointerSet(state.data, path, value);
+    }
+    if (env.deleteSurface) { state.components = new Map(); }
+  }
+  render();
+}
+
+function render() {
+  const root = state.components.get("root");
+  $("surface").replaceChildren(root ? node("root") : document.createTextNode("waiting for root…"));
+}
+
+function node(id) {
+  const c = state.components.get(id);
+  if (!c) { const ph = document.createElement("span"); ph.textContent = "…"; return ph; }
+  let el;
+  switch (c.component) {
+    case "Column": case "Row": case "Card":
+      el = document.createElement("div");
+      (Array.isArray(c.children) ? c.children : []).forEach(k => el.appendChild(node(k)));
+      break;
+    case "Text":
+      el = document.createElement("div"); el.textContent = String(resolve(c.text) ?? ""); break;
+    case "Divider":
+      el = document.createElement("hr"); break;
+    case "TextField": {
+      el = document.createElement("label");
+      const input = document.createElement("input");
+      input.placeholder = c.label || "";
+      input.value = String(resolve(c.value) ?? "");
+      if (c.value && c.value.path) input.oninput = () => pointerSet(state.data, c.value.path, input.value);
+      el.appendChild(input); break;
+    }
+    case "Button": {
+      el = document.createElement("button"); el.textContent = c.label || c.id;
+      el.onclick = () => act(c);
+      break;
+    }
+    default:
+      el = document.createElement("div"); el.textContent = `[unsupported ${c.component}]`;
+  }
+  el.className = c.component; el.dataset.id = c.id;
+  return el;
+}
+
+async function act(c) {
+  const ev = c.action && c.action.event;
+  if (!ev) return;
+  const body = { name: ev.name, surfaceId: "console", sourceComponentId: c.id, timestamp: new Date().toISOString(), context: resolveContext(ev.context) };
+  await call("POST", `/rigs/${state.rig}/ui/action`, body);
+}
+
+async function call(method, path, body) {
+  $("status").textContent = "…";
+  try {
+    const r = await fetch(path, { method, headers: headers(), body: body ? JSON.stringify(body) : undefined });
+    const json = await r.json();
+    if (!r.ok) { $("status").textContent = (json.error && (json.error.message || json.error)) || r.statusText; return; }
+    $("status").textContent = new Date().toLocaleTimeString();
+    process(json);
+  } catch (e) { $("status").textContent = String(e); }
+}
+
+async function connect() {
+  localStorage.setItem("factory.token", token());
+  const r = await fetch("/rigs", { headers: headers() });
+  if (!r.ok) { $("status").textContent = "token refused"; return; }
+  const { rigs } = await r.json();
+  $("rig").replaceChildren(...rigs.map(n => Object.assign(document.createElement("option"), { value: n, textContent: n })));
+  state.rig = $("rig").value || null;
+  if (state.rig) await call("GET", `/rigs/${state.rig}/ui`);
+}
+$("connect").onclick = connect;
+$("rig").onchange = () => { state.rig = $("rig").value; call("GET", `/rigs/${state.rig}/ui`); };
+$("token").value = localStorage.getItem("factory.token") || "";
+if ($("token").value) connect();
+setInterval(() => { if (state.rig) call("GET", `/rigs/${state.rig}/ui`); }, 15000);
+</script>
+</body>
+</html>

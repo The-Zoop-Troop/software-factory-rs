@@ -43,6 +43,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/rigs", get(list_rigs))
         .route("/rigs/{rig}/.well-known/agent-card.json", get(rig_card))
         .route("/rigs/{rig}/a2a", post(a2a))
+        .merge(crate::ui::routes())
         .with_state(state)
 }
 
@@ -79,12 +80,13 @@ pub(crate) struct Provider {
     pub url: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Capabilities {
     pub streaming: bool,
     pub push_notifications: bool,
     pub extended_agent_card: bool,
+    pub extensions: Vec<Value>,
 }
 
 fn base_card(name: String, description: String) -> AgentCard {
@@ -101,6 +103,14 @@ fn base_card(name: String, description: String) -> AgentCard {
             streaming: true,
             push_notifications: false,
             extended_agent_card: false,
+            extensions: vec![obj([
+                ("uri", app::remote::a2ui::EXTENSION.into()),
+                (
+                    "description",
+                    "GET /rigs/<rig>/ui returns the console as A2UI envelopes; POST /rigs/<rig>/ui/action takes A2UI actions".into(),
+                ),
+                ("required", Value::Bool(false)),
+            ])],
         },
         security_schemes: obj([(
             "bearer",
@@ -145,7 +155,7 @@ async fn root_card(State(s): State<AppState>) -> Json<AgentCard> {
     })
 }
 
-fn principal(s: &AppState, headers: &HeaderMap) -> Result<Principal, Box<Response>> {
+pub(crate) fn principal(s: &AppState, headers: &HeaderMap) -> Result<Principal, Box<Response>> {
     let bearer = headers
         .get(header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
@@ -207,7 +217,7 @@ fn status_for(code: i32) -> StatusCode {
     }
 }
 
-fn rpc_response(id: &Value, result: Result<Value, RpcError>) -> Response {
+pub(crate) fn rpc_response(id: &Value, result: Result<Value, RpcError>) -> Response {
     match result {
         Ok(v) => Json(rpc::ok(id, v)).into_response(),
         Err(e) => (status_for(e.code), Json(rpc::err(id, &e))).into_response(),

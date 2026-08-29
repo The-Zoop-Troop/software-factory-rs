@@ -53,7 +53,7 @@ Telegram: create a bot with `@BotFather`, find your chat id (`/start` the bot, t
 `TELEGRAM_BOT_TOKEN=… TELEGRAM_CHATS=<id>[,<id>] FACTORY_TOKEN=$(cat phone.token) docker compose --profile telegram up -d telegram`.
 The bot answers `/plan /watch /inbox /resolve /stop /help` from listed chats only and pushes a message when a task needs you or finishes. No inbound port anywhere: it long-polls Telegram through the egress proxy.
 
-Operations, scopes, and error codes: `docs/generated/console-api.md`. Multiple rigs on one host: mount your own `docker/console/rigs.toml` (one `[[rig]]` per ledger, optional `max_tokens`/`max_usd_micros`, optional `plan_cmd`).
+Browser: open `http://127.0.0.1:7700/` (or the TLS hostname), paste a token, pick a rig — the page renders the console's A2UI surface and refreshes every 15 s. Operations, scopes, and error codes: `docs/generated/console-api.md`. Multiple rigs on one host: mount your own `docker/console/rigs.toml` (one `[[rig]]` per ledger, optional `max_tokens`/`max_usd_micros`, optional `plan_cmd`).
 
 ## Many rigs on one host
 `factory rig` turns the shared `compose.yaml` into one compose project per rig (`factory-<name>`: its own `ledger`/`repo`/`cache` volumes, env, secrets) and one console over all of them. Files live under `~/.factory` (`FACTORY_ROOT`).

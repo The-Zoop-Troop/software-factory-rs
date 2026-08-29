@@ -89,7 +89,7 @@ services:
     <<: *rig
     command: [planner]
 
-  # Remote control (docs/exec-plans/active/remote-control.md). Only the console is reachable
+  # Remote control (docs/exec-plans/completed/remote-control.md). Only the console is reachable
   # from outside the rig network, on the loopback port below; put TLS in front for real use.
   console:
     <<: *rig

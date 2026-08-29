@@ -2,7 +2,7 @@
 
 - **Status:** accepted · **Verified:** 2026-08-29 (`crates/console` tests over the app fakes; `docker compose up console`)
 
-The console (`crates/console`) is the only surface of a rig reachable from outside its network. It is an A2A server (`docs/references/a2a.md`): every client — the `factory` CLI, a chat bot, a browser, another agent — is an A2A client with a bearer token. The exec plan is `docs/exec-plans/active/remote-control.md`.
+The console (`crates/console`) is the only surface of a rig reachable from outside its network. It is an A2A server (`docs/references/a2a.md`): every client — the `factory` CLI, a chat bot, a browser, another agent — is an A2A client with a bearer token. The exec plan is `docs/exec-plans/completed/remote-control.md`.
 
 ## Shape
 
@@ -33,6 +33,10 @@ The Planner needs the rig's harness credential, which the console must never hol
 ## Hosts with many rigs
 
 `app::rigs` models a host: `HostRegistry` (`~/.factory/rigs.toml`) of `HostRig`s, each a compose project `factory-<name>` driven from the shared `compose.yaml` with its own `compose.env`, `rig.env`, and volumes; the console is its own project whose generated compose file mounts every rig's `<project>_ledger` volume under `/work/rigs/<name>`. `HostDocker` is the port (compose, volume queries, tar in/out of volumes); `infra::DockerCli` shells out; `factory rig create|list|destroy|doctor|backup|restore|console` is the shell. Adding a rig never touches another rig's files or credentials.
+
+## Web console (A2UI)
+
+The browser UI is not a bespoke front end: `app::remote::a2ui::console_surface` turns the same task read models into A2UI envelopes (plan editor, one card per epic with a Stop button, one card per inbox item with an answer field and Resolve, Refresh), and `POST /rigs/<rig>/ui/action` accepts A2UI actions. `crates/console/static/console.html` is a small renderer for that subset; the Agent Card advertises the A2UI extension so an agent with any A2UI renderer sees and drives the same surface. The UI can never do more than the API: every action goes through the same scoped, audited workflows.
 
 ## What it refuses by design
 

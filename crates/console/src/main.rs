@@ -1,4 +1,4 @@
-//! `console`: the remote-control plane (docs/exec-plans/active/remote-control.md).
+//! `console`: the remote-control plane (docs/exec-plans/completed/remote-control.md).
 //! Serves A2A over HTTP for every rig in the registry. Credentials for providers never
 //! pass through here; plans are handed to each rig's own planner command.
 #![forbid(unsafe_code)]
@@ -25,6 +25,7 @@ mod rpc;
 mod server;
 #[cfg(test)]
 mod server_tests;
+mod ui;
 
 use std::path::PathBuf;
 use std::sync::Arc;

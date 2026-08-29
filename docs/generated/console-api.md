@@ -25,7 +25,14 @@ Source: `crates/console` via `console card` and `console --help`. Protocol: A2A 
   "capabilities": {
     "streaming": true,
     "pushNotifications": false,
-    "extendedAgentCard": false
+    "extendedAgentCard": false,
+    "extensions": [
+      {
+        "description": "GET /rigs/<rig>/ui returns the console as A2UI envelopes; POST /rigs/<rig>/ui/action takes A2UI actions",
+        "required": false,
+        "uri": "https://a2ui.org/a2a-extension/a2ui/v0.9.1"
+      }
+    ]
   },
   "securitySchemes": {
     "bearer": {

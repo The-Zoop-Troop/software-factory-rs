@@ -368,3 +368,105 @@ async fn subscribe_reports_final_frame_when_task_becomes_terminal_and_tail_error
         "TASK_STATE_COMPLETED"
     );
 }
+
+#[tokio::test]
+async fn web_console_page_surface_and_actions() {
+    let (s, store, _) = state().await;
+    let (st, _) = get(&s, "/", None).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(
+        get(&s, "/rigs/toy/ui", None).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        get(&s, "/rigs/nope/ui", Some("watcher")).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(&s, "/rigs/toy/ui", Some("stranger")).await.0,
+        StatusCode::FORBIDDEN
+    );
+    let (st, env) = get(&s, "/rigs/toy/ui", Some("watcher")).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(env[0]["createSurface"]["surfaceId"], "console");
+    let ids: Vec<String> = env[1]["updateComponents"]["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["id"].as_str().unwrap().to_owned())
+        .collect();
+    assert!(ids.contains(&"ep-1_stop".to_owned()));
+    let card = get(&s, "/rigs/toy/.well-known/agent-card.json", None)
+        .await
+        .1;
+    assert_eq!(
+        card["capabilities"]["extensions"][0]["uri"],
+        app::remote::a2ui::EXTENSION
+    );
+
+    let post = |token: &'static str, body: Value| {
+        let s = s.clone();
+        async move {
+            let mut req = Request::post("/rigs/toy/ui/action")
+                .header(header::CONTENT_TYPE, "application/json");
+            req = req.header(header::AUTHORIZATION, format!("Bearer {token}"));
+            let resp = router(s)
+                .oneshot(req.body(Body::from(body.to_string())).expect("req"))
+                .await
+                .expect("resp");
+            let status = resp.status();
+            let bytes = resp.into_body().collect().await.expect("body").to_bytes();
+            (
+                status,
+                serde_json::from_slice::<Value>(&bytes).unwrap_or(Value::Null),
+            )
+        }
+    };
+    assert_eq!(
+        post("admin", json!({"name": "refresh"})).await.0,
+        StatusCode::OK
+    );
+    assert_eq!(
+        post("admin", json!({"name": "dance"})).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        post("admin", json!({"nope": 1})).await.0,
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        post(
+            "watcher",
+            json!({"name": "plan", "context": {"text": "go"}})
+        )
+        .await
+        .0,
+        StatusCode::FORBIDDEN
+    );
+    let (st, env) = post("admin", json!({"name": "plan", "context": {"text": "go"}})).await;
+    assert_eq!(st, StatusCode::OK);
+    assert!(env.is_array());
+    let (st, env) = post("admin", json!({"name": "stop", "context": {"id": "ep-1"}})).await;
+    assert_eq!(st, StatusCode::OK);
+    let ids: Vec<String> = env[1]["updateComponents"]["components"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["id"].as_str().unwrap().to_owned())
+        .collect();
+    assert!(!ids.contains(&"ep-1_stop".to_owned()));
+    assert_eq!(
+        store.show(&id("ep-1.1")).await.expect("b").status,
+        app::BeadStatus::Closed
+    );
+    let resp = router(s.clone())
+        .oneshot(
+            Request::post("/rigs/zzz/ui/action")
+                .header(header::AUTHORIZATION, "Bearer admin")
+                .body(Body::from("{}"))
+                .expect("req"),
+        )
+        .await
+        .expect("resp");
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}

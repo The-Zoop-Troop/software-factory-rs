@@ -11,3 +11,4 @@ Facts here were established by probing the real tools; re-verify when versions c
 | `runtimes.md` | Rig images: base, per-language runtimes, selection, conformance |
 | `harness-engineering.md` | The engineering approach this repo follows |
 | `../../skills/rust-fp-skill/` | The Rust standard (railway-oriented FP), pinned submodule; `cargo xtask skills --check` reports drift |
+- `a2ui.md` — A2UI envelopes, bindings, catalogs; what the console emits and where

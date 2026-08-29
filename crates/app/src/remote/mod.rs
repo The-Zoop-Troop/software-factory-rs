@@ -1,8 +1,9 @@
-//! Remote control (docs/exec-plans/active/remote-control.md): the ports a control plane
+//! Remote control (docs/exec-plans/completed/remote-control.md): the ports a control plane
 //! needs to operate rigs, the A2A read models over the ledger, and the workflows that
 //! authorize, act, and audit. The console crate is a thin HTTP binding of this module.
 
 pub mod a2a;
+pub mod a2ui;
 pub mod chat;
 #[cfg(test)]
 mod chat_tests;

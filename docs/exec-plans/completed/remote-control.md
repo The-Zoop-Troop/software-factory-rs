@@ -1,6 +1,6 @@
 # Exec plan: remote control
 
-- **Status:** active · **Owner:** human steers, agents execute · **Started:** 2026-08-29
+- **Status:** completed 2026-08-29 · **Owner:** human steers, agents execute · **Started:** 2026-08-29
 - **Beads epic:** `fac-dk8`
 - **Depends on:** nothing new in the rig; builds on `factory watch/inbox/doctor`, the ledger, and `.factory/events.jsonl`
 
@@ -100,6 +100,7 @@ The Agent Card lists skills per rig (`plan`, `watch`, `inbox`, `resolve`, `docto
 - 2026-08-29 — `rig restore` refuses while any service of the rig runs; restoring under a live steward would race the ledger.
 - 2026-08-29 — Alerts are a console sweep over `ListTasks` (plus one fetch for each epic that vanished from the listing) posted to a generic JSON webhook; no per-integration code. Closed epics drop out of `ListTasks`, so watchers that saw them fetch them once (`list_tasks_with_vanished`).
 - 2026-08-29 — OTLP over HTTP with the exporter's own client (opentelemetry-http pins reqwest 0.13 while the workspace is on 0.12); traces only — metrics stay in `events.jsonl` until a dashboard needs counters.
+- 2026-08-29 — The web console is the A2UI surface plus a ~120-line renderer, not a separate front end: one read model, one action path, agent-drivable by construction. The board is re-sent whole on every refresh (idempotent `updateComponents`) instead of diffed; the payload is small and the protocol makes incrementality emergent.
 
 ## Progress
 
@@ -107,4 +108,4 @@ The Agent Card lists skills per rig (`plan`, `watch`, `inbox`, `resolve`, `docto
 - [x] cli-remote + telegram (`factory --rig/--token` for watch/inbox/plan/stop/doctor over `infra::A2aHttp`; `factory telegram` long-polling bot with chat allowlist and push notifications; compose `telegram` profile; shared `app::remote::chat` core) — 2026-08-29
 - [x] rig-registry + multi-project (`factory rig create|list|destroy|doctor|backup|restore|console`; `app::rigs` registry + rendering + `HostDocker` port; `infra::DockerCli`; per-rig compose project and secrets; console over external ledger volumes) — 2026-08-29
 - [x] ops-hardening (Caddy `tls` profile; systemd user units for rigs and the console; `infra::telemetry` OTLP/HTTP traces in every binary; console `--alert-url` webhook sweep; restore drill in RELIABILITY) — 2026-08-29
-- [ ] web-console (A2UI)
+- [x] web-console (A2UI) (`app::remote::a2ui` surface + actions; console `/`, `/rigs/<rig>/ui`, `/rigs/<rig>/ui/action`; static renderer; A2UI extension on the Agent Card) — 2026-08-29
