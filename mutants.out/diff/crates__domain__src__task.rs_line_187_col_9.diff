@@ -1,0 +1,26 @@
+--- crates/domain/src/task.rs
++++ replace TaskState::is_terminal -> bool with true
+@@ -179,22 +179,17 @@
+             Self::Mergeable { .. } => "mergeable",
+             Self::Closed { .. } => "closed",
+             Self::Incident { .. } => "incident",
+         }
+     }
+ 
+     #[must_use]
+     pub const fn is_terminal(&self) -> bool {
+-        match self {
+-            Self::Closed { .. } | Self::Incident { .. } => true,
+-            Self::Open | Self::Leased { .. } | Self::InVerify { .. } | Self::Mergeable { .. } => {
+-                false
+-            }
+-        }
++        true /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ impl Event {
+     #[must_use]
+     pub const fn name(&self) -> &'static str {
+         match self {
+             Self::Claim { .. } => "claim",

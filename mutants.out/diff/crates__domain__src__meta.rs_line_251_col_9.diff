@@ -1,0 +1,26 @@
+--- crates/domain/src/meta.rs
++++ replace <impl From<MergeMeta> for RawMergeMeta>::from -> Self with Default::default()
+@@ -243,22 +243,17 @@
+                 .map_err(|e| MergeMetaParseError::Branch(e.to_string()))?,
+             head: Sha::try_new(raw.head).map_err(|e| MergeMetaParseError::Head(e.to_string()))?,
+         })
+     }
+ }
+ 
+ impl From<MergeMeta> for RawMergeMeta {
+     fn from(m: MergeMeta) -> Self {
+-        Self {
+-            version: META_VERSION,
+-            task: m.task.into_inner(),
+-            branch: m.branch.into_inner(),
+-            head: m.head.into_inner(),
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ /// Any factory metadata a bead can carry, keyed by bead kind.
+ #[derive(Debug, Clone, PartialEq, Eq)]
+ pub enum BeadMeta {
+     Task(FactoryMeta),
+     Verify(VerifyMeta),

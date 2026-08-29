@@ -1,0 +1,21 @@
+--- crates/domain/src/ids.rs
++++ replace BranchName::for_task -> Result<Self, BranchNameError> with Ok(Default::default())
+@@ -79,17 +79,17 @@
+ 
+ impl BranchName {
+     /// The conventional worktree branch for a task bead: `task/<id>`.
+     ///
+     /// # Errors
+     /// Cannot fail for a well-formed `BeadId`; the `Result` keeps the function total
+     /// rather than asserting the cross-type invariant.
+     pub fn for_task(id: &BeadId) -> Result<Self, BranchNameError> {
+-        Self::try_new(format!("task/{id}"))
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     #[test]

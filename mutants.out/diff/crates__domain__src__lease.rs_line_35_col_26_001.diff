@@ -1,0 +1,21 @@
+--- crates/domain/src/lease.rs
++++ replace + with * in Lease::renew
+@@ -27,17 +27,17 @@
+         now >= self.expires
+     }
+ 
+     /// Extend the lease from `now` (not from the old expiry) so a stalled heartbeat
+     /// cannot accumulate credit.
+     #[must_use]
+     pub fn renew(self, now: Timestamp, ttl: Duration) -> Self {
+         Self {
+-            expires: now + ttl,
++            expires: now * /* ~ changed by cargo-mutants ~ */ ttl,
+             ..self
+         }
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;

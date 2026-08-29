@@ -1,0 +1,29 @@
+--- crates/domain/src/kind.rs
++++ replace BeadKind::as_str -> &'static str with "xyzzy"
+@@ -25,25 +25,17 @@
+ }
+ 
+ impl BeadKind {
+     /// Label prefix under which the kind is stored on the bead.
+     pub const LABEL_PREFIX: &'static str = "fac:kind=";
+ 
+     #[must_use]
+     pub const fn as_str(self) -> &'static str {
+-        match self {
+-            Self::Epic => "epic",
+-            Self::Task => "task",
+-            Self::Verify => "verify",
+-            Self::Merge => "merge",
+-            Self::Question => "question",
+-            Self::Incident => "incident",
+-            Self::Reference => "reference",
+-        }
++        "xyzzy" /* ~ changed by cargo-mutants ~ */
+     }
+ 
+     /// The label string to attach to a bead.
+     #[must_use]
+     pub fn label(self) -> String {
+         format!("{}{}", Self::LABEL_PREFIX, self.as_str())
+     }
+ 

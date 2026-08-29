@@ -1,0 +1,21 @@
+--- crates/domain/src/kind.rs
++++ replace <impl fmt::Display for BeadKind>::fmt -> fmt::Result with Ok(Default::default())
+@@ -80,17 +80,17 @@
+             "reference" => Ok(Self::Reference),
+             other => Err(UnknownKind(other.to_owned())),
+         }
+     }
+ }
+ 
+ impl fmt::Display for BeadKind {
+     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+-        f.write_str(self.as_str())
++        Ok(Default::default()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+ 
+     #[test]

@@ -1,0 +1,9 @@
+crates/domain/src/budget.rs:90:25: replace > with == in Budget::check
+crates/domain/src/budget.rs:90:25: replace > with >= in Budget::check
+crates/domain/src/budget.rs:96:29: replace > with == in Budget::check
+crates/domain/src/budget.rs:96:29: replace > with >= in Budget::check
+crates/domain/src/kind.rs:88:9: replace <impl fmt::Display for BeadKind>::fmt -> fmt::Result with Ok(Default::default())
+crates/domain/src/meta.rs:175:29: delete ! in <impl TryFrom<RawVerifyMeta> for VerifyMeta>::try_from
+crates/domain/src/plan.rs:25:9: replace <impl core::fmt::Display for TaskKey>::fmt -> core::fmt::Result with Ok(Default::default())
+crates/domain/src/plan.rs:156:50: delete ! in RawPlan::validate
+crates/domain/src/plan.rs:183:60: replace || with && in parse_key

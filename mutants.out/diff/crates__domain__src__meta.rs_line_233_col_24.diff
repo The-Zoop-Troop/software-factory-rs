@@ -1,0 +1,21 @@
+--- crates/domain/src/meta.rs
++++ replace != with == in <impl TryFrom<RawMergeMeta> for MergeMeta>::try_from
+@@ -225,17 +225,17 @@
+     #[error("invalid head sha: {0}")]
+     Head(String),
+ }
+ 
+ impl TryFrom<RawMergeMeta> for MergeMeta {
+     type Error = MergeMetaParseError;
+ 
+     fn try_from(raw: RawMergeMeta) -> Result<Self, Self::Error> {
+-        if raw.version != META_VERSION {
++        if raw.version == /* ~ changed by cargo-mutants ~ */ META_VERSION {
+             return Err(MergeMetaParseError::Version {
+                 found: raw.version,
+                 expected: META_VERSION,
+             });
+         }
+         Ok(Self {
+             task: BeadId::try_new(raw.task)
+                 .map_err(|e| MergeMetaParseError::Task(e.to_string()))?,

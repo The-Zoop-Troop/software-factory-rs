@@ -1,0 +1,39 @@
+--- crates/domain/src/budget.rs
++++ replace Budget::check -> Result<(), BudgetExceeded> with Ok(())
+@@ -76,35 +76,17 @@
+ 
+ impl Budget {
+     /// `Ok(())` while `usage` is within limits; the first exceeded limit otherwise
+     /// (attempts checked first, since it's the one that means "the model keeps failing").
+     ///
+     /// # Errors
+     /// Returns the exceeded limit.
+     pub fn check(self, usage: Usage) -> Result<(), BudgetExceeded> {
+-        if usage.attempts >= self.attempts {
+-            return Err(BudgetExceeded::Attempts {
+-                used: usage.attempts,
+-                limit: self.attempts,
+-            });
+-        }
+-        if usage.tokens > self.tokens {
+-            return Err(BudgetExceeded::Tokens {
+-                used: usage.tokens,
+-                limit: self.tokens,
+-            });
+-        }
+-        if usage.wall_clock > self.wall_clock {
+-            return Err(BudgetExceeded::WallClock {
+-                used: usage.wall_clock.seconds(),
+-                limit: self.wall_clock.seconds(),
+-            });
+-        }
+-        Ok(())
++        Ok(()) /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(test)]
+ mod tests {
+     use super::*;
+     use proptest::prelude::*;
+ 

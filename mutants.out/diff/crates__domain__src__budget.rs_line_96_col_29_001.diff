@@ -1,0 +1,21 @@
+--- crates/domain/src/budget.rs
++++ replace > with < in Budget::check
+@@ -88,17 +88,17 @@
+             });
+         }
+         if usage.tokens > self.tokens {
+             return Err(BudgetExceeded::Tokens {
+                 used: usage.tokens,
+                 limit: self.tokens,
+             });
+         }
+-        if usage.wall_clock > self.wall_clock {
++        if usage.wall_clock < /* ~ changed by cargo-mutants ~ */ self.wall_clock {
+             return Err(BudgetExceeded::WallClock {
+                 used: usage.wall_clock.seconds(),
+                 limit: self.wall_clock.seconds(),
+             });
+         }
+         Ok(())
+     }
+ }

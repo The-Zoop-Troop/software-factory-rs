@@ -1,0 +1,28 @@
+--- crates/domain/src/meta.rs
++++ replace <impl From<Task> for FactoryMeta>::from -> Self with Default::default()
+@@ -274,24 +274,17 @@
+             Self::Verify(_) => VERIFY_META_KEY,
+             Self::Merge(_) => MERGE_META_KEY,
+         }
+     }
+ }
+ 
+ impl From<Task> for FactoryMeta {
+     fn from(t: Task) -> Self {
+-        Self {
+-            verify_bead: t.verify_bead,
+-            base: t.base,
+-            budget: t.budget,
+-            usage: t.usage,
+-            lease_expiries: t.lease_expiries,
+-            state: t.state,
+-        }
++        Default::default() /* ~ changed by cargo-mutants ~ */
+     }
+ }
+ 
+ #[cfg(all(test, feature = "serde"))]
+ mod tests {
+     use super::*;
+     use crate::ids::AgentId;
+     use crate::lease::Lease;
