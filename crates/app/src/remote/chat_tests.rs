@@ -239,3 +239,19 @@ fn notifications_fire_on_changes_only() {
     let (quiet, _) = notifications(&seen, &end[..1]);
     assert_eq!(quiet, vec!["ep-3 canceled: T ep-3".to_owned()]);
 }
+
+#[tokio::test]
+async fn vanished_tasks_are_fetched_once() {
+    use super::chat::with_vanished;
+    let api = FakeApi::with_tasks(vec![task("ep-2", "epic", A2aState::Completed, 1, 1, 0)]);
+    let seen = Seen::from([
+        ("ep-2".to_owned(), A2aState::Working),
+        ("ep-9".to_owned(), A2aState::Working),
+        ("old".to_owned(), A2aState::Completed),
+    ]);
+    let all = with_vanished(&api, &seen, vec![]).await;
+    assert_eq!(all.len(), 1);
+    assert_eq!(all[0].id, "ep-2");
+    let (msgs, _) = notifications(&seen, &all);
+    assert_eq!(msgs, vec!["ep-2 done: T ep-2".to_owned()]);
+}

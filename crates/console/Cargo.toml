@@ -29,6 +29,7 @@ axum = { version = "0.8", features = ["json", "tokio", "http1"], default-feature
 tokio-stream = "0.1"
 toml = "0.8"
 sha2 = "0.10"
+reqwest.workspace = true
 
 [dev-dependencies]
 app = { workspace = true, features = ["testing"] }

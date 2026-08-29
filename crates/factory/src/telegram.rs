@@ -1,7 +1,7 @@
 //! The Telegram bot: commands from allowed chats go to the console; state changes come back
 //! as push messages. Long polling, so the bot needs no inbound port anywhere.
 
-use app::remote::chat::{Seen, handle, notifications, parse_command};
+use app::remote::chat::{Seen, handle, notifications, parse_command, with_vanished};
 use app::{A2aApi, ChatParseError, ClientError};
 use async_trait::async_trait;
 use infra::Incoming;
@@ -76,6 +76,7 @@ pub(crate) async fn step(
     }
     match api.list_tasks().await {
         Ok(tasks) => {
+            let tasks = with_vanished(api, &next.seen, tasks).await;
             let (messages, seen) = notifications(&next.seen, &tasks);
             // The first poll only learns the current state; nothing is announced.
             if next.primed {

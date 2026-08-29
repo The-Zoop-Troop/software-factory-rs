@@ -8,6 +8,7 @@
         clippy::unwrap_used,
         clippy::expect_used,
         clippy::indexing_slicing,
+        clippy::disallowed_types,
         clippy::panic
     )
 )]
@@ -17,6 +18,7 @@
 )]
 
 mod adapters;
+mod alerts;
 mod auth;
 mod config;
 mod rpc;
@@ -56,6 +58,12 @@ enum Command {
         /// URL clients reach this console at (goes into the Agent Card).
         #[arg(long, default_value = "http://127.0.0.1:7700")]
         public_url: String,
+        /// Webhook that receives `{"rig","text"}` when a task needs a human or finishes.
+        #[arg(long, env = "CONSOLE_ALERT_URL")]
+        alert_url: Option<String>,
+        /// Seconds between alert sweeps.
+        #[arg(long, default_value_t = 30)]
+        alert_interval: u64,
     },
     /// Print the sha256 of a token read from stdin, for the token file.
     HashToken,
@@ -70,9 +78,7 @@ enum Command {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
+    let _telemetry = infra::telemetry::init("console", &infra::TelemetryConfig::from_env())?;
     match Cli::parse().command {
         Command::HashToken => {
             let mut token = String::new();
@@ -93,6 +99,8 @@ async fn main() -> anyhow::Result<()> {
             tokens,
             listen,
             public_url,
+            alert_url,
+            alert_interval,
         } => {
             let rigs = config::load_registry(&registry)?;
             let auth = auth::TokenAuth::new(config::load_tokens(&tokens)?);
@@ -104,6 +112,14 @@ async fn main() -> anyhow::Result<()> {
                 public_url,
                 poll: std::time::Duration::from_secs(1),
             };
+            if let Some(url) = alert_url {
+                tokio::spawn(alerts::run(
+                    state.registry.clone(),
+                    state.clock.clone(),
+                    Arc::new(alerts::Webhook::new(url)),
+                    domain::Duration::from_seconds(alert_interval.max(5)),
+                ));
+            }
             let listener = tokio::net::TcpListener::bind(&listen).await?;
             tracing::info!(%listen, rigs = rigs.len(), "console listening");
             axum::serve(listener, server::router(state))

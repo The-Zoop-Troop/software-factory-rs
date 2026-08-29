@@ -1,0 +1,18 @@
+# One rig as a user service: `systemctl --user enable --now factory-rig@toy`.
+# Expects the rig to exist (`factory rig create toy …`) and FACTORY_COMPOSE to point at the
+# repository's compose.yaml (set it in ~/.config/environment.d/factory.conf or below).
+[Unit]
+Description=Factory rig %i (compose project factory-%i)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=FACTORY_COMPOSE=%h/git-repos/software-factory-rs/compose.yaml
+ExecStart=/usr/bin/docker compose -p factory-%i --env-file %h/.factory/%i/compose.env -f ${FACTORY_COMPOSE} up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -p factory-%i --env-file %h/.factory/%i/compose.env -f ${FACTORY_COMPOSE} down
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

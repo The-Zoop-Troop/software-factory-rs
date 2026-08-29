@@ -50,10 +50,11 @@ pub use ports::{
 };
 pub use remote::chat::{
     A2aApi, ChatCommand, ChatParseError, ClientError, HELP, Seen, handle, notifications,
-    parse_command, render_inbox, render_tasks,
+    parse_command, render_inbox, render_tasks, with_vanished,
 };
 pub use remote::service::{
-    RemoteError, Sent, cancel_task, events_after, get_task, list_tasks, send_message, spend,
+    RemoteError, Sent, cancel_task, events_after, get_task, list_tasks, list_tasks_with_vanished,
+    send_message, spend,
 };
 pub use remote::{
     Authenticator, EventRecord, EventTail, PlanSubmitter, Rig, RigRegistry, SubmitError, TailError,

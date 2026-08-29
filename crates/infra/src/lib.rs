@@ -24,6 +24,7 @@ pub mod jsonl;
 pub mod opencode;
 pub mod shell;
 pub mod telegram;
+pub mod telemetry;
 
 pub use app;
 
@@ -59,3 +60,4 @@ pub use jsonl::JsonlSink;
 pub use opencode::OpencodeServer;
 pub use shell::ShellRunner;
 pub use telegram::{Incoming, TelegramApi};
+pub use telemetry::{TelemetryConfig, TelemetryError, TelemetryGuard};

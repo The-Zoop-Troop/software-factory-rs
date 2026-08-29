@@ -11,7 +11,8 @@ use domain::{
 
 use super::a2a::{A2aState, Message, Part, epic_progress, skills};
 use super::service::{
-    RemoteError, Sent, cancel_task, events_after, get_task, list_tasks, send_message, spend,
+    RemoteError, Sent, cancel_task, events_after, get_task, list_tasks, list_tasks_with_vanished,
+    send_message, spend,
 };
 use super::{Rig, SubmitError};
 use crate::testing::remote::{FakePlanner, FakeRegistry, FakeTail, rig};
@@ -380,4 +381,27 @@ fn pure_mapping_and_serde_shapes() {
     );
     let (r, ..) = rig("toy", FakePlanner::returning("e-1"));
     assert!(format!("{r:?}").contains("toy"));
+}
+
+#[tokio::test]
+async fn closed_epics_reappear_for_watchers_that_saw_them() {
+    let (rig, store, _, _) = seeded().await;
+    store.close(&id("ep-1"), "done").await.expect("closed");
+    let none = list_tasks(&rig, &clock(), &who(&[Scope::Watch]))
+        .await
+        .expect("ok");
+    assert!(none.is_empty());
+    let seen = std::collections::BTreeMap::from([
+        ("ep-1".to_owned(), A2aState::Working),
+        ("gone".to_owned(), A2aState::Working),
+    ]);
+    let tasks = list_tasks_with_vanished(&rig, &clock(), &who(&[Scope::Watch]), &seen)
+        .await
+        .expect("ok");
+    assert_eq!(tasks.len(), 1);
+    assert_eq!(tasks[0].status.state, A2aState::Completed);
+    assert!(matches!(
+        list_tasks_with_vanished(&rig, &clock(), &who(&[Scope::Plan]), &seen).await,
+        Err(RemoteError::Forbidden(_))
+    ));
 }

@@ -1,0 +1,13 @@
+# TLS in front of the console. CONSOLE_DOMAIN=console.example.com gets a public certificate
+# (ports 80/443 reachable); CONSOLE_DOMAIN=localhost gets Caddy's internal CA. Nothing but the
+# console is proxied; rigs stay unreachable.
+{$CONSOLE_DOMAIN:localhost} {
+	encode gzip
+	reverse_proxy console:7700 {
+		flush_interval -1   # SSE: forward events as they arrive
+	}
+	log {
+		output stderr
+		format json
+	}
+}

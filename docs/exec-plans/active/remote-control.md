@@ -98,11 +98,13 @@ The Agent Card lists skills per rig (`plan`, `watch`, `inbox`, `resolve`, `docto
 - 2026-08-29 — The bot serves only chat ids listed at start (`--chat`); everything else is logged and ignored. A bot token alone must not be enough to drive a rig.
 - 2026-08-29 — A rig is a compose *project* over the one shared `compose.yaml` (env file per rig), not a copy of the file: fixes land in every rig on the next `up`. The console is a separate project that mounts the rigs' ledger volumes as `external`, so it can be restarted without touching a rig.
 - 2026-08-29 — `rig restore` refuses while any service of the rig runs; restoring under a live steward would race the ledger.
+- 2026-08-29 — Alerts are a console sweep over `ListTasks` (plus one fetch for each epic that vanished from the listing) posted to a generic JSON webhook; no per-integration code. Closed epics drop out of `ListTasks`, so watchers that saw them fetch them once (`list_tasks_with_vanished`).
+- 2026-08-29 — OTLP over HTTP with the exporter's own client (opentelemetry-http pins reqwest 0.13 while the workspace is on 0.12); traces only — metrics stay in `events.jsonl` until a dashboard needs counters.
 
 ## Progress
 
 - [x] console-api (`crates/console`: cards, SendMessage/GetTask/ListTasks/CancelTask, SSE SubscribeToTask, hashed scoped tokens, audit, budgets; compose `console` + `planner`; generated API doc) — 2026-08-29
 - [x] cli-remote + telegram (`factory --rig/--token` for watch/inbox/plan/stop/doctor over `infra::A2aHttp`; `factory telegram` long-polling bot with chat allowlist and push notifications; compose `telegram` profile; shared `app::remote::chat` core) — 2026-08-29
 - [x] rig-registry + multi-project (`factory rig create|list|destroy|doctor|backup|restore|console`; `app::rigs` registry + rendering + `HostDocker` port; `infra::DockerCli`; per-rig compose project and secrets; console over external ledger volumes) — 2026-08-29
-- [ ] ops-hardening
+- [x] ops-hardening (Caddy `tls` profile; systemd user units for rigs and the console; `infra::telemetry` OTLP/HTTP traces in every binary; console `--alert-url` webhook sweep; restore drill in RELIABILITY) — 2026-08-29
 - [ ] web-console (A2UI)

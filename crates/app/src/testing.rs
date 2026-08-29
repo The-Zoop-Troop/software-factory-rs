@@ -31,6 +31,21 @@ pub struct FakeStore {
     next: Mutex<u32>,
     /// `blocks` edges recorded at create time: dependent → blockers.
     pub needs: Mutex<BTreeMap<BeadId, Vec<BeadId>>>,
+    /// When set, every read fails as `Unavailable` (an unreachable ledger).
+    pub fail_reads: std::sync::atomic::AtomicBool,
+}
+
+impl FakeStore {
+    fn readable(&self) -> Result<(), StoreError> {
+        if self.fail_reads.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(StoreError::Unavailable {
+                op: crate::ports::StoreOp::Note,
+                cause: crate::Unavailable::Io,
+                detail: "fake: reads disabled".to_owned(),
+            });
+        }
+        Ok(())
+    }
 }
 
 impl FakeStore {
@@ -155,6 +170,7 @@ impl FakeStore {
 #[async_trait]
 impl BeadStore for FakeStore {
     async fn show(&self, id: &BeadId) -> Result<Bead, StoreError> {
+        self.readable()?;
         self.beads
             .lock()
             .await
@@ -164,10 +180,12 @@ impl BeadStore for FakeStore {
     }
 
     async fn ready(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
+        self.readable()?;
         self.list_active(kind).await
     }
 
     async fn list_active(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
+        self.readable()?;
         Ok(self
             .beads
             .lock()
@@ -284,6 +302,7 @@ impl BeadStore for FakeStore {
     }
 
     async fn children(&self, id: &BeadId) -> Result<Vec<Bead>, StoreError> {
+        self.readable()?;
         Ok(self
             .beads
             .lock()

@@ -1,0 +1,15 @@
+# The shared console over every rig on this host: `systemctl --user enable --now factory-console`.
+[Unit]
+Description=Factory console (A2A control plane)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/docker compose -p factory-console --env-file %h/.factory/console/compose.env -f %h/.factory/console/compose.yaml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -p factory-console --env-file %h/.factory/console/compose.env -f %h/.factory/console/compose.yaml down
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

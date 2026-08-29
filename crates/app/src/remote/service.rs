@@ -104,6 +104,31 @@ pub async fn list_tasks(
     Ok(out)
 }
 
+/// `ListTasks` plus the tasks in `seen` that dropped out of the listing (closed epics),
+/// each fetched once so a watcher observes its terminal state.
+///
+/// # Errors
+/// As `list_tasks`.
+pub async fn list_tasks_with_vanished(
+    rig: &Rig,
+    clock: &dyn Clock,
+    who: &Principal,
+    seen: &std::collections::BTreeMap<String, A2aState>,
+) -> Result<Vec<Task>, RemoteError> {
+    let mut tasks = list_tasks(rig, clock, who).await?;
+    let listed: std::collections::BTreeSet<String> = tasks.iter().map(|t| t.id.clone()).collect();
+    for id in seen
+        .iter()
+        .filter(|(id, state)| !listed.contains(*id) && !state.is_terminal())
+        .map(|(id, _)| id)
+    {
+        if let Ok(t) = get_task(rig, clock, who, id).await {
+            tasks.push(t);
+        }
+    }
+    Ok(tasks)
+}
+
 /// `GetTask`: an epic or an inbox item by id.
 ///
 /// # Errors

@@ -134,9 +134,18 @@ Serve the A2A API
 Usage: console serve [OPTIONS]
 
 Options:
-      --registry <REGISTRY>      Rig registry (TOML, see docs/DEPLOYMENT.md) [default: console/rigs.toml]
-      --tokens <TOKENS>          Token file (TOML; sha256 of each bearer token and its grants) [default: console/tokens.toml]
-      --listen <LISTEN>          Address to bind [default: 127.0.0.1:7700]
-      --public-url <PUBLIC_URL>  URL clients reach this console at (goes into the Agent Card) [default: http://127.0.0.1:7700]
-  -h, --help                     Print help
+      --registry <REGISTRY>
+          Rig registry (TOML, see docs/DEPLOYMENT.md) [default: console/rigs.toml]
+      --tokens <TOKENS>
+          Token file (TOML; sha256 of each bearer token and its grants) [default: console/tokens.toml]
+      --listen <LISTEN>
+          Address to bind [default: 127.0.0.1:7700]
+      --public-url <PUBLIC_URL>
+          URL clients reach this console at (goes into the Agent Card) [default: http://127.0.0.1:7700]
+      --alert-url <ALERT_URL>
+          Webhook that receives `{"rig","text"}` when a task needs a human or finishes [env: CONSOLE_ALERT_URL=]
+      --alert-interval <ALERT_INTERVAL>
+          Seconds between alert sweeps [default: 30]
+  -h, --help
+          Print help
 ```

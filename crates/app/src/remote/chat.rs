@@ -236,6 +236,23 @@ pub async fn handle(api: &dyn A2aApi, cmd: ChatCommand) -> Result<String, Client
     }
 }
 
+/// `now` plus every task from `seen` that is no longer listed (a closed epic drops out of
+/// `ListTasks`), fetched individually so its terminal state is observed once.
+pub async fn with_vanished(api: &dyn A2aApi, seen: &Seen, now: Vec<Task>) -> Vec<Task> {
+    let listed: std::collections::BTreeSet<&str> = now.iter().map(|t| t.id.as_str()).collect();
+    let mut all = now.clone();
+    for id in seen
+        .iter()
+        .filter(|(id, state)| !listed.contains(id.as_str()) && !state.is_terminal())
+        .map(|(id, _)| id)
+    {
+        if let Ok(t) = api.get_task(id).await {
+            all.push(t);
+        }
+    }
+    all
+}
+
 /// Known task states, keyed by id, for change detection between polls.
 pub type Seen = BTreeMap<String, A2aState>;
 

@@ -69,6 +69,12 @@ factory rig destroy toy [--volumes]
 ```
 `~/.factory/console/tokens.toml` holds the console tokens; `~/.factory/console/rigs.toml` and `compose.yaml` are regenerated on every change (the console mounts each rig's ledger volume read-write, nothing else). Run the commands from this repository (or set `FACTORY_COMPOSE` to its `compose.yaml`).
 
+## Production posture
+- **TLS.** `CONSOLE_DOMAIN=console.example.com docker compose --profile tls up -d caddy` puts Caddy (automatic Let's Encrypt, or its internal CA for `localhost`) in front of the console; then set `CONSOLE_URL=https://console.example.com` so the Agent Card advertises the right address, and stop publishing `CONSOLE_PORT` on anything but loopback. The multi-rig console (`~/.factory/console/compose.yaml`) takes the same `caddy` service; copy `docker/caddy/Caddyfile` next to it.
+- **Service units.** `docker/systemd/factory-rig@.service` and `factory-console.service` are user units: `mkdir -p ~/.config/systemd/user && cp docker/systemd/*.service ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now factory-rig@toy factory-console` (`loginctl enable-linger $USER` so they survive logout). Edit `FACTORY_COMPOSE` in the rig unit to this repository's `compose.yaml`.
+- **Telemetry.** Every binary logs via `tracing` (`FACTORY_LOG_FORMAT=json` for one object per line). Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4318` on any service and its spans (worker sessions, verify runs, integrations, console requests) are exported over OTLP/HTTP with `service.name` = `factory` / `stewardd` / `console`; add the collector's host to the egress allowlist.
+- **Alerts.** `console serve --alert-url https://hooks.example/… --alert-interval 30` (or `CONSOLE_ALERT_URL`) posts `{"rig","text"}` whenever a task needs a human or finishes — Slack incoming webhooks, ntfy, PagerDuty Events via a relay. The Telegram bot pushes the same events to its chats.
+
 ## Logs
 Every role logs via `tracing` to stderr (`RUST_LOG=info` by default). Set `FACTORY_LOG_FORMAT=json` for one JSON object per line (`docker compose logs --no-log-prefix steward | jq`). State transitions are additionally appended to `.factory/events.jsonl` in the `ledger` volume.
 
