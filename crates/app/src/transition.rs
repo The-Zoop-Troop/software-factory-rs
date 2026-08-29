@@ -80,7 +80,7 @@ async fn run_effect(store: &dyn BeadStore, effect: &Effect) -> Result<(), StoreE
         Effect::OpenIncidentBead { task: id, reason } => store
             .create(NewBead {
                 title: Title::derived(&format!("incident on {id}")),
-                description: format!("{reason:?}"),
+                description: reason.to_string(),
                 kind: BeadKind::Incident,
                 priority: Priority::CRITICAL,
                 parent: None,

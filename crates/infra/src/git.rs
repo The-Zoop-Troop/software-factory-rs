@@ -51,11 +51,16 @@ impl GitCli {
                 cause: crate::classify_io(e.kind()),
                 detail: e.to_string(),
             })?;
-        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_owned();
         if out.status.success() {
             Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
         } else {
-            Err(parse_git_stderr(op, &stderr))
+            // git reports rebase conflicts on stdout; parse both streams together.
+            let text = format!(
+                "{}\n{}",
+                String::from_utf8_lossy(&out.stderr).trim(),
+                String::from_utf8_lossy(&out.stdout).trim()
+            );
+            Err(parse_git_stderr(op, text.trim()))
         }
     }
 }

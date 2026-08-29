@@ -510,3 +510,31 @@ fn name_tables_match_the_types() {
     ];
     assert_eq!(events.map(|e| e.name()), EVENT_NAMES);
 }
+
+#[test]
+fn incident_reasons_explain_themselves() {
+    let merge = IncidentReason::MergeConflict {
+        detail: "conflicts in lib.sh".into(),
+    };
+    let text = merge.to_string();
+    assert!(text.contains("could not land") && text.contains("lib.sh") && text.contains("reopens"));
+    assert!(
+        IncidentReason::LeaseStorm {
+            expiries: Attempts::new(3)
+        }
+        .to_string()
+        .contains("3 times")
+    );
+    assert!(
+        IncidentReason::Manual { detail: "x".into() }
+            .to_string()
+            .contains("escalated by hand")
+    );
+    let budget = IncidentReason::Budget {
+        exceeded: BudgetExceeded::Attempts {
+            used: Attempts::new(3),
+            limit: Attempts::new(3),
+        },
+    };
+    assert!(budget.to_string().contains("budget exhausted"));
+}

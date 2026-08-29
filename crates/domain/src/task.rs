@@ -19,6 +19,7 @@ use crate::counts::{Attempts, Tokens};
 use crate::ids::{AgentId, BeadId, BranchName, Sha};
 use crate::lease::Lease;
 use crate::time::{Duration, Timestamp};
+use core::fmt;
 
 /// Where a task bead is in its lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -59,6 +60,31 @@ pub enum IncidentReason {
     Manual {
         detail: String,
     },
+}
+
+impl fmt::Display for IncidentReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Budget { exceeded } => write!(
+                f,
+                "budget exhausted: {exceeded}. The worker kept failing verification or ran out of \
+                 time/tokens. Resolving reopens the task with fresh attempts; if the task itself \
+                 is wrong, stop the epic and re-plan."
+            ),
+            Self::LeaseStorm { expiries } => write!(
+                f,
+                "lease expired {expiries} times without a submission: workers keep dying or \
+                 stalling on this task. Check worker logs; resolving reopens it."
+            ),
+            Self::MergeConflict { detail } => write!(
+                f,
+                "the Integrator could not land this task's branch on main ({detail}). Another \
+                 task changed the same files first. Resolving reopens the task so a worker redoes \
+                 it on top of the current main; if the work is now redundant, stop the epic instead."
+            ),
+            Self::Manual { detail } => write!(f, "escalated by hand: {detail}"),
+        }
+    }
 }
 
 /// Something that happened to a task. Carries only facts, never decisions.
