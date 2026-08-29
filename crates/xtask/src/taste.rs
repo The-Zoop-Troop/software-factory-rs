@@ -21,9 +21,14 @@ pub(crate) fn lint(root: &Path) -> anyhow::Result<()> {
         }
         let path = file.to_string_lossy();
         // Binary crates and integration tests may print; library crates must trace.
-        let is_bin = ["/crates/factory/", "/crates/stewardd/", "/crates/xtask/"]
-            .iter()
-            .any(|c| path.contains(c))
+        let is_bin = [
+            "/crates/factory/",
+            "/crates/stewardd/",
+            "/crates/console/",
+            "/crates/xtask/",
+        ]
+        .iter()
+        .any(|c| path.contains(c))
             || path.contains("/tests/");
         if !is_bin && (text.contains("println!(") || text.contains("eprintln!(")) {
             errors.push(format!("{}: println!/eprintln! outside a binary. Use `tracing` with structured fields so the output is queryable.", rel(root, &file)));
@@ -58,7 +63,9 @@ fn layering(root: &Path, errors: &mut Vec<String>) -> anyhow::Result<()> {
             .map(|t| t.keys().cloned().collect())
             .unwrap_or_default())
     };
-    let workspace = ["domain", "app", "infra", "factory", "stewardd", "xtask"];
+    let workspace = [
+        "domain", "app", "infra", "factory", "stewardd", "console", "xtask",
+    ];
     let rule = |krate: &str, allowed: &[&str], errors: &mut Vec<String>| -> anyhow::Result<()> {
         for d in deps(krate)? {
             if workspace.contains(&d.as_str()) && !allowed.contains(&d.as_str()) {
@@ -70,6 +77,7 @@ fn layering(root: &Path, errors: &mut Vec<String>) -> anyhow::Result<()> {
     rule("domain", &[], errors)?;
     rule("app", &["domain"], errors)?;
     rule("infra", &["app", "domain"], errors)?;
+    rule("console", &["app", "domain", "infra"], errors)?;
     Ok(())
 }
 

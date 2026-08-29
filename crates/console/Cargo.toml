@@ -1,0 +1,39 @@
+[package]
+name = "console"
+edition.workspace = true
+version.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Remote-control plane: A2A (JSON-RPC + SSE) over one or more rigs, with scoped bearer tokens and audit."
+
+[[bin]]
+name = "console"
+path = "src/main.rs"
+
+[dependencies]
+app.workspace = true
+infra.workspace = true
+domain.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+futures.workspace = true
+axum = { version = "0.8", features = ["json", "tokio", "http1"], default-features = false }
+tokio-stream = "0.1"
+toml = "0.8"
+sha2 = "0.10"
+
+[dev-dependencies]
+app = { workspace = true, features = ["testing"] }
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+[lints]
+workspace = true
