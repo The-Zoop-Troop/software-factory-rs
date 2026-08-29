@@ -70,10 +70,7 @@ pub(crate) fn run(root: &Path, check: bool) -> anyhow::Result<()> {
     }
 
     if problems.is_empty() {
-        println!(
-            "quality: ok (coverage {})",
-            coverage.as_deref().unwrap_or("n/a")
-        );
+        println!("quality: ok");
         Ok(())
     } else {
         anyhow::bail!(
