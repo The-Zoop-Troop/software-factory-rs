@@ -12,6 +12,7 @@
 | Time, randomness, and IDs are injected (`Clock`, parameters) | Determinism; tests never sleep | `clippy.toml` bans `SystemTime::now` |
 | Exhaustive matches over domain enums | Adding a variant breaks the build, not production | clippy `wildcard_enum_match_arm` deny |
 | Ports, not mocks: hand-written fakes in `app::testing` | Tests document the contract | review |
+| Every newtype has a round-trip property test; every aggregate an invariant test | Proofs, not examples | `crates/domain/tests/properties.rs`; `cargo mutants ≥ 90%` |
 | Docs are re-verified within 30 days or marked superseded | Stale guidance is worse than none | `xtask quality --check` (weekly `gardening` workflow) |
 | `docs/generated` is never hand-edited | It is derived from code | `xtask gen-docs --check` in CI |
 | Layering `domain ← app ← infra ← bins` | Cargo enforces the onion | structural test (`xtask lint-taste`) |

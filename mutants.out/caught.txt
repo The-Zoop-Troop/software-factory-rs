@@ -1,19 +1,21 @@
-crates/domain/src/budget.rs:39:9: replace Usage::add_tokens -> Self with Default::default()
-crates/domain/src/budget.rs:57:9: replace Usage::add_attempt -> Self with Default::default()
-crates/domain/src/budget.rs:58:13: delete field attempts from struct Self expression in Usage::add_attempt
-crates/domain/src/budget.rs:84:9: replace Budget::check -> Result<(), BudgetExceeded> with Ok(())
-crates/domain/src/budget.rs:47:9: replace Usage::add_wall_clock -> Self with Default::default()
-crates/domain/src/budget.rs:84:27: replace >= with < in Budget::check
-crates/domain/src/budget.rs:40:13: delete field tokens from struct Self expression in Usage::add_tokens
-crates/domain/src/budget.rs:90:25: replace > with < in Budget::check
-crates/domain/src/budget.rs:90:25: replace > with == in Budget::check
-crates/domain/src/budget.rs:90:25: replace > with >= in Budget::check
-crates/domain/src/budget.rs:48:13: delete field wall_clock from struct Self expression in Usage::add_wall_clock
-crates/domain/src/budget.rs:96:29: replace > with == in Budget::check
-crates/domain/src/budget.rs:96:29: replace > with < in Budget::check
-crates/domain/src/budget.rs:96:29: replace > with >= in Budget::check
-crates/domain/src/kind.rs:33:9: replace BeadKind::as_str -> &'static str with "xyzzy"
+crates/domain/src/budget.rs:40:9: replace Usage::add_tokens -> Self with Default::default()
+crates/domain/src/budget.rs:48:9: replace Usage::add_wall_clock -> Self with Default::default()
+crates/domain/src/budget.rs:49:13: delete field wall_clock from struct Self expression in Usage::add_wall_clock
+crates/domain/src/budget.rs:58:9: replace Usage::add_attempt -> Self with Default::default()
+crates/domain/src/budget.rs:59:13: delete field attempts from struct Self expression in Usage::add_attempt
+crates/domain/src/budget.rs:85:9: replace Budget::check -> Result<(), BudgetExceeded> with Ok(())
+crates/domain/src/budget.rs:41:13: delete field tokens from struct Self expression in Usage::add_tokens
+crates/domain/src/budget.rs:85:27: replace >= with < in Budget::check
+crates/domain/src/budget.rs:91:25: replace > with == in Budget::check
+crates/domain/src/budget.rs:91:25: replace > with < in Budget::check
+crates/domain/src/budget.rs:91:25: replace > with >= in Budget::check
+crates/domain/src/budget.rs:97:29: replace > with < in Budget::check
+crates/domain/src/budget.rs:97:29: replace > with == in Budget::check
+crates/domain/src/budget.rs:97:29: replace > with >= in Budget::check
+crates/domain/src/counts.rs:93:14: replace <= with > in <impl TryFrom<u8> for Priority>::try_from
+crates/domain/src/counts.rs:103:9: replace <impl From<Priority> for u8>::from -> Self with Default::default()
 crates/domain/src/kind.rs:33:9: replace BeadKind::as_str -> &'static str with ""
+crates/domain/src/kind.rs:33:9: replace BeadKind::as_str -> &'static str with "xyzzy"
 crates/domain/src/kind.rs:47:9: replace BeadKind::label -> String with String::new()
 crates/domain/src/kind.rs:47:9: replace BeadKind::label -> String with "xyzzy".into()
 crates/domain/src/kind.rs:53:9: replace BeadKind::from_labels -> Option<Self> with None
@@ -22,57 +24,66 @@ crates/domain/src/lease.rs:27:9: replace Lease::is_expired -> bool with true
 crates/domain/src/lease.rs:27:13: replace >= with < in Lease::is_expired
 crates/domain/src/lease.rs:27:9: replace Lease::is_expired -> bool with false
 crates/domain/src/lease.rs:35:13: delete field expires from struct Self expression in Lease::renew
-crates/domain/src/meta.rs:68:24: replace != with == in <impl TryFrom<RawFactoryMeta> for FactoryMeta>::try_from
-crates/domain/src/meta.rs:142:5: replace default_timeout -> crate::time::Duration with Default::default()
-crates/domain/src/meta.rs:160:24: replace != with == in <impl TryFrom<RawVerifyMeta> for VerifyMeta>::try_from
-crates/domain/src/meta.rs:175:29: delete ! in <impl TryFrom<RawVerifyMeta> for VerifyMeta>::try_from
-crates/domain/src/meta.rs:233:24: replace != with == in <impl TryFrom<RawMergeMeta> for MergeMeta>::try_from
-crates/domain/src/meta.rs:272:9: replace BeadMeta::key -> &'static str with ""
-crates/domain/src/meta.rs:272:9: replace BeadMeta::key -> &'static str with "xyzzy"
-crates/domain/src/plan.rs:19:9: replace TaskKey::as_str -> &str with ""
-crates/domain/src/plan.rs:19:9: replace TaskKey::as_str -> &str with "xyzzy"
-crates/domain/src/plan.rs:25:9: replace <impl core::fmt::Display for TaskKey>::fmt -> core::fmt::Result with Ok(Default::default())
-crates/domain/src/plan.rs:112:16: delete ! in RawPlan::validate
-crates/domain/src/plan.rs:121:29: delete ! in RawPlan::validate
-crates/domain/src/plan.rs:146:54: delete ! in RawPlan::validate
-crates/domain/src/plan.rs:156:50: delete ! in RawPlan::validate
-crates/domain/src/plan.rs:181:9: replace || with && in parse_key
-crates/domain/src/plan.rs:181:12: delete ! in parse_key
-crates/domain/src/plan.rs:183:60: replace || with && in parse_key
-crates/domain/src/plan.rs:183:48: replace || with && in parse_key
-crates/domain/src/plan.rs:183:53: replace == with != in parse_key
-crates/domain/src/plan.rs:183:65: replace == with != in parse_key
-crates/domain/src/plan.rs:192:5: replace topo_sort -> Result<Vec<PlannedTask>, PlanError> with Ok(vec![])
-crates/domain/src/plan.rs:198:11: delete ! in topo_sort
-crates/domain/src/plan.rs:201:57: replace == with != in topo_sort
-crates/domain/src/task.rs:175:9: replace TaskState::name -> &'static str with ""
-crates/domain/src/task.rs:175:9: replace TaskState::name -> &'static str with "xyzzy"
-crates/domain/src/task.rs:187:9: replace TaskState::is_terminal -> bool with true
-crates/domain/src/task.rs:187:9: replace TaskState::is_terminal -> bool with false
-crates/domain/src/task.rs:199:9: replace Event::name -> &'static str with ""
-crates/domain/src/task.rs:199:9: replace Event::name -> &'static str with "xyzzy"
-crates/domain/src/task.rs:249:21: delete field state from struct Task expression in Task::apply
-crates/domain/src/task.rs:294:25: delete field usage from struct Task expression in Task::apply
-crates/domain/src/task.rs:295:25: delete field state from struct Task expression in Task::apply
-crates/domain/src/task.rs:302:20: delete ! in Task::apply
-crates/domain/src/task.rs:312:29: replace >= with < in Task::apply
-crates/domain/src/task.rs:322:25: delete field usage from struct Task expression in Task::apply
-crates/domain/src/task.rs:324:25: delete field state from struct Task expression in Task::apply
-crates/domain/src/task.rs:334:21: delete field state from struct Task expression in Task::apply
-crates/domain/src/task.rs:323:25: delete field lease_expiries from struct Task expression in Task::apply
-crates/domain/src/task.rs:348:32: delete field usage from struct Task expression in Task::apply
-crates/domain/src/task.rs:352:29: delete field state from struct Task expression in Task::apply
-crates/domain/src/task.rs:381:32: delete field usage from struct Task expression in Task::apply
-crates/domain/src/task.rs:370:25: delete field state from struct Task expression in Task::apply
-crates/domain/src/task.rs:385:29: delete field state from struct Task expression in Task::apply
-crates/domain/src/task.rs:407:29: delete field state from struct Task expression in Task::apply
-crates/domain/src/task.rs:403:32: delete field usage from struct Task expression in Task::apply
-crates/domain/src/task.rs:489:17: delete field state from struct Task expression in Task::escalate
-crates/domain/src/task.rs:503:9: replace Task::require_holder -> Result<(), IllegalTransition> with Ok(())
-crates/domain/src/task.rs:503:26: replace == with != in Task::require_holder
+crates/domain/src/meta.rs:77:24: replace != with == in <impl TryFrom<RawFactoryMeta> for FactoryMeta>::try_from
+crates/domain/src/meta.rs:158:5: replace default_timeout -> crate::time::Duration with Default::default()
+crates/domain/src/meta.rs:183:24: replace != with == in <impl TryFrom<RawVerifyMeta> for VerifyMeta>::try_from
+crates/domain/src/meta.rs:192:25: delete ! in <impl TryFrom<RawVerifyMeta> for VerifyMeta>::try_from
+crates/domain/src/meta.rs:274:24: replace != with == in <impl TryFrom<RawMergeMeta> for MergeMeta>::try_from
+crates/domain/src/meta.rs:324:9: replace BeadMeta::key -> &'static str with "xyzzy"
+crates/domain/src/meta.rs:324:9: replace BeadMeta::key -> &'static str with ""
+crates/domain/src/nonempty.rs:38:9: replace NonEmpty<T>::len -> usize with 1
+crates/domain/src/nonempty.rs:38:9: replace NonEmpty<T>::len -> usize with 0
+crates/domain/src/nonempty.rs:44:9: replace NonEmpty<T>::is_empty -> bool with true
+crates/domain/src/nonempty.rs:48:9: replace NonEmpty<T>::iter -> impl Iterator<Item =&T> with ::std::iter::empty()
+crates/domain/src/nonempty.rs:88:9: replace <impl From<NonEmpty<T>> for Vec<T>>::from -> Self with Default::default()
+crates/domain/src/plan.rs:21:9: replace TaskKey::as_str -> &str with ""
+crates/domain/src/plan.rs:21:9: replace TaskKey::as_str -> &str with "xyzzy"
+crates/domain/src/plan.rs:27:9: replace <impl core::fmt::Display for TaskKey>::fmt -> core::fmt::Result with Ok(Default::default())
+crates/domain/src/plan.rs:124:16: delete ! in RawPlan::validate
+crates/domain/src/plan.rs:134:29: delete ! in RawPlan::validate
+crates/domain/src/plan.rs:168:54: delete ! in RawPlan::validate
+crates/domain/src/plan.rs:149:20: delete ! in RawPlan::validate
+crates/domain/src/plan.rs:181:50: delete ! in RawPlan::validate
+crates/domain/src/plan.rs:206:9: replace || with && in parse_key
+crates/domain/src/plan.rs:206:12: delete ! in parse_key
+crates/domain/src/plan.rs:208:60: replace || with && in parse_key
+crates/domain/src/plan.rs:208:48: replace || with && in parse_key
+crates/domain/src/plan.rs:208:53: replace == with != in parse_key
+crates/domain/src/plan.rs:208:65: replace == with != in parse_key
+crates/domain/src/plan.rs:217:5: replace topo_sort -> Result<Vec<PlannedTask>, PlanError> with Ok(vec![])
+crates/domain/src/plan.rs:226:57: replace == with != in topo_sort
+crates/domain/src/plan.rs:223:11: delete ! in topo_sort
+crates/domain/src/task.rs:199:9: replace TaskState::name -> &'static str with "xyzzy"
+crates/domain/src/task.rs:199:9: replace TaskState::name -> &'static str with ""
+crates/domain/src/task.rs:211:9: replace TaskState::is_terminal -> bool with true
+crates/domain/src/task.rs:211:9: replace TaskState::is_terminal -> bool with false
+crates/domain/src/task.rs:223:9: replace Event::name -> &'static str with ""
+crates/domain/src/task.rs:223:9: replace Event::name -> &'static str with "xyzzy"
+crates/domain/src/task.rs:273:21: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:293:25: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:318:25: delete field usage from struct Task expression in Task::apply
+crates/domain/src/task.rs:319:25: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:326:20: delete ! in Task::apply
+crates/domain/src/task.rs:336:29: replace >= with < in Task::apply
+crates/domain/src/task.rs:338:25: delete field usage from struct Task expression in Task::apply
+crates/domain/src/task.rs:339:25: delete field lease_expiries from struct Task expression in Task::apply
+crates/domain/src/task.rs:346:25: delete field usage from struct Task expression in Task::apply
+crates/domain/src/task.rs:358:21: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:347:25: delete field lease_expiries from struct Task expression in Task::apply
+crates/domain/src/task.rs:348:25: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:372:32: delete field usage from struct Task expression in Task::apply
+crates/domain/src/task.rs:376:29: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:405:32: delete field usage from struct Task expression in Task::apply
+crates/domain/src/task.rs:394:25: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:409:29: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:427:32: delete field usage from struct Task expression in Task::apply
+crates/domain/src/task.rs:513:17: delete field state from struct Task expression in Task::escalate
+crates/domain/src/task.rs:431:29: delete field state from struct Task expression in Task::apply
+crates/domain/src/task.rs:527:9: replace Task::require_holder -> Result<(), IllegalTransition> with Ok(())
+crates/domain/src/task.rs:527:26: replace == with != in Task::require_holder
 crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with 0
-crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with -1
 crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with 1
+crates/domain/src/time.rs:20:9: replace Timestamp::unix_seconds -> i64 with -1
 crates/domain/src/time.rs:26:9: replace Timestamp::since -> Duration with Default::default()
 crates/domain/src/time.rs:32:9: replace <impl fmt::Display for Timestamp>::fmt -> fmt::Result with Ok(Default::default())
 crates/domain/src/time.rs:55:9: replace Duration::seconds -> u64 with 0

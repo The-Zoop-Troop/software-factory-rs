@@ -127,6 +127,8 @@ mod tests {
         assert_eq!(Priority::try_from(4), Ok(Priority::BACKLOG));
         assert_eq!(Priority::try_from(5), Err(PriorityError(5)));
         assert_eq!(u8::from(Priority::HIGH), 1);
+        assert_eq!(Priority::MEDIUM.get(), 2);
+        assert_eq!(Priority::BACKLOG.to_string(), "4");
     }
 
     #[cfg(feature = "serde")]

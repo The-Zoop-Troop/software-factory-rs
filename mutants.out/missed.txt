@@ -1,3 +1,3 @@
-crates/domain/src/task.rs:269:25: delete field state from struct Task expression in Task::apply
-crates/domain/src/task.rs:315:25: delete field lease_expiries from struct Task expression in Task::apply
-crates/domain/src/task.rs:314:25: delete field usage from struct Task expression in Task::apply
+crates/domain/src/counts.rs:85:9: replace Priority::get -> u8 with 0
+crates/domain/src/counts.rs:85:9: replace Priority::get -> u8 with 1
+crates/domain/src/counts.rs:109:9: replace <impl core::fmt::Display for Priority>::fmt -> core::fmt::Result with Ok(Default::default())

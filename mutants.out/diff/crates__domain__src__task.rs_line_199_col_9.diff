@@ -1,32 +1,28 @@
 --- crates/domain/src/task.rs
-+++ replace Event::name -> &'static str with ""
-@@ -191,28 +191,17 @@
-             }
-         }
-     }
++++ replace TaskState::name -> &'static str with ""
+@@ -191,24 +191,17 @@
+     },
+     #[error("task {id}: lease already expired at {expires}")]
+     LeaseExpired { id: BeadId, expires: Timestamp },
  }
  
- impl Event {
+ impl TaskState {
      #[must_use]
      pub const fn name(&self) -> &'static str {
 -        match self {
--            Self::Claim { .. } => "claim",
--            Self::Heartbeat { .. } => "heartbeat",
--            Self::Submit { .. } => "submit",
--            Self::LeaseExpired { .. } => "lease_expired",
--            Self::Release { .. } => "release",
--            Self::VerifyPassed => "verify_passed",
--            Self::VerifyFailed { .. } => "verify_failed",
--            Self::Merged { .. } => "merged",
--            Self::MergeFailed { .. } => "merge_failed",
--            Self::Escalate { .. } => "escalate",
+-            Self::Open => "open",
+-            Self::Leased { .. } => "leased",
+-            Self::InVerify { .. } => "in_verify",
+-            Self::Mergeable { .. } => "mergeable",
+-            Self::Closed { .. } => "closed",
+-            Self::Incident { .. } => "incident",
 -        }
 +        "" /* ~ changed by cargo-mutants ~ */
      }
- }
  
- impl Task {
-     /// A fresh task in `Open` with default budget and no usage.
      #[must_use]
-     pub fn new(id: BeadId, verify_bead: BeadId, base: Sha, budget: Budget) -> Self {
-         Self {
+     pub const fn is_terminal(&self) -> bool {
+         match self {
+             Self::Closed { .. } | Self::Incident { .. } => true,
+             Self::Open | Self::Leased { .. } | Self::InVerify { .. } | Self::Mergeable { .. } => {
+                 false

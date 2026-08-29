@@ -1,6 +1,6 @@
 # Exec plan: railway-oriented refactor
 
-- **Status:** active · **Owner:** human steers, agents execute · **Started:** 2026-08-29
+- **Status:** completed 2026-08-29 · **Owner:** human steers, agents execute · **Started:** 2026-08-29
 - **Standard:** `skills/rust-fp-skill` (git submodule of <https://github.com/mikezupper/rust-fp-skill>, pinned)
 - **Beads epic:** `fac-cfb`
 
@@ -45,6 +45,23 @@ non-blocking until epic 5 flips it.
    topo-sort, `Task::apply` totality; mutation gate ≥ 90 % on `domain`; `skills/rust-fp-skill/references/code-review.md`
    walked with each item fixed or explicitly not applicable; `lint-fp` green in CI.
 
+## Skill review checklist walk (`skills/rust-fp-skill/references/code-review.md`, 2026-08-29)
+
+| Section | Status | Evidence |
+|---|---|---|
+| §1 mechanical sweep | done | `cargo xtask lint-fp` (14 rules, `fp-allow` with reasons) is a blocking CI step; 0 unexplained hits |
+| §2 dependency direction | done | `lint-taste` layering rule from `Cargo.toml`; `domain` has no async/driver/HTTP deps |
+| §3 error channel | done | no `String`-payload variants, no `Box<dyn Error>`, `anyhow` only in binaries/xtask; adapters parse stderr once (`parse_bd_stderr`, `parse_git_stderr`) with per-variant tests; `#[tracing::instrument(err)]` on workflow entry points; every `let _` justified |
+| §4 type design | done with a recorded exception | newtypes for every rule-carrying value; `NonEmpty` for commands/tasks; `Raw*` + `TryFrom` at every boundary; `as` only in two float→micro-USD conversions, justified. Prose fields stay `String` (decision log) |
+| §5 runtime & resources | done | one wiring site per binary (`cli::run`, `stewardd::main`); harness calls have timeouts; no unbounded channels (`clippy.toml`); Integrator saga with explicit compensation; `Drop` only kills a child process |
+| §6 tests | done | proptests (`crates/domain/tests/properties.rs`); one test per error variant in parsers and transitions; atomicity via `FlakyStore`; fake clock; fakes not mocks; real `bd`/`git` integration tests; mutants 97% |
+| §7 checklist sweep | done | this table; `cargo mutants` survivors: 3 trivial (`Priority::get`/`Display`) now covered |
+| honesty rule | done | fmt, clippy `-D warnings`, nextest, deny, doctests, lints all executed locally; CI has never run on GitHub (no remote) — stated, not claimed |
+
+## Outcome
+
+All five epics landed on 2026-08-29. Baseline 54 unexplained `lint-fp` hits → 0 (blocking in CI); 26 string-payload error variants → 0; 131 tests (10 property-based) incl. a v1 metadata fixture that must re-encode byte-identically; domain mutation score 97%; coverage 89.9%. Two real bugs surfaced by the new proofs: duplicate `needs` reported as a cycle (proptest) and `bd` refusing to close a dependent before its blocker now a typed `Blocked { by }` (real-`bd` test).
+
 ## Acceptance
 
 - `cargo xtask lint-fp` has zero unexplained hits (each justified hit has a `// fp-allow: <why>` comment the lint recognises).
@@ -76,4 +93,4 @@ non-blocking until epic 5 flips it.
 - [x] error-tracks (26 string payloads → structured variants with `op`/`cause`/ids/paths; `bd`/`git` stderr parsed once in `parse_*_stderr` with per-variant tests; `LandRejection`, `Decision`, typed events; `lint-fp` green and blocking in CI) — 2026-08-29
 - [x] boundary-types (`NonEmpty<T>`, `Title`, `VerifyCommand`, `Priority`, transparent `Tokens`/`Attempts`/`Turns`/`MicroUsd`; `VerifyMeta.commands` and `Plan.tasks` non-empty by type; harness outcomes and CLI inputs parsed once; v1 metadata fixture round-trips byte-identically) — 2026-08-29
 - [x] effects-and-sagas (FlakyStore atomicity test proves persist-then-effect leaves a detectable gap; Steward repairs missing merge beads idempotently; Integrator rolls `main` back on push failure via CAS `Repo::rollback`, proven against real git; every `let _` justified) — 2026-08-29
-- [ ] proof
+- [x] proof (10 property tests: id/title/command/priority/nonempty round-trips, lease renewal, budget monotonicity, `Task::apply` totality, plan topo order — the last one found a real bug (duplicate `needs` reported as a cycle); mutation 90/93 = 97% caught; checklist below) — 2026-08-29

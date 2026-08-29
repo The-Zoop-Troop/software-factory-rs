@@ -3,3 +3,4 @@ Active: `exec-plans/active/`. Completed: `exec-plans/completed/`. Debt: `exec-pl
 Roadmap phases live in `ARCHITECTURE.md §9`; each phase item becomes an exec plan and a beads epic before work starts.
 
 Completed: `exec-plans/completed/harness-engineering-rescaffold.md` (2026-08-29).
+Completed: `exec-plans/completed/railway-refactor.md` (2026-08-29).

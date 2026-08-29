@@ -141,11 +141,15 @@ impl RawPlan {
             let verify = NonEmpty::try_from(verify).map_err(|_| PlanError::NoVerify {
                 key: raw.key.clone(),
             })?;
-            let needs = raw
-                .needs
-                .iter()
-                .map(|n| parse_key(n))
-                .collect::<Result<Vec<_>, _>>()?;
+            // Duplicate needs are a plausible model output; keep first occurrence so the
+            // in-degree count in `topo_sort` matches the decrements it will see.
+            let mut needs: Vec<TaskKey> = Vec::new();
+            for n in &raw.needs {
+                let k = parse_key(n)?;
+                if !needs.contains(&k) {
+                    needs.push(k);
+                }
+            }
             if needs.contains(&key) {
                 return Err(PlanError::SelfNeed { key: raw.key });
             }
@@ -291,6 +295,19 @@ mod tests {
             plan(vec![raw("ok-key_1", &[])])
                 .validate(PlanDefaults::default())
                 .is_ok()
+        );
+    }
+
+    #[test]
+    fn duplicate_needs_are_not_a_cycle() {
+        let p = plan(vec![raw("a", &[]), raw("b", &["a", "a"])])
+            .validate(PlanDefaults::default())
+            .unwrap();
+        assert_eq!(p.tasks.len(), 2);
+        assert_eq!(
+            p.tasks.iter().last().unwrap().needs.len(),
+            1,
+            "deduplicated"
         );
     }
 

@@ -282,7 +282,7 @@ async fn land(
                 tracing::warn!(error = %push_err, "push failed; main rolled back");
             }
             Err(rb) => {
-                tracing::error!(error = %push_err, rollback = %rb, "push failed and rollback failed; main is ahead of the remote")
+                tracing::error!(error = %push_err, rollback = %rb, "push failed and rollback failed; main is ahead of the remote");
             }
         }
         return Err(LandError::Infra(push_err));
