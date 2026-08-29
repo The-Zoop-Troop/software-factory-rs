@@ -266,15 +266,26 @@ async fn land(
         }
     }
 
+    // Saga: fast-forward is the first step with a side effect; push is the second. If push
+    // fails, compensate by moving `main` back so a retry starts from a clean state.
+    let before = repo.head_of(&cfg.main).await.map_err(LandError::Infra)?;
     match repo.fast_forward(&cfg.main, &new_head).await {
         Ok(()) => {}
         // Someone else moved main between rebase and ff: not the branch's fault, retry next pass.
         Err(e) => return Err(LandError::Infra(e)),
     }
-    if let Some(remote) = &cfg.remote {
-        repo.push(remote, &cfg.main)
-            .await
-            .map_err(LandError::Infra)?;
+    if let Some(remote) = &cfg.remote
+        && let Err(push_err) = repo.push(remote, &cfg.main).await
+    {
+        match repo.rollback(&cfg.main, &new_head, &before).await {
+            Ok(()) => {
+                tracing::warn!(error = %push_err, "push failed; main rolled back");
+            }
+            Err(rb) => {
+                tracing::error!(error = %push_err, rollback = %rb, "push failed and rollback failed; main is ahead of the remote")
+            }
+        }
+        return Err(LandError::Infra(push_err));
     }
     Ok(new_head)
 }
@@ -499,6 +510,12 @@ mod tests {
             load_task(&store, &id("fac-t")).await.unwrap().state,
             TaskState::Mergeable { .. }
         ));
+        // Compensation ran: main was moved back to where it was before the fast-forward.
+        {
+            let rollbacks = repo.rollbacks.lock().unwrap();
+            assert_eq!(rollbacks.len(), 1);
+            assert_eq!(rollbacks[0].1, sha('b'), "from the landed head");
+        }
         assert_eq!(
             store.list_active(BeadKind::Merge).await.unwrap().len(),
             1,

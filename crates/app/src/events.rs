@@ -37,6 +37,8 @@ pub enum EventKind {
     LeaseReaped,
     /// Steward escalated a task to an incident.
     Escalated { exceeded: domain::BudgetExceeded },
+    /// Steward re-created a merge bead for a task left `mergeable` without one.
+    MergeBeadRepaired,
     /// Steward closed an epic whose children are all closed.
     EpicClosed { children: usize },
     /// A sweep finished.

@@ -358,6 +358,7 @@ pub struct FakeRepo {
     /// What `commit_all` reports as HEAD (the fake never has real changes).
     pub commit_head: Option<Sha>,
     pub commits: std::sync::Mutex<Vec<String>>,
+    pub rollbacks: std::sync::Mutex<Vec<(BranchName, Sha, Sha)>>,
 }
 
 #[async_trait]
@@ -427,6 +428,14 @@ impl Repo for FakeRepo {
             op: crate::ports::GitOp::RevParse,
             detail: e.to_string(),
         })
+    }
+
+    async fn rollback(&self, branch: &BranchName, from: &Sha, to: &Sha) -> Result<(), RepoError> {
+        self.rollbacks
+            .lock()
+            .expect("test mutex")
+            .push((branch.clone(), from.clone(), to.clone()));
+        Ok(())
     }
 
     async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError> {
@@ -529,3 +538,7 @@ impl Harness for FakeHarness {
         })
     }
 }
+
+#[path = "testing_flaky.rs"]
+mod flaky;
+pub use flaky::FlakyStore;

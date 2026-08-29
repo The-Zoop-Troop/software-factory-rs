@@ -75,5 +75,5 @@ non-blocking until epic 5 flips it.
 - [x] skill-in-repo (submodule pinned 2d34087, harness symlinks, `xtask skills --check`, `xtask lint-fp` non-blocking in CI, railway.md, vision/beliefs/principles/AGENTS updated) — 2026-08-29
 - [x] error-tracks (26 string payloads → structured variants with `op`/`cause`/ids/paths; `bd`/`git` stderr parsed once in `parse_*_stderr` with per-variant tests; `LandRejection`, `Decision`, typed events; `lint-fp` green and blocking in CI) — 2026-08-29
 - [x] boundary-types (`NonEmpty<T>`, `Title`, `VerifyCommand`, `Priority`, transparent `Tokens`/`Attempts`/`Turns`/`MicroUsd`; `VerifyMeta.commands` and `Plan.tasks` non-empty by type; harness outcomes and CLI inputs parsed once; v1 metadata fixture round-trips byte-identically) — 2026-08-29
-- [ ] effects-and-sagas
+- [x] effects-and-sagas (FlakyStore atomicity test proves persist-then-effect leaves a detectable gap; Steward repairs missing merge beads idempotently; Integrator rolls `main` back on push failure via CAS `Repo::rollback`, proven against real git; every `let _` justified) — 2026-08-29
 - [ ] proof

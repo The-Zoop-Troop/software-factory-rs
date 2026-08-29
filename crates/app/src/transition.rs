@@ -64,37 +64,19 @@ pub async fn apply_event(
         .set_meta(id, &FactoryMeta::from(transition.task.clone()))
         .await?;
     for effect in &transition.effects {
-        run_effect(store, &transition.task, effect).await?;
+        run_effect(store, effect).await?;
     }
     Ok(transition)
 }
 
-async fn run_effect(store: &dyn BeadStore, task: &Task, effect: &Effect) -> Result<(), StoreError> {
+async fn run_effect(store: &dyn BeadStore, effect: &Effect) -> Result<(), StoreError> {
     match effect {
         Effect::AppendNote { task: id, note } => store.note(id, note).await,
         Effect::OpenMergeBead {
             task: id,
             branch,
             head,
-        } => store
-            .create(NewBead {
-                title: Title::derived(&format!("merge {branch} for {id}")),
-                description: format!(
-                    "Branch `{branch}` at {head} passed verification and awaits the Integrator."
-                ),
-                kind: BeadKind::Merge,
-                priority: Priority::HIGH,
-                parent: None,
-                needs: vec![],
-                acceptance: None,
-                meta: Some(BeadMeta::Merge(MergeMeta {
-                    task: task.id.clone(),
-                    branch: branch.clone(),
-                    head: head.clone(),
-                })),
-            })
-            .await
-            .map(|_| ()),
+        } => open_merge_bead(store, id, branch, head).await,
         Effect::OpenIncidentBead { task: id, reason } => store
             .create(NewBead {
                 title: Title::derived(&format!("incident on {id}")),
@@ -111,6 +93,38 @@ async fn run_effect(store: &dyn BeadStore, task: &Task, effect: &Effect) -> Resu
         Effect::CloseTaskBead { task: id } => store.close(id, "merged to main").await,
         Effect::CloseVerifyBead { verify } => store.close(verify, "paired task merged").await,
     }
+}
+
+/// Create the merge bead for a verified task. Also used by the Steward to repair a task left
+/// `mergeable` without one (a crash between persist and effect).
+///
+/// # Errors
+/// Ledger failures.
+pub async fn open_merge_bead(
+    store: &dyn BeadStore,
+    id: &BeadId,
+    branch: &domain::BranchName,
+    head: &domain::Sha,
+) -> Result<(), StoreError> {
+    store
+        .create(NewBead {
+            title: Title::derived(&format!("merge {branch} for {id}")),
+            description: format!(
+                "Branch `{branch}` at {head} passed verification and awaits the Integrator."
+            ),
+            kind: BeadKind::Merge,
+            priority: Priority::HIGH,
+            parent: None,
+            needs: vec![],
+            acceptance: None,
+            meta: Some(BeadMeta::Merge(MergeMeta {
+                task: id.clone(),
+                branch: branch.clone(),
+                head: head.clone(),
+            })),
+        })
+        .await
+        .map(|_| ())
 }
 
 #[cfg(test)]
@@ -217,6 +231,53 @@ mod tests {
                 .unwrap()
                 .contains("nope")
         );
+    }
+
+    #[tokio::test]
+    async fn crash_between_persist_and_effect_leaves_a_detectable_gap() {
+        // Allow exactly the set_meta write, then fail: the merge bead is never created.
+        let inner = store_with_task().await;
+        let now = Timestamp::from_unix_seconds(0);
+        let w = AgentId::try_new("w1").unwrap();
+        apply_event(
+            &inner,
+            &id("fac-1"),
+            Event::Claim {
+                holder: w.clone(),
+                now,
+                ttl: Duration::from_seconds(60),
+            },
+        )
+        .await
+        .unwrap();
+        apply_event(
+            &inner,
+            &id("fac-1"),
+            Event::Submit {
+                holder: w,
+                branch: domain::BranchName::try_new("task/fac-1").unwrap(),
+                head: sha('b'),
+                now,
+                tokens: domain::Tokens::new(1),
+            },
+        )
+        .await
+        .unwrap();
+        let store = crate::testing::FlakyStore::new(inner, 1);
+        let err = apply_event(&store, &id("fac-1"), Event::VerifyPassed)
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            TransitionError::Store(StoreError::Unavailable { .. })
+        ));
+        // Persisted first: the task says mergeable …
+        assert!(matches!(
+            load_task(&store, &id("fac-1")).await.unwrap().state,
+            TaskState::Mergeable { .. }
+        ));
+        // … and the missing merge bead is the visible symptom the Steward repairs.
+        assert!(store.list_active(BeadKind::Merge).await.unwrap().is_empty());
     }
 
     #[tokio::test]

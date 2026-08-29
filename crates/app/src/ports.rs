@@ -142,6 +142,13 @@ pub trait Repo: Send + Sync {
     /// `RefNotFound` if the branch doesn't exist.
     async fn head_of(&self, branch: &BranchName) -> Result<Sha, RepoError>;
 
+    /// Compensation: move `branch` back from `from` to `to` (compare-and-swap on `from`).
+    /// Used when a later saga step (push) fails after a fast-forward succeeded.
+    ///
+    /// # Errors
+    /// `Rejected` if `branch` is no longer at `from` (someone else moved it; do not touch).
+    async fn rollback(&self, branch: &BranchName, from: &Sha, to: &Sha) -> Result<(), RepoError>;
+
     /// Push `branch` to `remote`.
     ///
     /// # Errors

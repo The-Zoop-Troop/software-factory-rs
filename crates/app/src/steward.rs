@@ -7,7 +7,7 @@ use domain::{BeadId, BeadKind, BudgetExceeded, Event, TaskState, Timestamp};
 use crate::bead::{Bead, BeadStatus};
 use crate::events::{EventKind, FactoryEvent};
 use crate::ports::{BeadStore, Clock, EventSink};
-use crate::transition::{TransitionError, apply_event};
+use crate::transition::{TransitionError, apply_event, open_merge_bead};
 
 /// What a sweep did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -15,6 +15,8 @@ pub struct SweepReport {
     pub reaped: usize,
     pub escalated: usize,
     pub epics_closed: usize,
+    /// Mergeable tasks that had lost their merge bead and got a new one.
+    pub repaired: usize,
     pub errors: usize,
 }
 
@@ -74,6 +76,8 @@ pub async fn sweep(
         }
     }
 
+    repair_merge_beads(store, log, actor, now, &mut report).await?;
+
     for epic in store.list_active(BeadKind::Epic).await? {
         match sweep_epic(store, &epic).await {
             Ok(Some(children)) => {
@@ -111,6 +115,54 @@ pub async fn sweep(
         },
     ));
     Ok(report)
+}
+
+/// A task persisted as `mergeable` whose merge-bead effect never ran (crash between persist and
+/// effect) gets its merge bead re-emitted here, so the gap closes on the next sweep. Idempotent.
+async fn repair_merge_beads(
+    store: &dyn BeadStore,
+    log: &dyn EventSink,
+    actor: &str,
+    now: Timestamp,
+    report: &mut SweepReport,
+) -> Result<(), StewardError> {
+    let open_merges: Vec<BeadId> = store
+        .list_active(BeadKind::Merge)
+        .await?
+        .into_iter()
+        .filter_map(|m| m.merge.map(|mm| mm.task))
+        .collect();
+    for bead in store.list_active(BeadKind::Task).await? {
+        if let Some(meta) = &bead.meta
+            && let TaskState::Mergeable { branch, head } = &meta.state
+            && !open_merges.contains(&bead.id)
+        {
+            match open_merge_bead(store, &bead.id, branch, head).await {
+                Ok(()) => {
+                    report.repaired += 1;
+                    log.record(&event(
+                        now,
+                        actor,
+                        Some(bead.id.clone()),
+                        EventKind::MergeBeadRepaired,
+                    ));
+                }
+                Err(e) => {
+                    report.errors += 1;
+                    log.record(&event(
+                        now,
+                        actor,
+                        Some(bead.id.clone()),
+                        EventKind::Error {
+                            detail: e.to_string(),
+                        },
+                    ));
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 enum Outcome {
@@ -301,6 +353,48 @@ mod tests {
             store.list_active(BeadKind::Incident).await.unwrap().len(),
             1
         );
+    }
+
+    #[tokio::test]
+    async fn repairs_mergeable_task_without_merge_bead() {
+        let store = FakeStore::default();
+        let branch = domain::BranchName::try_new("task/fac-m").unwrap();
+        store
+            .seed_task(
+                id("fac-m"),
+                FactoryMeta {
+                    state: TaskState::Mergeable {
+                        branch,
+                        head: sha('b'),
+                    },
+                    ..leased(0, 1, Budget::default())
+                },
+            )
+            .await;
+        let log = MemorySink::default();
+        let report = sweep(
+            &store,
+            &FixedClock(Timestamp::from_unix_seconds(0)),
+            &log,
+            "steward",
+        )
+        .await
+        .unwrap();
+        assert_eq!(report.repaired, 1);
+        let merges = store.list_active(BeadKind::Merge).await.unwrap();
+        assert_eq!(merges.len(), 1);
+        assert_eq!(merges[0].merge.as_ref().unwrap().task, id("fac-m"));
+        // Idempotent: a second sweep finds the merge bead and does nothing.
+        let report = sweep(
+            &store,
+            &FixedClock(Timestamp::from_unix_seconds(1)),
+            &log,
+            "steward",
+        )
+        .await
+        .unwrap();
+        assert_eq!(report.repaired, 0);
+        assert_eq!(store.list_active(BeadKind::Merge).await.unwrap().len(), 1);
     }
 
     #[tokio::test]

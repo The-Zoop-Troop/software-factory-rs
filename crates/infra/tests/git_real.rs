@@ -83,6 +83,7 @@ async fn branch_commit_rebase_ff_push_roundtrip() {
         &clone,
         "echo other > other.txt && git add . && git commit -qm other",
     );
+    let main_before = git.head_of(&b("main")).await.unwrap();
 
     // Integrator: detached worktree at the branch head, rebase, checks, ff, push.
     let wt = git.worktree_add(&b("task/one"), &head).await.unwrap();
@@ -100,6 +101,22 @@ async fn branch_commit_rebase_ff_push_roundtrip() {
         sh(&clone, "git -C ../origin.git rev-parse main"),
         rebased.as_ref()
     );
+
+    // Compensation: roll main back to the pre-landing head (CAS on the landed head), then refuse
+    // to roll back again because main is no longer at that head.
+    git.rollback(&b("main"), &rebased, &main_before)
+        .await
+        .unwrap();
+    assert_eq!(git.head_of(&b("main")).await.unwrap(), main_before);
+    assert!(
+        !clone.join("one.txt").exists(),
+        "checked-out main followed the rollback"
+    );
+    assert!(matches!(
+        git.rollback(&b("main"), &rebased, &main_before).await,
+        Err(RepoError::Rejected { .. })
+    ));
+    git.fast_forward(&b("main"), &rebased).await.unwrap();
 
     // Not a fast-forward: main cannot move back to the old base.
     assert!(matches!(

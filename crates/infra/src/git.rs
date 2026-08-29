@@ -251,6 +251,32 @@ impl Repo for GitCli {
             .map(|_| ())
     }
 
+    async fn rollback(&self, branch: &BranchName, from: &Sha, to: &Sha) -> Result<(), RepoError> {
+        // Compare-and-swap: only move the ref if it is still at `from`.
+        self.git(
+            GitOp::FastForward,
+            &[
+                "update-ref",
+                &format!("refs/heads/{branch}"),
+                to.as_ref(),
+                from.as_ref(),
+            ],
+        )
+        .await?;
+        if let Ok(head) = self
+            .git(
+                GitOp::FastForward,
+                &["symbolic-ref", "--short", "-q", "HEAD"],
+            )
+            .await
+            && head == branch.as_ref()
+        {
+            self.git(GitOp::FastForward, &["reset", "--hard", "-q", to.as_ref()])
+                .await?;
+        }
+        Ok(())
+    }
+
     async fn head_of(&self, branch: &BranchName) -> Result<Sha, RepoError> {
         self.rev_parse(&format!("refs/heads/{branch}")).await
     }
