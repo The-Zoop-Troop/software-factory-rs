@@ -1,0 +1,14 @@
+#!/bin/sh
+# Fake `claude -p`: echoes a result envelope; behaviour keyed by the prompt text.
+prompt="$2"
+case "$prompt" in
+  *ERROR*) printf '%s\n' '{"type":"result","is_error":true,"result":"Not logged in","num_turns":1}'; exit 0 ;;
+  *SLOW*)  sleep 5 ;;
+  *GARBAGE*) echo "not json"; exit 1 ;;
+esac
+schema=""; for a in "$@"; do [ "$a" = "--json-schema" ] && schema=yes; done
+if [ -n "$schema" ]; then
+  printf '%s\n' '{"type":"result","is_error":false,"result":"{\"ok\":true}","structured_output":{"ok":true},"num_turns":2,"total_cost_usd":0.01,"usage":{"input_tokens":10,"output_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}'
+else
+  printf '%s\n' '{"type":"result","is_error":false,"result":"pong","num_turns":1,"total_cost_usd":0.001,"usage":{"input_tokens":3,"output_tokens":1}}'
+fi

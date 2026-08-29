@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+"""Fake `opencode serve`: minimal HTTP API the adapter uses. Behaviour keyed by the prompt text."""
+import json, sys, time
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+port = int(sys.argv[sys.argv.index("--port") + 1])
+if "BOOT_SLOW" in __import__("os").environ.get("OPENCODE_CONFIG_CONTENT", ""):
+    time.sleep(60)
+
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def _json(self, code, obj):
+        body = json.dumps(obj).encode()
+        self.send_response(code); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+    def do_GET(self):
+        if self.path == "/global/health": return self._json(200, {"healthy": True, "version": "fake"})
+        self._json(404, {})
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length", 0)); body = json.loads(self.rfile.read(n) or b"{}")
+        if self.path == "/session": return self._json(200, {"id": "ses_fake"})
+        if self.path.endswith("/abort"): return self._json(200, True)
+        if self.path.endswith("/message"):
+            text = body["parts"][0]["text"]
+            if "SLOW" in text: time.sleep(5)
+            if "HTTP500" in text: return self._json(500, {"error": "boom"})
+            if "ERROR" in text: return self._json(200, {"info": {"error": {"name": "APIError", "data": {"message": "no route"}}, "tokens": {"total": 1}}, "parts": []})
+            info = {"tokens": {"total": 42, "input": 40, "output": 2}, "cost": 0.001, "finish": "stop"}
+            if "format" in body: info["structured"] = {"ok": True}; return self._json(200, {"info": info, "parts": []})
+            return self._json(200, {"info": info, "parts": [{"type": "step-start"}, {"type": "text", "text": "pong"}]})
+        self._json(404, {})
+
+HTTPServer(("127.0.0.1", port), H).serve_forever()

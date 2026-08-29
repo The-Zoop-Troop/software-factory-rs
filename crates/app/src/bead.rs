@@ -84,3 +84,24 @@ pub struct NewBead {
     pub acceptance: Option<String>,
     pub meta: Option<BeadMeta>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn status_roundtrip_and_unknown() {
+        for s in [
+            BeadStatus::Open,
+            BeadStatus::InProgress,
+            BeadStatus::Blocked,
+            BeadStatus::Deferred,
+            BeadStatus::Closed,
+            BeadStatus::Pinned,
+            BeadStatus::Hooked,
+        ] {
+            assert_eq!(s.as_str().parse::<BeadStatus>(), Ok(s));
+        }
+        assert!("bogus".parse::<BeadStatus>().is_err());
+    }
+}

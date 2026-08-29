@@ -1,0 +1,17 @@
+#!/bin/sh
+# Fake `codex exec --json`: emits the event stream; writes the -o file when a schema is given.
+out=""; schema=""; msg=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift ;;
+    --output-schema) schema="$2"; shift ;;
+    -*) ;;
+    *) msg="$1" ;;
+  esac
+  shift
+done
+case "$msg" in *FAIL*) printf '%s\n' '{"type":"turn.failed","error":{"message":"rate limited"}}'; exit 1 ;; esac
+printf '%s\n' '{"type":"thread.started","thread_id":"t"}' '{"type":"turn.started"}'
+if [ -n "$schema" ]; then printf '%s' '{"ok":true,"n":2}' > "$out"; printf '%s\n' '{"type":"item.completed","item":{"id":"i","type":"agent_message","text":"{\"ok\":true,\"n\":2}"}}'
+else printf '%s\n' '{"type":"item.completed","item":{"id":"i","type":"agent_message","text":"pong"}}'; fi
+printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":100,"cached_input_tokens":20,"output_tokens":5}}'

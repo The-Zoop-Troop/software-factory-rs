@@ -349,6 +349,65 @@ mod tests {
     }
 
     #[test]
+    fn verify_and_merge_meta_reject_bad_versions_and_ids() {
+        assert!(
+            serde_json::from_str::<VerifyMeta>(r#"{"version":9,"task":"fac-1","commands":["x"]}"#)
+                .is_err()
+        );
+        assert!(
+            serde_json::from_str::<VerifyMeta>(r#"{"version":1,"task":"","commands":["x"]}"#)
+                .is_err()
+        );
+        assert!(
+            serde_json::from_str::<MergeMeta>(
+                r#"{"version":9,"task":"fac-1","branch":"b","head":"x"}"#
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<MergeMeta>(
+                r#"{"version":1,"task":"fac-1","branch":"","head":"x"}"#
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<MergeMeta>(
+                r#"{"version":1,"task":"fac-1","branch":"b","head":"x"}"#
+            )
+            .is_err()
+        );
+        let bad_task = r#"{"version":1,"verify_bead":"","base":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","state":{"state":"open"}}"#;
+        assert!(serde_json::from_str::<FactoryMeta>(bad_task).is_err());
+    }
+
+    #[test]
+    fn bead_meta_keys_and_task_roundtrip() {
+        let m = FactoryMeta {
+            verify_bead: BeadId::try_new("fac-2").unwrap(),
+            base: Sha::try_new("a".repeat(40)).unwrap(),
+            budget: Budget::default(),
+            usage: Usage::default(),
+            lease_expiries: 0,
+            state: TaskState::Open,
+        };
+        assert_eq!(BeadMeta::Task(m.clone()).key(), META_KEY);
+        let v = VerifyMeta {
+            task: BeadId::try_new("fac-1").unwrap(),
+            commands: vec!["true".into()],
+            timeout: crate::time::Duration::from_seconds(1),
+        };
+        assert_eq!(BeadMeta::Verify(v).key(), VERIFY_META_KEY);
+        let mm = MergeMeta {
+            task: BeadId::try_new("fac-1").unwrap(),
+            branch: crate::ids::BranchName::try_new("b").unwrap(),
+            head: Sha::try_new("b".repeat(40)).unwrap(),
+        };
+        assert_eq!(BeadMeta::Merge(mm).key(), MERGE_META_KEY);
+        let task = m.clone().into_task(BeadId::try_new("fac-9").unwrap());
+        assert_eq!(FactoryMeta::from(task), m);
+    }
+
+    #[test]
     fn missing_budget_defaults() {
         let s = r#"{"version":1,"verify_bead":"fac-2","base":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","state":{"state":"open"}}"#;
         let m: FactoryMeta = serde_json::from_str(s).unwrap();
