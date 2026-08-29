@@ -34,25 +34,36 @@ pub(crate) fn run(root: &Path, check: bool) -> anyhow::Result<()> {
         }
     }
 
-    let coverage = measure_coverage(root);
-    let tests = measure_tests(root);
-    let block = format!(
-        "{BEGIN}\n| Measure | Value | Measured |\n|---|---|---|\n| Line coverage (excl. xtask) | {} | {} |\n| Tests (nextest) | {} | {} |\n{END}",
-        coverage.as_deref().unwrap_or("n/a"),
-        days_to_date(today),
-        tests.as_deref().unwrap_or("n/a"),
-        days_to_date(today)
-    );
     let score_path = root.join("docs/QUALITY_SCORE.md");
     let score = std::fs::read_to_string(&score_path)?;
-    let updated = match (score.find(BEGIN), score.find(END)) {
-        (Some(b), Some(e)) if e > b => format!("{}{block}{}", &score[..b], &score[e + END.len()..]),
-        _ => format!("{score}\n## Measured\n\n{block}\n"),
-    };
-    if updated != score {
-        if check {
-            problems.push("docs/QUALITY_SCORE.md measured block is stale. Run `cargo xtask quality` and commit.".into());
-        } else {
+    if check {
+        // Numbers vary by runner (coverage decimals, test counts); what must hold is that the
+        // block exists and was measured recently. The weekly non-check run refreshes the values.
+        match measured_date(&score).and_then(|d| date_to_days(&d)) {
+            Some(days) if today - days <= MAX_AGE_DAYS => {}
+            Some(days) => problems.push(format!(
+                "docs/QUALITY_SCORE.md measured block is {} days old (max {MAX_AGE_DAYS}). Run `cargo xtask quality` and commit.",
+                today - days
+            )),
+            None => problems.push("docs/QUALITY_SCORE.md has no measured block. Run `cargo xtask quality` and commit.".into()),
+        }
+    } else {
+        let coverage = measure_coverage(root);
+        let tests = measure_tests(root);
+        let block = format!(
+            "{BEGIN}\n| Measure | Value | Measured |\n|---|---|---|\n| Line coverage (excl. xtask) | {} | {} |\n| Tests (nextest) | {} | {} |\n{END}",
+            coverage.as_deref().unwrap_or("n/a"),
+            days_to_date(today),
+            tests.as_deref().unwrap_or("n/a"),
+            days_to_date(today)
+        );
+        let updated = match (score.find(BEGIN), score.find(END)) {
+            (Some(b), Some(e)) if e > b => {
+                format!("{}{block}{}", &score[..b], &score[e + END.len()..])
+            }
+            _ => format!("{score}\n## Measured\n\n{block}\n"),
+        };
+        if updated != score {
             std::fs::write(&score_path, updated)?;
             println!("updated docs/QUALITY_SCORE.md measured block");
         }
@@ -71,6 +82,20 @@ pub(crate) fn run(root: &Path, check: bool) -> anyhow::Result<()> {
             problems.join("\n  - ")
         )
     }
+}
+
+/// The most recent `Measured` date inside the machine-owned block.
+fn measured_date(score: &str) -> Option<String> {
+    let (b, e) = (score.find(BEGIN)?, score.find(END)?);
+    let block = score.get(b..e)?;
+    block
+        .lines()
+        .filter(|l| l.starts_with("| "))
+        .filter_map(|l| l.rsplit('|').nth(1))
+        .map(str::trim)
+        .filter(|d| date_to_days(d).is_some())
+        .map(str::to_owned)
+        .max()
 }
 
 fn verified_date(text: &str) -> Option<String> {
@@ -181,5 +206,10 @@ mod tests {
             Some("2026-08-29")
         );
         assert_eq!(verified_date("no marker"), None);
+        let block = format!(
+            "x\n{BEGIN}\n| a | b | c |\n|---|---|---|\n| cov | 1% | 2026-08-29 |\n| tests | 3 | 2026-08-30 |\n{END}\n"
+        );
+        assert_eq!(measured_date(&block).as_deref(), Some("2026-08-30"));
+        assert_eq!(measured_date("no block"), None);
     }
 }
