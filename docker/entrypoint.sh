@@ -91,7 +91,10 @@ role=${1:-shell}; shift || true
 case "$role" in
   steward)   exec stewardd --workdir "$RIG_DIR" --events .factory/events.jsonl "$@" ;;
   verify)    exec factory --workdir "$RIG_DIR" verify    --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl "$@" ;;
-  integrate) exec factory --workdir "$RIG_DIR" integrate --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl --main "${RIG_MAIN:-main}" "$@" ;;
+  integrate)
+    # RIG_REMOTE (e.g. origin) makes the Integrator push RIG_MAIN after each landing; unset = local only.
+    if [ -n "${RIG_REMOTE:-}" ]; then remote=(--remote "$RIG_REMOTE"); else remote=(); fi
+    exec factory --workdir "$RIG_DIR" integrate --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl --main "${RIG_MAIN:-main}" "${remote[@]}" "$@" ;;
   work)      exec factory --workdir "$RIG_DIR" work      --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl --main "${RIG_MAIN:-main}" --agent "${RIG_AGENT:-worker-${HOSTNAME}}" "${HARNESS_ARGS[@]}" "$@" ;;
   plan)      harness_args planner; exec factory --workdir "$RIG_DIR" plan      --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" "${HARNESS_ARGS[@]}" "$@" ;;
   planner)   harness_args planner; exec factory --workdir "$RIG_DIR" plan      --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" "${HARNESS_ARGS[@]}" --queue --interval "${PLANNER_INTERVAL:-10}" --events .factory/events.jsonl "$@" ;;

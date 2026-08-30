@@ -47,7 +47,7 @@ runner — the factory's "done" is a passing verify command, and a build alone p
 For a parent repository with submodules, nothing extra is needed: the rig clones with
 `RIG_SUBMODULES=1` and the token rewrites the submodules' SSH URLs at fetch time.
 
-Write the execution plan **into the parent repository's docs** (`docs/exec-plans/active/<feature>.md`):
+Write the execution plan **into the parent repository's docs** (its `docs/exec-plans/active/` directory, one file per feature):
 which repos, which phase order, the verify command per repo, what external systems agents will
 *not* have (databases other than the rig's throwaway one, payment/registry daemons, vendors), and a
 progress list. It becomes the decision log for the run and part of the final doc sweep.
