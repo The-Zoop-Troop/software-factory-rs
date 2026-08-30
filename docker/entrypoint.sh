@@ -20,10 +20,13 @@ if [ "${1:-}" = ledger ]; then
   cd "$RIG_DIR"
   host="ledger-${RIG_NAME:-rig}"
   pw="${LEDGER_PASSWORD:-factory}"
-  bd dolt set host "$host" >/dev/null 2>&1
-  bd dolt set port 3307 >/dev/null 2>&1
-  bd dolt set user factory >/dev/null 2>&1
-  jq '. + {dolt_mode: "server"} | del(.dolt_server_port)' .beads/metadata.json > .beads/metadata.json.tmp \
+  # Flip the mode first: `bd dolt set` refuses to run against an embedded ledger.
+  jq '. + {dolt_mode: "server"}' .beads/metadata.json > .beads/metadata.json.tmp \
+    && mv .beads/metadata.json.tmp .beads/metadata.json
+  bd dolt set host "$host" >/dev/null
+  bd dolt set port 3307 >/dev/null 2>&1 || true   # deprecated key; the port file below is primary
+  bd dolt set user factory >/dev/null
+  jq 'del(.dolt_server_port)' .beads/metadata.json > .beads/metadata.json.tmp \
     && mv .beads/metadata.json.tmp .beads/metadata.json
   echo 3307 > .beads/dolt-server.port
   (cd .beads/embeddeddolt && dolt sql -q "CREATE USER IF NOT EXISTS 'factory'@'%' IDENTIFIED BY '${pw}'; ALTER USER 'factory'@'%' IDENTIFIED BY '${pw}'; GRANT ALL ON *.* TO 'factory'@'%';" >/dev/null)
