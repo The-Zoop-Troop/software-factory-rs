@@ -46,6 +46,16 @@ pub trait BeadStore: Send + Sync {
     /// `NotFound`; transport failures.
     async fn undefer(&self, id: &BeadId) -> Result<(), StoreError>;
 
+    /// Replace a plan request's cross-rig needs (`fac_needs`).
+    ///
+    /// # Errors
+    /// `NotFound`; transport failures.
+    async fn set_needs(
+        &self,
+        id: &BeadId,
+        needs: &[domain::CrossRigNeed],
+    ) -> Result<(), StoreError>;
+
     /// Replace a bead's description (used to inject upstream contracts into a plan request).
     ///
     /// # Errors

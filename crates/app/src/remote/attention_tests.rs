@@ -418,3 +418,125 @@ async fn resume_branch_marks_the_task_and_reopens_it() {
     assert!(crate::worker::resume_branch(Some("nothing here")).is_none());
     assert!(matches!(task.meta.map(|m| m.state), Some(TaskState::Open)));
 }
+
+#[tokio::test]
+async fn upstream_failure_questions_offer_continue_without_or_cancel_and_act_on_the_request() {
+    use crate::remote::attention::{UPSTREAM_FAILED_PREFIX, attention_for, upstream_failure};
+    let (rig, store, _, _) = seeded().await;
+    let need = |r: &str, e: &str| domain::CrossRigNeed {
+        rig: domain::RigName::try_new(r).expect("rig"),
+        epic: id(e),
+    };
+    let request = store
+        .create(crate::plan_queue::plan_request_with_needs(
+            "portal",
+            "phone",
+            vec![need("a", "a-1"), need("b", "b-1")],
+        ))
+        .await
+        .expect("request");
+    let question = |n: &str| crate::bead::NewBead {
+        title: domain::Title::derived(&format!("{UPSTREAM_FAILED_PREFIX}{n} for {request}")),
+        description: format!("request: {request}\nneed: {n}\n"),
+        kind: BeadKind::Question,
+        priority: domain::Priority::HIGH,
+        parent: None,
+        needs: vec![],
+        acceptance: None,
+        meta: None,
+        deferred: false,
+    };
+    let q1 = store.create(question("a/a-1")).await.expect("q1");
+    let shown = store.show(&q1).await.expect("show");
+    assert_eq!(
+        upstream_failure(&shown).map(|(_, n)| n).as_deref(),
+        Some("a/a-1")
+    );
+    let opts: Vec<_> = attention_for(&shown, None)
+        .options
+        .iter()
+        .map(|o| o.id)
+        .collect();
+    assert_eq!(
+        opts,
+        [
+            AttentionOption::ReplanWithout,
+            AttentionOption::CancelDependents
+        ]
+    );
+    // Continue without a/a-1: the need is dropped, the request stays deferred on b/b-1.
+    apply_option(
+        &rig,
+        &clock(),
+        &who(&[Scope::Watch, Scope::Resolve]),
+        q1.as_ref(),
+        AttentionOption::ReplanWithout,
+        "",
+    )
+    .await
+    .expect("apply");
+    let req = store.show(&request).await.expect("req");
+    assert_eq!(req.cross_needs.as_ref().map(Vec::len), Some(1));
+    assert_eq!(req.status, crate::bead::BeadStatus::Deferred);
+    assert_eq!(
+        store.show(&q1).await.expect("q1").status,
+        crate::bead::BeadStatus::Closed
+    );
+    // Continue without the last need: the request is released to the planner.
+    let q2 = store.create(question("b/b-1")).await.expect("q2");
+    apply_option(
+        &rig,
+        &clock(),
+        &who(&[Scope::Watch, Scope::Resolve]),
+        q2.as_ref(),
+        AttentionOption::ReplanWithout,
+        "",
+    )
+    .await
+    .expect("apply");
+    assert_eq!(
+        store.show(&request).await.expect("req").status,
+        crate::bead::BeadStatus::Open
+    );
+    // Cancel dependents on another request closes it as canceled.
+    let other = store
+        .create(crate::plan_queue::plan_request_with_needs(
+            "admin",
+            "phone",
+            vec![need("a", "a-1")],
+        ))
+        .await
+        .expect("other");
+    let q3 = store
+        .create(crate::bead::NewBead {
+            title: domain::Title::derived(&format!("{UPSTREAM_FAILED_PREFIX}a/a-1 for {other}")),
+            description: format!("request: {other}\nneed: a/a-1\n"),
+            kind: BeadKind::Question,
+            priority: domain::Priority::HIGH,
+            parent: None,
+            needs: vec![],
+            acceptance: None,
+            meta: None,
+            deferred: false,
+        })
+        .await
+        .expect("q3");
+    apply_option(
+        &rig,
+        &clock(),
+        &who(&[Scope::Watch, Scope::Resolve]),
+        q3.as_ref(),
+        AttentionOption::CancelDependents,
+        "",
+    )
+    .await
+    .expect("apply");
+    let canceled = store.show(&other).await.expect("other");
+    assert_eq!(canceled.status, crate::bead::BeadStatus::Closed);
+    assert!(
+        canceled
+            .labels
+            .iter()
+            .any(|l| l == crate::remote::a2a::CANCELED_LABEL)
+    );
+}

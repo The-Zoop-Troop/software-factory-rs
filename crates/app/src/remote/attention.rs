@@ -91,6 +91,10 @@ pub enum AttentionOption {
     Answer,
     /// Environment incident: reopen and continue from the task's existing branch.
     ResumeBranch,
+    /// Upstream epic failed: drop it from the dependent plan's needs and let the plan proceed.
+    ReplanWithout,
+    /// Upstream epic failed: cancel the dependent plan request.
+    CancelDependents,
 }
 
 impl AttentionOption {
@@ -103,6 +107,8 @@ impl AttentionOption {
             Self::Replan => "replan",
             Self::Answer => "answer",
             Self::ResumeBranch => "resume_branch",
+            Self::ReplanWithout => "replan_without",
+            Self::CancelDependents => "cancel_dependents",
         }
     }
 
@@ -116,6 +122,8 @@ impl AttentionOption {
             "replan" => Ok(Self::Replan),
             "answer" => Ok(Self::Answer),
             "resume_branch" => Ok(Self::ResumeBranch),
+            "replan_without" => Ok(Self::ReplanWithout),
+            "cancel_dependents" => Ok(Self::CancelDependents),
             other => Err(UnknownOption(other.to_owned())), // fp-allow: option ids arrive as free text
         }
     }
@@ -150,6 +158,25 @@ pub fn incident_task_id(bead: &Bead) -> Option<BeadId> {
     bead.title
         .strip_prefix("incident on ")
         .and_then(|s| BeadId::try_new(s.trim()).ok())
+}
+
+/// Title prefix of the question the dependency sweep raises when a needed epic failed.
+pub const UPSTREAM_FAILED_PREFIX: &str = "upstream failed: ";
+
+/// For an upstream-failure question: `(dependent request id, failed need as rig/epic)`, read
+/// from the description lines `request: <id>` and `need: <rig>/<epic>`.
+#[must_use]
+pub fn upstream_failure(item: &Bead) -> Option<(BeadId, String)> {
+    if item.kind != Some(BeadKind::Question) || !item.title.starts_with(UPSTREAM_FAILED_PREFIX) {
+        return None;
+    }
+    let field = |key: &str| {
+        item.description
+            .lines()
+            .find_map(|l| l.strip_prefix(key).map(str::trim).map(str::to_owned))
+    };
+    let request = BeadId::try_new(&field("request: ")?).ok()?;
+    Some((request, field("need: ")?))
 }
 
 /// The last verify block from a task's notes.
@@ -211,19 +238,9 @@ fn branch_of(task: &Bead) -> Option<String> {
     })
 }
 
-/// Build the attention item for an inbox bead and (for incidents) its task.
-#[must_use]
-pub fn attention_for(item: &Bead, task: Option<&Bead>) -> Attention {
-    let is_incident = item.kind == Some(BeadKind::Incident);
-    let meta = task.and_then(|t| t.meta.as_ref());
-    let notes = task.and_then(|t| t.notes.as_deref()).unwrap_or_default();
-    let environment = matches!(
-        task.and_then(|t| t.meta.as_ref()).map(|m| &m.state),
-        Some(TaskState::Incident {
-            reason: IncidentReason::Environment { .. }
-        })
-    );
-    let options = if is_incident && environment {
+/// The choices an item offers, by what it is.
+fn options_for(is_incident: bool, environment: bool, upstream_failed: bool) -> Vec<OptionSpec> {
+    if is_incident && environment {
         vec![
             spec(
                 AttentionOption::ResumeBranch,
@@ -278,6 +295,23 @@ pub fn attention_for(item: &Bead, task: Option<&Bead>) -> Attention {
                 true,
             ),
         ]
+    } else if upstream_failed {
+        vec![
+            spec(
+                AttentionOption::ReplanWithout,
+                "Continue without it",
+                "Drop the failed upstream epic from this plan's needs; the plan proceeds when the rest land.",
+                false,
+                false,
+            ),
+            spec(
+                AttentionOption::CancelDependents,
+                "Cancel the dependent plan",
+                "Close the waiting plan request; nothing is planned on this rig.",
+                false,
+                true,
+            ),
+        ]
     } else {
         vec![spec(
             AttentionOption::Answer,
@@ -286,7 +320,22 @@ pub fn attention_for(item: &Bead, task: Option<&Bead>) -> Attention {
             true,
             false,
         )]
-    };
+    }
+}
+
+/// Build the attention item for an inbox bead and (for incidents) its task.
+#[must_use]
+pub fn attention_for(item: &Bead, task: Option<&Bead>) -> Attention {
+    let is_incident = item.kind == Some(BeadKind::Incident);
+    let meta = task.and_then(|t| t.meta.as_ref());
+    let notes = task.and_then(|t| t.notes.as_deref()).unwrap_or_default();
+    let environment = matches!(
+        task.and_then(|t| t.meta.as_ref()).map(|m| &m.state),
+        Some(TaskState::Incident {
+            reason: IncidentReason::Environment { .. }
+        })
+    );
+    let options = options_for(is_incident, environment, upstream_failure(item).is_some());
     Attention {
         kind: item.kind.map_or("?", BeadKind::as_str).to_owned(),
         id: item.id.to_string(),

@@ -1,4 +1,4 @@
-//! Cross-rig dependencies (`docs/exec-plans/active/cross-rig-dependencies.md`): a plan request
+//! Cross-rig dependencies (`docs/exec-plans/completed/cross-rig-dependencies.md`): a plan request
 //! created with `needs` waits, deferred, until every epic it names has closed on its rig; then
 //! its contracts are appended to the request and it is un-deferred for that rig's planner.
 //! Only the console reads across rigs; rigs stay isolated.
@@ -20,6 +20,8 @@ pub(crate) enum NeedState {
     Waiting,
     /// The rig is unknown to this console or the epic does not exist.
     Missing,
+    /// Closed as canceled: it will never land.
+    Failed,
 }
 
 async fn resolve(registry: &dyn RigRegistry, need: &CrossRigNeed) -> NeedState {
@@ -31,6 +33,13 @@ async fn resolve(registry: &dyn RigRegistry, need: &CrossRigNeed) -> NeedState {
     };
     if epic.status != BeadStatus::Closed {
         return NeedState::Waiting;
+    }
+    if epic
+        .labels
+        .iter()
+        .any(|l| l == app::remote::a2a::CANCELED_LABEL)
+    {
+        return NeedState::Failed;
     }
     let contract = rig
         .store
@@ -85,6 +94,11 @@ pub(crate) async fn sweep_rig(
         for need in needs {
             match resolve(registry, need).await {
                 NeedState::Landed { contract } => landed.push((need.clone(), contract)),
+                NeedState::Failed => {
+                    raise_failure(rig, clock, &req, need).await;
+                    ready = false;
+                    break;
+                }
                 NeedState::Waiting | NeedState::Missing => {
                     ready = false;
                     break;
@@ -117,6 +131,55 @@ pub(crate) async fn sweep_rig(
         released.push(req.id);
     }
     released
+}
+
+/// A needed epic was canceled: ask the operator on the dependent rig, once per (request, need).
+async fn raise_failure(rig: &Rig, clock: &dyn Clock, req: &app::Bead, need: &CrossRigNeed) {
+    let title = format!(
+        "{}{}/{} for {}",
+        app::remote::attention::UPSTREAM_FAILED_PREFIX,
+        need.rig,
+        need.epic,
+        req.id
+    );
+    let already = rig
+        .store
+        .list_active(BeadKind::Question)
+        .await
+        .unwrap_or_default()
+        .iter()
+        .any(|q| q.title == title);
+    if already {
+        return;
+    }
+    let created = rig
+        .store
+        .create(app::NewBead {
+            title: app::domain::Title::derived(&title),
+            description: format!(
+                "request: {}\nneed: {}/{}\n\nThe plan request `{}` waits for epic `{}` on rig `{}`, which was canceled and will not land. Continue without it (the plan proceeds when the other needs land) or cancel the dependent plan.",
+                req.id, need.rig, need.epic, req.id, need.epic, need.rig
+            ),
+            kind: BeadKind::Question,
+            priority: app::domain::Priority::HIGH,
+            parent: None,
+            needs: vec![],
+            acceptance: None,
+            meta: None,
+            deferred: false,
+        })
+        .await;
+    if let Ok(q) = created {
+        rig.sink.record(&FactoryEvent {
+            at: clock.now(),
+            actor: "console".to_owned(),
+            bead: Some(q),
+            kind: EventKind::Remote {
+                action: "deps_failed".to_owned(),
+                detail: format!("{}/{} for {}", need.rig, need.epic, req.id),
+            },
+        });
+    }
 }
 
 /// Every rig, forever, every `interval`.

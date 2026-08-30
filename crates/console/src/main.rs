@@ -29,6 +29,8 @@ mod server;
 #[cfg(test)]
 mod server_tests;
 #[cfg(test)]
+mod server_tests_deps;
+#[cfg(test)]
 mod server_tests_ui;
 mod ui;
 mod webapp;

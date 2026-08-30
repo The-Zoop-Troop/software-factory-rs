@@ -1,6 +1,6 @@
 # Exec plan: cross-rig dependencies
 
-- **Status:** active · **Owner:** human steers, agents execute · **Started:** 2026-08-30
+- **Status:** completed 2026-08-30 · **Owner:** human steers, agents execute · **Started:** 2026-08-30
 - **Beads epic:** `fac-e8o`
 - **Depends on:** `docs/exec-plans/completed/remote-control.md` (console, rig registry), `docs/exec-plans/completed/web-console-v2.md`
 
@@ -51,6 +51,10 @@ parent sweep needs every other epic's final commit.
 
 ## Decision log
 
+- 2026-08-30 — failure is an inbox item, not an automatic choice: a canceled upstream epic is a
+  product decision the dependent rig's operator makes with the two options; nothing is
+  re-planned or canceled behind their back.
+
 - 2026-08-30 — the summariser is a language-agnostic filter over added lines (`pub fn`,
   `export`, exported Go names, `def`/`class`, route registrations, env-var reads), capped at 200
   lines, rather than per-runtime parsers: cheap, good enough for a planner, and honest about
@@ -65,4 +69,4 @@ parent sweep needs every other epic's final commit.
 - [x] contract artifacts — `fac-e8o.1`: `contract` bead per closed epic (range, files, added public surface across Rust/TS/Go/Python + routes + env vars, tasks with landed shas, plan + reference text); `stewardd --repo --main`; event `contract_written` (2026-08-30)
 - [x] cross-rig needs + deferred plan requests — `fac-e8o.2`: `SendMessage` `metadata.needs: [{rig, epic}]` creates the request deferred with `fac_needs`; the console sweeps every 30 s, resolves each need on its rig (closed + contract child), appends `## Upstream contracts` to the request and un-defers it; event `remote/deps_ready` (2026-08-30)
 - [x] submission (A2A + UI) — `fac-e8o.3`: `SendMessage` `metadata.needs`, `factory --rig plan --after rig:epic`, the plan form's **After** picker (open epics on other rigs), request cards show *after … waiting*, deferred requests listed with `needs`/`waiting` (2026-08-30)
-- [ ] failure semantics
+- [x] failure semantics — `fac-e8o.4`: a needed epic closed as canceled raises one `upstream failed:` question on the dependent rig (event `deps_failed`) with **Continue without it** (drops the need; releases the request when none remain) and **Cancel the dependent plan** (closes the request as canceled) (2026-08-30)

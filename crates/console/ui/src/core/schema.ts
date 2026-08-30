@@ -148,7 +148,7 @@ export const Whoami = Schema.Struct({
 });
 export type Whoami = typeof Whoami.Type;
 
-export const AttentionOption = Schema.Literal('retry_fresh', 'retry_with_guidance', 'stop_epic', 'replan', 'answer', 'resume_branch');
+export const AttentionOption = Schema.Literal('retry_fresh', 'retry_with_guidance', 'stop_epic', 'replan', 'answer', 'resume_branch', 'replan_without', 'cancel_dependents');
 export type AttentionOption = typeof AttentionOption.Type;
 
 export const Counter = Schema.Struct({ used: Schema.Number, limit: Schema.Number });

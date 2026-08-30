@@ -1,5 +1,5 @@
 # Plans
-Active: `exec-plans/active/` — `docs/exec-plans/active/cross-rig-dependencies.md` (planned; not started). Completed: `exec-plans/completed/`. Debt: `exec-plans/tech-debt-tracker.md`.
+Active: `exec-plans/active/` — `docs/exec-plans/active/throughput-metrics.md` (one measurement left). Completed: `exec-plans/completed/`. Debt: `exec-plans/tech-debt-tracker.md`.
 Roadmap phases live in `ARCHITECTURE.md §9`; each phase item becomes an exec plan and a beads epic before work starts.
 
 Completed: `exec-plans/completed/harness-engineering-rescaffold.md` (2026-08-29).

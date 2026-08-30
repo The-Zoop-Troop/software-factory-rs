@@ -218,6 +218,19 @@ impl BeadStore for FakeStore {
         Ok(())
     }
 
+    async fn set_needs(
+        &self,
+        id: &BeadId,
+        needs: &[domain::CrossRigNeed],
+    ) -> Result<(), StoreError> {
+        let mut beads = self.beads.lock().await;
+        let bead = beads
+            .get_mut(id)
+            .ok_or_else(|| StoreError::NotFound { id: id.clone() })?;
+        bead.cross_needs = Some(needs.to_vec());
+        Ok(())
+    }
+
     async fn set_description(&self, id: &BeadId, text: &str) -> Result<(), StoreError> {
         let mut beads = self.beads.lock().await;
         let bead = beads

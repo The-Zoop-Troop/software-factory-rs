@@ -83,6 +83,14 @@ impl BeadStore for FlakyStore {
         self.write(crate::ports::StoreOp::Update)?;
         self.inner.undefer(id).await
     }
+    async fn set_needs(
+        &self,
+        id: &BeadId,
+        needs: &[domain::CrossRigNeed],
+    ) -> Result<(), StoreError> {
+        self.write(crate::ports::StoreOp::Update)?;
+        self.inner.set_needs(id, needs).await
+    }
     async fn set_description(&self, id: &BeadId, text: &str) -> Result<(), StoreError> {
         self.write(crate::ports::StoreOp::Update)?;
         self.inner.set_description(id, text).await

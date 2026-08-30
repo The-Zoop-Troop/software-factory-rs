@@ -436,6 +436,20 @@ impl BeadStore for BdCli {
         .map(|_| ())
     }
 
+    async fn set_needs(
+        &self,
+        id: &BeadId,
+        needs: &[domain::CrossRigNeed],
+    ) -> Result<(), StoreError> {
+        let json = wrap_json(domain::NEEDS_META_KEY, &needs)?;
+        self.run(
+            StoreOp::Update,
+            &["update", id.as_ref(), "--metadata", &json, "--json"],
+        )
+        .await
+        .map(|_| ())
+    }
+
     async fn set_description(&self, id: &BeadId, text: &str) -> Result<(), StoreError> {
         self.run(
             StoreOp::Update,
