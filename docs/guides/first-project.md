@@ -173,7 +173,9 @@ commit per task, message from the task title). `main` is untouched.
 ## 6. Act on incidents
 
 An incident is a task the factory gave up on: verify failed three times, a merge no longer
-applies, the budget ran out, or a lease kept expiring. The incident panel shows the reason in
+applies, the budget ran out, a lease kept expiring, or the rig could not run the checks at
+all (an **environment** incident — exit 126/127, permission denied, no space, a missing tool;
+these charge no attempt). The incident panel shows the reason in
 plain words, the attempts/tokens used, the branch, and the **last verify output** — read that
 first; in this run both first incidents were infrastructure, not the model's code:
 
@@ -184,9 +186,14 @@ first; in this run both first incidents were infrastructure, not the model's cod
   cached prompt prefix as input on every turn; the adapter now counts uncached tokens only, and
   `RIG_TASK_TOKENS` raises the per-task budget written by the planner (2,000,000 for this run).
 
+Both of those are now caught by the Verifier's environment classifier, so a repeat shows up as
+an environment incident rather than a burned attempt.
+
 Then pick an option on the panel:
 
-- **Retry** — reopen with fresh attempts and budget (use after fixing an environment problem).
+- **Resume from the branch** (environment incidents) — start the next session from the task's
+  own branch, keeping the commits already made; use it once the rig is fixed.
+- **Retry** — reopen with fresh attempts and budget from the integration branch.
 - **Retry with guidance** — same, plus a note the next session reads first ("use POSIX sh",
   "the fixture lives in tests/data") — the most productive lever when the model misread the task.
 - **Re-plan** — stop the epic and queue a new plan from its goal plus your note, when the
@@ -195,6 +202,14 @@ Then pick an option on the panel:
 
 A question from an agent (`question` kind) is answered the same way; the answer is recorded on
 the ledger and read by the session that asked.
+
+A merge conflict is *not* an incident on its own: the Integrator reopens the task with the
+conflicting paths in a note and the next session rebases. In this run task `.3` conflicted
+with `.11` (both touched the changelog, the compose file, and the runner config) and was
+re-leased within a minute.
+
+While a session runs, the epic page's **Working** column shows what it has changed so far
+(files, +/− lines, sampled on every lease heartbeat); the feed shows the same as quiet lines.
 
 ## 7. Review what landed
 ## 8. The end-state sweep and teardown
