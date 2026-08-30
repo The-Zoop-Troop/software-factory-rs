@@ -195,6 +195,18 @@ impl BeadStore for FakeStore {
             .collect())
     }
 
+    async fn list_closed(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
+        self.readable()?;
+        Ok(self
+            .beads
+            .lock()
+            .await
+            .values()
+            .filter(|b| b.kind == Some(kind) && b.status == BeadStatus::Closed)
+            .cloned()
+            .collect())
+    }
+
     async fn set_meta(&self, id: &BeadId, meta: &FactoryMeta) -> Result<(), StoreError> {
         let mut beads = self.beads.lock().await;
         let bead = beads

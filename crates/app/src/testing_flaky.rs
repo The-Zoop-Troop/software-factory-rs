@@ -57,6 +57,9 @@ impl BeadStore for FlakyStore {
     async fn list_active(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
         self.inner.list_active(kind).await
     }
+    async fn list_closed(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
+        self.inner.list_closed(kind).await
+    }
     async fn set_meta(&self, id: &BeadId, meta: &FactoryMeta) -> Result<(), StoreError> {
         self.write(crate::ports::StoreOp::Update)?;
         self.inner.set_meta(id, meta).await

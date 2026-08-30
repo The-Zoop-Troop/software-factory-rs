@@ -55,7 +55,7 @@ pub use remote::chat::{
 };
 pub use remote::service::{
     Overview, RemoteError, Sent, apply_option, cancel_task, enqueue_plan, events_after, get_task,
-    list_tasks, list_tasks_with_vanished, overview, send_message, spend,
+    list_history, list_tasks, list_tasks_with_vanished, overview, send_message, spend,
 };
 pub use remote::{
     Authenticator, EventRecord, EventTail, PlanSubmitter, Rig, RigRegistry, SubmitError, TailError,

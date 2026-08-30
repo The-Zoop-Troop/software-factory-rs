@@ -290,6 +290,19 @@ impl BeadStore for BdCli {
         raws.into_iter().map(Bead::try_from).collect()
     }
 
+    async fn list_closed(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
+        let label = kind.label();
+        let raws: Vec<RawBead> = self
+            .run_json(
+                StoreOp::List,
+                &[
+                    "list", "--label", &label, "--status", "closed", "--limit", "0", "--json",
+                ],
+            )
+            .await?;
+        raws.into_iter().map(Bead::try_from).collect()
+    }
+
     async fn set_meta(&self, id: &BeadId, meta: &FactoryMeta) -> Result<(), StoreError> {
         let json = meta_json(meta)?;
         self.run(

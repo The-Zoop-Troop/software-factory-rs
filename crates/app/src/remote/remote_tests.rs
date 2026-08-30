@@ -32,6 +32,33 @@ fn resolved(s: Sent) -> Option<(super::a2a::Task, Option<BeadId>)> {
 }
 
 #[tokio::test]
+async fn history_lists_closed_epics_only() {
+    let (rig, store, _, _) = seeded().await;
+    store.seed_epic(id("old-1"), &[]).await;
+    store.close(&id("old-1"), "done").await.unwrap();
+    let live = list_tasks(&rig, &clock(), &who(&[Scope::Watch]))
+        .await
+        .unwrap();
+    assert!(
+        live.iter().all(|t| t.id != "old-1"),
+        "closed epics leave the live list"
+    );
+    let past = super::service::list_history(&rig, &clock(), &who(&[Scope::Watch]))
+        .await
+        .unwrap();
+    assert_eq!(
+        past.iter().map(|t| t.id.as_str()).collect::<Vec<_>>(),
+        ["old-1"]
+    );
+    assert_eq!(past[0].status.state, super::a2a::A2aState::Completed);
+    assert!(
+        super::service::list_history(&rig, &clock(), &who(&[Scope::Plan]))
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
 async fn list_and_get_render_epic_progress() {
     let (rig, _, _, _) = seeded().await;
     let tasks = list_tasks(&rig, &clock(), &who(&[Scope::Watch]))

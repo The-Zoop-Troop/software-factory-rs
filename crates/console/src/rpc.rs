@@ -75,6 +75,8 @@ pub(crate) enum Call {
     },
     ListTasks {
         input_required_only: bool,
+        /// Closed epics only.
+        history: bool,
     },
     CancelTask {
         id: String,
@@ -108,6 +110,9 @@ struct IdParams {
 struct ListParams {
     #[serde(default)]
     status: Option<String>,
+    /// `true`: closed epics (the rig's history) instead of live work.
+    #[serde(default)]
+    history: bool,
 }
 
 /// Decode method + params into a [`Call`].
@@ -171,6 +176,7 @@ pub(crate) fn decode(req: &Request) -> Result<Call, RpcError> {
             };
             Ok(Call::ListTasks {
                 input_required_only: p.status.as_deref() == Some("TASK_STATE_INPUT_REQUIRED"),
+                history: p.history,
             })
         }
         "SendStreamingMessage"
@@ -222,8 +228,13 @@ pub(crate) async fn execute(
         Call::GetTask { id } => Ok(val(&app::get_task(rig, clock, who, &id).await?)),
         Call::ListTasks {
             input_required_only,
+            history,
         } => {
-            let tasks = app::list_tasks(rig, clock, who).await?;
+            let tasks = if history {
+                app::list_history(rig, clock, who).await?
+            } else {
+                app::list_tasks(rig, clock, who).await?
+            };
             let tasks: Vec<_> = tasks
                 .into_iter()
                 .filter(|t| {
@@ -343,7 +354,8 @@ mod tests {
         assert_eq!(
             decode(&req("ListTasks", Value::Null)),
             Ok(Call::ListTasks {
-                input_required_only: false
+                input_required_only: false,
+                history: false
             })
         );
         assert_eq!(
@@ -352,7 +364,8 @@ mod tests {
                 json!({"status": "TASK_STATE_INPUT_REQUIRED"})
             )),
             Ok(Call::ListTasks {
-                input_required_only: true
+                input_required_only: true,
+                history: false
             })
         );
         assert_eq!(

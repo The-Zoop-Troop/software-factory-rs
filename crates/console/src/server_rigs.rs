@@ -57,3 +57,51 @@ pub(super) async fn list_rigs(State(s): State<AppState>, headers: HeaderMap) -> 
     ]))
     .into_response()
 }
+
+/// `GET /rigs/{rig}/epics/{id}/events`: every record in the rig's log that belongs to the epic
+/// (the epic itself or any bead under it), oldest first. History, not a stream — read from the
+/// file each time, so a closed epic on a stopped rig still shows its whole timeline.
+pub(super) async fn epic_events(
+    State(s): State<AppState>,
+    Path((rig, id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Response {
+    let who = match principal(&s, &headers) {
+        Err(r) => return *r,
+        Ok(p) => p,
+    };
+    let Some(rig) = RigName::try_new(&rig).ok().and_then(|n| s.registry.rig(&n)) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(obj([("error", "no such rig".into())])),
+        )
+            .into_response();
+    };
+    if let Err(e) = domain::require(&who, &rig.name, domain::Scope::Watch) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(obj([("error", e.to_string().into())])),
+        )
+            .into_response();
+    }
+    let under = format!("{id}.");
+    match rig.events.read_from(0).await {
+        Ok((all, _)) => {
+            let events: Vec<Value> = all
+                .iter()
+                .filter(|r| {
+                    r.bead
+                        .as_ref()
+                        .is_some_and(|b| b.as_ref() == id || b.as_ref().starts_with(&under))
+                })
+                .map(val)
+                .collect();
+            Json(obj([("epic", id.into()), ("events", Value::Array(events))])).into_response()
+        }
+        Err(e) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(obj([("error", e.to_string().into())])),
+        )
+            .into_response(),
+    }
+}

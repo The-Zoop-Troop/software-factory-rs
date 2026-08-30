@@ -372,3 +372,44 @@ async fn subscribe_reports_final_frame_when_task_becomes_terminal_and_tail_error
         "TASK_STATE_COMPLETED"
     );
 }
+
+#[tokio::test]
+async fn history_flag_lists_closed_epics_and_epic_events_replays_the_log() {
+    let (s, store, tail) = state().await;
+    store.seed_epic(id("ep-0"), &[]).await;
+    store.close(&id("ep-0"), "done").await.expect("close");
+    let (_, body) = call(&s, Some("watcher"), "ListTasks", json!({"history": true})).await;
+    let ids: Vec<_> = body["result"]["tasks"]
+        .as_array()
+        .expect("tasks")
+        .iter()
+        .map(|t| t["id"].as_str().unwrap_or(""))
+        .collect();
+    assert_eq!(ids, ["ep-0"]);
+    assert_eq!(
+        body["result"]["tasks"][0]["status"]["state"],
+        "TASK_STATE_COMPLETED"
+    );
+
+    tail.push("planner", Some(id("ep-0")), "task_planned");
+    tail.push("worker", Some(id("ep-0.1")), "claimed");
+    tail.push("worker", Some(id("ep-1.1")), "claimed");
+    tail.push("stewardd", None, "sweep_done");
+    let (st, body) = get(&s, "/rigs/toy/epics/ep-0/events", Some("watcher")).await;
+    assert_eq!(st, StatusCode::OK);
+    let kinds: Vec<_> = body["events"]
+        .as_array()
+        .expect("events")
+        .iter()
+        .map(|e| e["kind"].as_str().unwrap_or(""))
+        .collect();
+    assert_eq!(
+        kinds,
+        ["task_planned", "claimed"],
+        "the epic and its children only"
+    );
+    let (st, _) = get(&s, "/rigs/toy/epics/ep-0/events", Some("stranger")).await;
+    assert_eq!(st, StatusCode::FORBIDDEN);
+    let (st, _) = get(&s, "/rigs/nope/epics/ep-0/events", Some("watcher")).await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+}

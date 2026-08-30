@@ -242,3 +242,10 @@ rebases onto it blind. Then stop the rig (`docker compose -p factory-<rig> down`
 and repo volumes survive) and gate the next phase.
 
 ## 8. The end-state sweep and teardown
+
+A finished epic leaves the rig page's live list, but nothing is deleted: the ledger keeps every
+closed bead (usage, notes, landed commits) and the ledger volume keeps the full event log, so
+the console can list a rig's history (`ListTasks` with `history: true`) and replay any epic's
+timeline (`GET /rigs/<rig>/epics/<id>/events`) — even for a stopped rig, because the console
+reads the volumes directly. History lives exactly as long as the ledger volume: `factory rig
+backup` before `factory rig destroy --volumes`.

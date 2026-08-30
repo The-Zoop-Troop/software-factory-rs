@@ -34,6 +34,12 @@ pub trait BeadStore: Send + Sync {
     /// Transport/decode failures.
     async fn list_active(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError>;
 
+    /// Closed beads of `kind` — the rig's history.
+    ///
+    /// # Errors
+    /// Transport/decode failures.
+    async fn list_closed(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError>;
+
     /// Replace the factory metadata on a bead.
     ///
     /// # Errors

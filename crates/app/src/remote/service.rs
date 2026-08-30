@@ -109,6 +109,26 @@ pub async fn list_tasks(
     Ok(out)
 }
 
+/// Closed epics — the rig's history — as the ledger lists them (sort by the `epic_closed`
+/// event when the log is at hand).
+///
+/// # Errors
+/// `Unauthorized` without `watch`; store failures.
+pub async fn list_history(
+    rig: &Rig,
+    clock: &dyn Clock,
+    who: &Principal,
+) -> Result<Vec<Task>, RemoteError> {
+    authorize(rig, clock, who, Scope::Watch, "ListTasks")?;
+    let now = clock.now().to_string();
+    let mut out = Vec::new();
+    for epic in rig.store.list_closed(BeadKind::Epic).await? {
+        let children = rig.store.children(&epic.id).await?;
+        out.push(epic_task(&epic, &children, &now));
+    }
+    Ok(out)
+}
+
 /// `ListTasks` plus the tasks in `seen` that dropped out of the listing (closed epics),
 /// each fetched once so a watcher observes its terminal state.
 ///
