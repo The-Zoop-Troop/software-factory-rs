@@ -60,7 +60,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
     const working = latestProgress(all);
     const events = all.slice(-80).reverse();
     return html`
-      <header><a href="/">Rigs</a><span class="muted">/</span><a href="/rigs/${this.rig}">${this.rig}</a><span class="muted">/</span><h1>${this.id}</h1></header>
+      <header><a href="/">Rigs</a><span class="muted">/</span><a href="/rigs/${this.rig}">${this.rig}</a><span class="muted">/</span><h1>${this.id}</h1><a class="throughput" href="/rigs/${this.rig}/epics/${this.id}/throughput">throughput →</a></header>
       ${epic === undefined ? html`<p class="empty">Loading ${this.id}…</p>` : html`
         <epic-card .task=${epic} .pending=${pending.get().has(epic.id)} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @stop-epic=${this.onStop}></epic-card>
         <div class="layout">

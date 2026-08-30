@@ -94,6 +94,47 @@ export const messageText = (m: Message | undefined): string =>
 export const Scope = Schema.Literal('watch', 'plan', 'resolve', 'admin');
 export type Scope = typeof Scope.Type;
 
+const Secs = Schema.Number;
+const OptSecs = Schema.NullOr(Secs);
+export const Attempt = Schema.Struct({
+  claimed: Secs,
+  submitted: OptSecs,
+  verify_started: OptSecs,
+  verified: OptSecs,
+  passed: Schema.NullOr(Schema.Boolean),
+  integrate_started: OptSecs,
+  integrated: OptSecs,
+  landed: Schema.Boolean,
+  ended_by: Schema.NullOr(Schema.String),
+  tokens: Schema.Number,
+});
+export type Attempt = typeof Attempt.Type;
+export const TaskMetrics = Schema.Struct({
+  task: Schema.String,
+  planned: OptSecs,
+  needs: Schema.Array(Schema.String),
+  attempts: Schema.Array(Attempt),
+});
+export type TaskMetrics = typeof TaskMetrics.Type;
+export const StageStats = Schema.Struct({ stage: Schema.String, samples: Schema.Number, p50: Secs, max: Secs, total: Secs });
+export type StageStats = typeof StageStats.Type;
+export const EpicMetrics = Schema.Struct({
+  epic: Schema.String,
+  tasks: Schema.Array(TaskMetrics),
+  wall_clock: Secs,
+  work: Secs,
+  parallelism_pct: Schema.Number,
+  critical_path: Secs,
+  retry_tax: Secs,
+  first_pass: Schema.Number,
+  landed: Schema.Number,
+  tokens: Schema.Number,
+  stages: Schema.Array(StageStats),
+  concurrency: Schema.Array(Schema.Tuple(Secs, Schema.Number)),
+});
+export type EpicMetrics = typeof EpicMetrics.Type;
+export const MetricsReply = Schema.Struct({ rig: Schema.String, epics: Schema.Array(EpicMetrics) });
+
 export const Whoami = Schema.Struct({
   client: Schema.String,
   grants: Schema.Array(Schema.Struct({ rig: Schema.String, scopes: Schema.Array(Scope) })),

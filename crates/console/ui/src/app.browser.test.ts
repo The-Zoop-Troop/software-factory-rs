@@ -39,6 +39,22 @@ describe('routes', () => {
   });
 });
 
+describe('throughput-page', () => {
+  it('draws a lane per task and the stage table from the metrics endpoint', async () => {
+    await import('./pages/throughput-page.js');
+    const attempt = { claimed: 10, submitted: 70, verify_started: 80, verified: 90, passed: true, integrate_started: 95, integrated: 100, landed: true, ended_by: null, tokens: 5 };
+    const report = { epic: 'ep-1', wall_clock: 100, work: 60, parallelism_pct: 60, critical_path: 60, retry_tax: 0, first_pass: 1, landed: 1, tokens: 5, stages: [{ stage: 'session', samples: 1, p50: 60, max: 60, total: 60 }], concurrency: [[10, 1], [70, 0]] as Array<[number, number]>, tasks: [{ task: 'ep-1.1', planned: 0, needs: [], attempts: [attempt] }] };
+    connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [epic] }, metrics: { 'toy/ep-1': report } }, 'ok');
+    const page = await fixture<HTMLElement>(html`<throughput-page rig="toy" id="ep-1"></throughput-page>`);
+    const root = page.shadowRoot as ShadowRoot;
+    const lanes = await until(() => { const l = root.querySelectorAll('.lane'); return l.length > 0 ? l : null; });
+    expect(lanes.length).toBe(1);
+    expect(root.querySelectorAll('.seg').length).toBe(6);
+    expect(root.querySelector('tbody')?.textContent).toContain('1:00');
+    expect(root.querySelector('.totals')?.textContent).toContain('0:40');
+  });
+});
+
 describe('rig-page history', () => {
   it('lists completed epics under a collapsed section and the closed epic page replays its log', async () => {
     await import('./pages/epic-page.js');
