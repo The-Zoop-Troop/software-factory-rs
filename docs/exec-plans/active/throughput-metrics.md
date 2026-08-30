@@ -60,10 +60,19 @@ verify rate, incidents by reason, tokens per landed task, role idle time, retry 
 4. `fac-n7j.4` `factory metrics` + console route
 5. `fac-n7j.5` console Throughput view
 6. `fac-n7j.6` `RIG_WORKERS` replicas, measured on a later phase of the guide project
+7. `fac-n7j.7` history read model: closed epics in the A2A read models + a server-side,
+   epic-filtered read of the full event log (the list of past epics derives from
+   `task_planned` … `epic_closed`, no `bd` calls)
+8. `fac-n7j.8` console history: Completed section, closed epic page, history-fed timeline
+   (sequenced before the Gantt so it draws real closed epics)
 
 ## Decision log
 
 - 2026-08-30 — derive from the event log, no telemetry stack: the questions are offline
   questions and the rig must not gain an egress path for metrics.
+- 2026-08-30 — history is part of this plan: a closed epic vanished from the console because
+  the read models list active beads only and the timeline is an in-memory ring; the data was
+  never lost (ledger + events.jsonl on the volume). The throughput page is a per-epic history
+  view, so both ship here. Events, not `bd`, feed history lists (ledger latency, `fac-crw`).
 - 2026-08-30 — stage events are additive `EventKind` variants; the metrics module is pure and
   lives in `app`, so the planner can consume the same numbers later.
