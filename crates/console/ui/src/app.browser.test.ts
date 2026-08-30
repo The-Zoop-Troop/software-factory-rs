@@ -18,6 +18,16 @@ const epic = Schema.decodeSync(Task)({ id: 'ep-1', contextId: 'ep-1', status: { 
 const incident = Schema.decodeSync(Task)({ id: 'inc-1', contextId: 'ep-1', status: { state: 'TASK_STATE_INPUT_REQUIRED', timestamp: 't', message: { messageId: 'm', role: 'ROLE_AGENT', parts: [{ text: 'why?' }] } }, metadata: { factory: { kind: 'incident' } } });
 
 const settle = () => new Promise((r) => setTimeout(r, 30));
+/** Poll until `probe` returns a value; CI machines load lazy page modules slower than 30 ms. */
+const until = async <T>(probe: () => T | null | undefined, ms = 3000): Promise<T> => {
+  const deadline = Date.now() + ms;
+  for (;;) {
+    const v = probe();
+    if (v !== null && v !== undefined) return v;
+    if (Date.now() > deadline) throw new Error('timed out waiting');
+    await settle();
+  }
+};
 
 beforeEach(() => { resetRigs(); resetSession(); disconnect(); localStorage.clear(); history.replaceState(null, '', '/'); });
 
@@ -56,8 +66,8 @@ describe('app-shell', () => {
     const shell = await fixture<AppShell>(html`<app-shell></app-shell>`);
     await settle();
     const root = shell.shadowRoot as ShadowRoot;
-    expect(root.querySelector('input[name=token]')).not.toBeNull();
-    expect(root.querySelector('overview-page')).not.toBeNull();
+    expect(await until(() => root.querySelector('input[name=token]'))).not.toBeNull();
+    expect(await until(() => root.querySelector('overview-page'))).not.toBeNull();
     // A stored token connects on load (the live layer, which will fail offline → explained).
     saveToken('abc');
     const again = await fixture<AppShell>(html`<app-shell></app-shell>`);
@@ -65,7 +75,7 @@ describe('app-shell', () => {
     expect(['connecting', 'offline', 'online']).toContain((again.shadowRoot as ShadowRoot).querySelector('header')?.className);
     (again.shadowRoot as ShadowRoot).querySelector('button')?.click();
     await again.updateComplete;
-    expect((again.shadowRoot as ShadowRoot).querySelector('input[name=token]')).not.toBeNull();
+    expect(await until(() => (again.shadowRoot as ShadowRoot).querySelector('input[name=token]'))).not.toBeNull();
   });
 });
 
