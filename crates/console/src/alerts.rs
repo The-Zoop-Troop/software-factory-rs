@@ -97,6 +97,21 @@ pub(crate) async fn sweep(
     (out, next)
 }
 
+/// Every delivery (or failure) is an event in the rig's log, so the UI can show it.
+fn audit(registry: &dyn RigRegistry, clock: &dyn Clock, rig: &RigName, action: &str, detail: &str) {
+    if let Some(r) = registry.rig(rig) {
+        r.sink.record(&app::FactoryEvent {
+            at: clock.now(),
+            actor: "console".to_owned(),
+            bead: None,
+            kind: app::EventKind::Remote {
+                action: action.to_owned(),
+                detail: detail.chars().take(200).collect(),
+            },
+        });
+    }
+}
+
 /// Run forever: sweep, post, sleep.
 pub(crate) async fn run(
     registry: Arc<dyn RigRegistry>,
@@ -109,8 +124,18 @@ pub(crate) async fn run(
         let (alerts, next) = sweep(registry.as_ref(), clock.as_ref(), &seen).await;
         seen = next;
         for (rig, text) in alerts {
-            if let Err(e) = sink.post(&rig, &text).await {
-                tracing::warn!(rig = %rig, error = %e, "alert delivery failed");
+            match sink.post(&rig, &text).await {
+                Ok(()) => audit(registry.as_ref(), clock.as_ref(), &rig, "alert", &text),
+                Err(e) => {
+                    tracing::warn!(rig = %rig, error = %e, "alert delivery failed");
+                    audit(
+                        registry.as_ref(),
+                        clock.as_ref(),
+                        &rig,
+                        "alert-failed",
+                        &format!("{text}: {e}"),
+                    );
+                }
             }
         }
         clock.sleep(interval).await;

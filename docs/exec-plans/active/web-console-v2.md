@@ -120,11 +120,12 @@ over the app fakes (a `console serve --fake` mode), `vite build`; CI job `ui` on
   coverage, e2e, bundle budget) and blocks CI.
 - 2026-08-29 — `@open-wc/testing-helpers` instead of `@open-wc/testing` under Vitest (the latter drags in web-dev-server's socket module). Branch coverage threshold starts at 60 % (lines/functions/statements 80 %) and rises with the attention/detail epics.
 - 2026-08-29 — TypeScript pinned to 5.9 (7.x is the native-port line; language-service plugins are not supported there yet).
+- 2026-08-29 — Evidence is *derived* from what the roles already leave on beads (the Verifier's note block, the Integrator's incident reason, budget/usage on the task) rather than a new metadata field: no `META_VERSION` change, nothing to migrate, and every existing rig gets structured incidents immediately. A dedicated `last_run` field can come later if the notes format proves too loose.
 
 ## Progress
 
 - [x] ui-scaffold (`crates/console/ui`: Lit 3 + signals/context/task, Effect core with live + fake `ConsoleApi` layers, cascade-layer/oklch tokens, router on URLPattern/Navigation API, overview + rig pages, toasts/error panel; embedded via `include_dir` with placeholder fallback; `console serve --fake`; `cargo xtask ui-check` (tsc, eslint with Effect rules, Vitest node+browser 80 %, build, 250 kB budget, Playwright e2e); CI `ui` job; image builds the UI in a node stage) — 2026-08-29
-- [ ] evidence-and-structured-attention
+- [x] evidence-and-structured-attention (`app::remote::attention`: reason/attempts/tokens/branch/last verify block/guidance/options mined from the beads the roles already write; `apply_option` workflows retry_fresh | retry_with_guidance (note → next worker packet) | stop_epic | replan | answer, over A2A `SendMessage` data parts and the UI action endpoint; epic `children` in `GetTask`; `GET /whoami`; `GET /rigs` counts; alert deliveries audited) — 2026-08-29
 - [ ] live-state
 - [ ] actions-with-feedback
 - [ ] attention-center + epic-detail

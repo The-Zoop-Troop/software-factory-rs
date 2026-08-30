@@ -317,6 +317,28 @@ fn merge_permission(extra: &str) -> String {
 
 /// The server is always on loopback; never let `HTTP(S)_PROXY` env (set inside the rig)
 /// route these calls through the egress proxy.
+fn obj<const N: usize>(pairs: [(&str, serde_json::Value); N]) -> serde_json::Value {
+    serde_json::Value::Object(
+        pairs
+            .into_iter()
+            .map(|(k, v)| (k.to_owned(), v))
+            .collect::<serde_json::Map<_, _>>(),
+    )
+}
+
+fn val<T: serde::Serialize>(t: &T) -> serde_json::Value {
+    serde_json::to_value(t).unwrap_or(serde_json::Value::Null)
+}
+
+fn obj_from(pairs: Vec<(&str, serde_json::Value)>) -> serde_json::Value {
+    serde_json::Value::Object(
+        pairs
+            .into_iter()
+            .map(|(k, v)| (k.to_owned(), v))
+            .collect::<serde_json::Map<_, _>>(),
+    )
+}
+
 fn local_client() -> Result<reqwest::Client, HarnessError> {
     reqwest::Client::builder()
         .no_proxy()
@@ -365,7 +387,7 @@ impl Harness for OpencodeServer {
         };
         let created: Created = client
             .post(format!("{}/session", server.base))
-            .json(&serde_json::json!({ "title": "factory" }))
+            .json(&obj([("title", "factory".into())]))
             .send()
             .await
             .map_err(http(HarnessStage::Session))?
@@ -376,16 +398,35 @@ impl Harness for OpencodeServer {
             .map_err(http(HarnessStage::Session))?;
 
         tracing::debug!(session = %created.id, "session created; sending prompt");
-        let mut body = serde_json::json!({
-            "model": { "providerID": self.provider_id, "modelID": self.model_id },
-            "system": req.system_prompt,
-            "tools": tools_for(req.tools),
-            "parts": [ { "type": "text", "text": req.prompt } ],
-        });
+        let mut fields = vec![
+            (
+                "model",
+                obj([
+                    ("providerID", self.provider_id.as_str().into()),
+                    ("modelID", self.model_id.as_str().into()),
+                ]),
+            ),
+            ("system", req.system_prompt.as_str().into()),
+            ("tools", val(&tools_for(req.tools))),
+            (
+                "parts",
+                serde_json::Value::Array(vec![obj([
+                    ("type", "text".into()),
+                    ("text", req.prompt.as_str().into()),
+                ])]),
+            ),
+        ];
         if let Some(schema) = &req.schema {
-            body["format"] =
-                serde_json::json!({ "type": "json_schema", "schema": schema, "retryCount": 2 });
+            fields.push((
+                "format",
+                obj([
+                    ("type", "json_schema".into()),
+                    ("schema", schema.clone()),
+                    ("retryCount", 2.into()),
+                ]),
+            ));
         }
+        let body = obj_from(fields);
 
         let limit = std::time::Duration::from_secs(req.timeout.seconds());
         let send = client

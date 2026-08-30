@@ -41,6 +41,7 @@ pub(crate) fn router(state: AppState) -> Router {
     Router::new()
         .route("/.well-known/agent-card.json", get(root_card))
         .route("/rigs", get(list_rigs))
+        .route("/whoami", get(whoami))
         .route("/rigs/{rig}/.well-known/agent-card.json", get(rig_card))
         .route("/rigs/{rig}/a2a", post(a2a))
         .merge(crate::ui::routes())
@@ -174,20 +175,65 @@ pub(crate) fn principal(s: &AppState, headers: &HeaderMap) -> Result<Principal, 
     })
 }
 
-async fn list_rigs(State(s): State<AppState>, headers: HeaderMap) -> Response {
+/// The token's identity and grants, so a client can shape itself to what it may do.
+async fn whoami(State(s): State<AppState>, headers: HeaderMap) -> Response {
     match principal(&s, &headers) {
         Err(r) => *r,
         Ok(p) => {
-            let visible: Vec<Value> = s
-                .registry
-                .names()
+            let grants: Vec<Value> = p
+                .grants
                 .iter()
-                .filter(|r| p.allows(r, domain::Scope::Watch))
-                .map(|r| Value::String(r.to_string()))
+                .map(|(rig, scopes)| {
+                    obj([
+                        ("rig", rig.to_string().into()),
+                        (
+                            "scopes",
+                            Value::Array(scopes.iter().map(|sc| sc.as_str().into()).collect()),
+                        ),
+                    ])
+                })
                 .collect();
-            Json(obj([("rigs", Value::Array(visible))])).into_response()
+            Json(obj([
+                ("client", p.client.to_string().into()),
+                ("grants", Value::Array(grants)),
+            ]))
+            .into_response()
         }
     }
+}
+
+/// Visible rigs with counts (epics, working, attention, done); a rig that cannot be read
+/// right now is listed with `error` instead of counts.
+async fn list_rigs(State(s): State<AppState>, headers: HeaderMap) -> Response {
+    let p = match principal(&s, &headers) {
+        Err(r) => return *r,
+        Ok(p) => p,
+    };
+    let mut names: Vec<Value> = Vec::new();
+    let mut counts: Vec<Value> = Vec::new();
+    for name in s
+        .registry
+        .names()
+        .iter()
+        .filter(|r| p.allows(r, domain::Scope::Watch))
+    {
+        names.push(Value::String(name.to_string()));
+        let Some(rig) = s.registry.rig(name) else {
+            continue;
+        };
+        match app::overview(&rig, s.clock.as_ref(), &p).await {
+            Ok(o) => counts.push(val(&o)),
+            Err(e) => counts.push(obj([
+                ("rig", name.to_string().into()),
+                ("error", e.to_string().into()),
+            ])),
+        }
+    }
+    Json(obj([
+        ("rigs", Value::Array(names)),
+        ("overview", Value::Array(counts)),
+    ]))
+    .into_response()
 }
 
 async fn rig_card(State(s): State<AppState>, Path(rig): Path<String>) -> Response {

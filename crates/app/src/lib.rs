@@ -48,13 +48,14 @@ pub use ports::{
     BeadStore, Clock, EventSink, Harness, HarnessOutcome, HarnessRequest, Repo, RunOutput, Runner,
     ToolPolicy, Worktree,
 };
+pub use remote::attention::{Attention, AttentionOption, attention_for};
 pub use remote::chat::{
     A2aApi, ChatCommand, ChatParseError, ClientError, HELP, Seen, handle, notifications,
     parse_command, render_inbox, render_tasks, with_vanished,
 };
 pub use remote::service::{
-    RemoteError, Sent, cancel_task, events_after, get_task, list_tasks, list_tasks_with_vanished,
-    send_message, spend,
+    Overview, RemoteError, Sent, apply_option, cancel_task, events_after, get_task, list_tasks,
+    list_tasks_with_vanished, overview, send_message, spend,
 };
 pub use remote::{
     Authenticator, EventRecord, EventTail, PlanSubmitter, Rig, RigRegistry, SubmitError, TailError,

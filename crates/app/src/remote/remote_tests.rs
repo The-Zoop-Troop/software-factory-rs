@@ -2,55 +2,20 @@
     clippy::disallowed_types,
     reason = "tests: a leaf std Mutex for the fake planner"
 )]
-use std::collections::{BTreeMap, BTreeSet};
 
 use domain::{
-    Attempts, BeadId, BeadKind, Budget, ClientId, Duration, FactoryMeta, MicroUsd, Principal,
-    RigBudget, RigBudgetExceeded, Scope, Sha, TaskState, Timestamp, Tokens, Usage,
+    Attempts, BeadId, BeadKind, MicroUsd, RigBudget, RigBudgetExceeded, Scope, TaskState, Tokens,
 };
 
 use super::a2a::{A2aState, Message, Part, epic_progress, skills};
+use super::remote_fixtures_tests::{clock, id, meta, seeded, who};
 use super::service::{
     RemoteError, Sent, cancel_task, events_after, get_task, list_tasks, list_tasks_with_vanished,
     send_message, spend,
 };
 use super::{Rig, SubmitError};
 use crate::testing::remote::{FakePlanner, FakeRegistry, FakeTail, rig};
-use crate::testing::{FakeStore, FixedClock, MemorySink};
 use crate::{BeadStore, EventKind, RigRegistry};
-
-fn id(s: &str) -> BeadId {
-    BeadId::try_new(s).expect("id")
-}
-
-fn who(scopes: &[Scope]) -> Principal {
-    Principal {
-        client: ClientId::try_new("tester").expect("client"),
-        grants: BTreeMap::from([(
-            domain::RigName::try_new("toy").expect("rig"),
-            scopes.iter().copied().collect::<BTreeSet<_>>(),
-        )]),
-    }
-}
-
-fn meta(state: TaskState, tokens: u64) -> FactoryMeta {
-    FactoryMeta {
-        verify_bead: id("v-1"),
-        base: Sha::try_new("0".repeat(40)).expect("sha"),
-        budget: Budget {
-            tokens: Tokens::new(1000),
-            wall_clock: Duration::from_minutes(10),
-            attempts: Attempts::new(3),
-        },
-        usage: Usage {
-            tokens: Tokens::new(tokens),
-            wall_clock: Duration::from_minutes(0),
-            attempts: Attempts::new(1),
-        },
-        lease_expiries: Attempts::new(0),
-        state,
-    }
-}
 
 fn planned(s: Sent) -> Option<super::a2a::Task> {
     match s {
@@ -64,37 +29,6 @@ fn resolved(s: Sent) -> Option<(super::a2a::Task, Option<BeadId>)> {
         Sent::Resolved { task, reopened } => Some((task, reopened)),
         Sent::Planned(_) => None,
     }
-}
-
-fn clock() -> FixedClock {
-    FixedClock(Timestamp::from_unix_seconds(1_700_000_000))
-}
-
-async fn seeded() -> (
-    Rig,
-    std::sync::Arc<FakeStore>,
-    std::sync::Arc<MemorySink>,
-    std::sync::Arc<FakeTail>,
-) {
-    let (rig, store, sink, tail) = rig("toy", FakePlanner::returning("ep-1"));
-    store.seed_epic(id("ep-1"), &[]).await;
-    store
-        .seed_task(
-            id("ep-1.1"),
-            meta(
-                TaskState::Closed {
-                    merged: Sha::try_new("1".repeat(40)).expect("sha"),
-                },
-                300,
-            ),
-        )
-        .await;
-    store
-        .seed_task(id("ep-1.2"), meta(TaskState::Open, 0))
-        .await;
-    store.set_parent(&id("ep-1.1"), &id("ep-1")).await;
-    store.set_parent(&id("ep-1.2"), &id("ep-1")).await;
-    (rig, store, sink, tail)
 }
 
 #[tokio::test]

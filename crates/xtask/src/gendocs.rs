@@ -201,13 +201,14 @@ fn console_api(root: &Path) -> anyhow::Result<String> {
         "| Method | Scope | Params | Result |\n|---|---|---|---|\n\
 | `SendMessage` | `plan` | `{message: {parts: [{text}]}}` | `{task}` — the new epic |\n\
 | `SendMessage` | `resolve` | `{message: {taskId, parts: [{text}]}}` | `{task}` — the resolved inbox item |\n\
+| `SendMessage` | `resolve` / `plan` | `{message: {taskId, parts: [{data: {option}}, {text: note}]}}` | applies an attention option: `retry_fresh`, `retry_with_guidance`, `stop_epic`, `replan`, `answer` |\n\
 | `GetTask` | `watch` | `{id}` | `Task` (epic or inbox item) |\n\
 | `ListTasks` | `watch` | `{status?: \"TASK_STATE_INPUT_REQUIRED\"}` | `{tasks: [Task]}` |\n\
 | `CancelTask` | `plan` | `{id}` | `Task` in `TASK_STATE_CANCELED` |\n\
 | `SubscribeToTask` | `watch` | `{id}` | SSE: `{task}` then `{statusUpdate}` per event, `final: true` at a terminal state |\n\n\
 Errors: HTTP 401 (no/unknown token), 403 + code -32040 (missing scope), 404 + -32001 (task/rig), 400 (-32601/-32602/-32004), -32041 (rig budget cap), -32002 (terminal task).\n\n",
     );
-    s.push_str("Task states: an epic is `SUBMITTED` until a task is claimed, `WORKING` while tasks move, `INPUT_REQUIRED` while any task is in incident, `COMPLETED` when closed, `CANCELED` after `CancelTask`. Incidents and questions are their own `INPUT_REQUIRED` tasks whose `contextId` is the epic.\n\n");
+    s.push_str("Every `INPUT_REQUIRED` message carries a `DataPart` (`Attention`): `reason {kind, summary, detail}`, `attempts`/`tokens` `{used, limit}`, `branch`, `lastVerify` (the Verifier's last failing block), `guidance` (notes already given), and `options` (id, label, description, needsNote, destructive). `GetTask` on an epic lists `metadata.factory.children` (id, title, state, attempts, tokens, branch). Other routes: `GET /whoami` (client + grants), `GET /rigs` (visible rigs + per-rig counts), `GET /rigs/<rig>/ui` + `POST …/ui/action` (A2UI), `GET /` (the operator web app).\n\nTask states: an epic is `SUBMITTED` until a task is claimed, `WORKING` while tasks move, `INPUT_REQUIRED` while any task is in incident, `COMPLETED` when closed, `CANCELED` after `CancelTask`. Incidents and questions are their own `INPUT_REQUIRED` tasks whose `contextId` is the epic.\n\n");
     s.push_str("## CLI\n\n```text\n");
     s.push_str(&run(&["--help"])?);
     s.push_str("```\n\n```text\n");

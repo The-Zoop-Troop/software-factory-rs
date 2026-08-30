@@ -1,6 +1,7 @@
 //! The web console: A2UI envelopes over the same read models, one action endpoint, and a
 //! static renderer page. Agents can consume `/rigs/<rig>/ui` exactly like the browser does.
 
+use app::AttentionOption;
 use app::remote::a2ui::{UiAction, console_surface, parse_action};
 use axum::extract::{Path, State};
 use axum::http::{HeaderMap, StatusCode, header};
@@ -102,6 +103,41 @@ async fn action(
             );
         }
     };
+    // `option`: an attention option from the human UI: {id, option, note?}.
+    if act.name == "option" {
+        let id = act
+            .context
+            .get("id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let note = act
+            .context
+            .get("note")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let option = act
+            .context
+            .get("option")
+            .and_then(Value::as_str)
+            .map(AttentionOption::parse);
+        let outcome = match option {
+            Some(Ok(opt)) => app::apply_option(&rig, s.clock.as_ref(), &who, &id, opt, &note)
+                .await
+                .map(|_| ())
+                .map_err(RpcError::from),
+            Some(Err(e)) => Err(RpcError::new(rpc::INVALID_PARAMS, e.to_string())),
+            None => Err(RpcError::new(rpc::INVALID_PARAMS, "option missing")),
+        };
+        if let Err(e) = outcome {
+            return ui_response(&Value::Null, Err(e));
+        }
+        return match envelopes(&s, &rig, &name, &who).await {
+            Ok(v) => Json(Value::Array(v)).into_response(),
+            Err(e) => ui_response(&Value::Null, Err(e)),
+        };
+    }
     let ui = match parse_action(&act.name, &act.context) {
         Ok(u) => u,
         Err(e) => {

@@ -27,6 +27,8 @@ mod rpc;
 mod server;
 #[cfg(test)]
 mod server_tests;
+#[cfg(test)]
+mod server_tests_ui;
 mod ui;
 mod webapp;
 

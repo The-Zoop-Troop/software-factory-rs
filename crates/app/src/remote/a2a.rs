@@ -2,7 +2,9 @@
 //! the pure mapping from ledger beads to them. An epic is an A2A task; an open incident or
 //! question is an `INPUT_REQUIRED` task of its own.
 
-use domain::{BeadId, BeadKind, TaskState};
+use domain::{Attempts, BeadId, BeadKind, TaskState, Tokens};
+
+use super::attention::attention_for;
 
 use crate::bead::{Bead, BeadStatus};
 
@@ -215,15 +217,49 @@ pub fn epic_task(epic: &Bead, children: &[Bead], now: &str) -> Task {
                 "closed": progress.closed,
                 "working": progress.working,
                 "incidents": progress.incidents,
+                "children": children.iter().filter(|c| c.kind == Some(BeadKind::Task)).map(child_summary).collect::<Vec<_>>(),
             }
         }),
     }
 }
 
+/// One line per task child, for the epic detail view.
+fn child_summary(c: &Bead) -> serde_json::Value {
+    let (state, attempts, limit, tokens, branch) =
+        c.meta
+            .as_ref()
+            .map_or(("unknown", 0u64, 0u64, 0u64, None), |m| {
+                let branch = match &m.state {
+                    TaskState::InVerify { branch, .. } | TaskState::Mergeable { branch, .. } => {
+                        Some(branch.to_string())
+                    }
+                    TaskState::Leased { lease } => Some(format!("held by {}", lease.holder)),
+                    TaskState::Open | TaskState::Closed { .. } | TaskState::Incident { .. } => None,
+                };
+                (
+                    m.state.name(),
+                    u64::from(Attempts::get(m.usage.attempts)),
+                    u64::from(Attempts::get(m.budget.attempts)),
+                    Tokens::get(m.usage.tokens),
+                    branch,
+                )
+            });
+    serde_json::json!({
+        "id": c.id.to_string(),
+        "title": c.title,
+        "state": state,
+        "attempts": attempts,
+        "attemptLimit": limit,
+        "tokens": tokens,
+        "branch": branch,
+        "closed": c.status == BeadStatus::Closed,
+    })
+}
+
 /// Render an inbox item (incident or question) as an `INPUT_REQUIRED` task whose context is
 /// the parent epic when known. Closed items read as `COMPLETED`.
 #[must_use]
-pub fn inbox_task(bead: &Bead, now: &str) -> Task {
+pub fn inbox_task(bead: &Bead, task: Option<&Bead>, now: &str) -> Task {
     let state = if bead.status == BeadStatus::Closed {
         A2aState::Completed
     } else {
@@ -241,10 +277,13 @@ pub fn inbox_task(bead: &Bead, now: &str) -> Task {
             message: (state == A2aState::InputRequired).then(|| Message {
                 message_id: format!("{}-input", bead.id),
                 role: "ROLE_AGENT".to_owned(),
-                parts: vec![Part::Text(format!(
-                    "{}\n\n{}",
-                    bead.title, bead.description
-                ))],
+                parts: vec![
+                    Part::Text(format!("{}\n\n{}", bead.title, bead.description)),
+                    Part::Data(
+                        serde_json::to_value(attention_for(bead, task))
+                            .unwrap_or(serde_json::Value::Null),
+                    ),
+                ],
                 task_id: Some(bead.id.to_string()),
                 context_id: None,
             }),

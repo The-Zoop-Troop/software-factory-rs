@@ -4,9 +4,14 @@
 
 pub mod a2a;
 pub mod a2ui;
+pub mod attention;
+#[cfg(test)]
+mod attention_tests;
 pub mod chat;
 #[cfg(test)]
 mod chat_tests;
+#[cfg(test)]
+mod remote_fixtures_tests;
 #[cfg(test)]
 mod remote_tests;
 pub mod service;

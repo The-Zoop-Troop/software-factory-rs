@@ -2,7 +2,7 @@
 //! request into a typed call, runs the matching `app::remote` workflow, encodes the result.
 
 use app::remote::a2a::{Message, Part};
-use app::{RemoteError, Rig, Sent};
+use app::{AttentionOption, RemoteError, Rig, Sent};
 use domain::Principal;
 use serde_json::Value;
 
@@ -66,6 +66,7 @@ pub(crate) enum Call {
     SendMessage {
         task_id: Option<String>,
         text: String,
+        option: Option<AttentionOption>,
     },
     GetTask {
         id: String,
@@ -107,7 +108,21 @@ pub(crate) fn decode(req: &Request) -> Result<Call, RpcError> {
     match req.method.as_str() {
         "SendMessage" => {
             let p: SendParams = serde_json::from_value(req.params.clone()).map_err(bad)?;
+            let option = p
+                .message
+                .parts
+                .iter()
+                .find_map(|part| match part {
+                    Part::Data(v) => v.get("option").and_then(serde_json::Value::as_str),
+                    Part::Text(_) => None,
+                })
+                .map(|o| {
+                    AttentionOption::parse(o)
+                        .map_err(|e| RpcError::new(INVALID_PARAMS, e.to_string()))
+                })
+                .transpose()?;
             Ok(Call::SendMessage {
+                option,
                 task_id: p.message.task_id,
                 text: p
                     .message
@@ -173,8 +188,16 @@ pub(crate) async fn execute(
     call: Call,
 ) -> Result<Value, RpcError> {
     match call {
-        Call::SendMessage { task_id, text } => {
-            match app::send_message(rig, clock, who, task_id.as_deref(), &text).await? {
+        Call::SendMessage {
+            task_id,
+            text,
+            option,
+        } => {
+            let sent = match (option, task_id.as_deref()) {
+                (Some(opt), Some(id)) => app::apply_option(rig, clock, who, id, opt, &text).await?,
+                (_, id) => app::send_message(rig, clock, who, id, &text).await?,
+            };
+            match sent {
                 Sent::Planned(task) | Sent::Resolved { task, .. } => {
                     Ok(obj([("task", val(&task))]))
                 }
@@ -254,9 +277,27 @@ mod tests {
             decode(&send),
             Ok(Call::SendMessage {
                 task_id: Some("t-1".into()),
-                text: "a\nb".into()
+                text: "a\nb".into(),
+                option: None
             })
         );
+        let with_option = req(
+            "SendMessage",
+            json!({"message": {"messageId": "m", "role": "ROLE_USER", "parts": [{"data": {"option": "retry_with_guidance"}}, {"text": "use sh"}], "taskId": "inc-1"}}),
+        );
+        assert_eq!(
+            decode(&with_option),
+            Ok(Call::SendMessage {
+                task_id: Some("inc-1".into()),
+                text: "use sh".into(),
+                option: Some(AttentionOption::RetryWithGuidance)
+            })
+        );
+        let bad_option = req(
+            "SendMessage",
+            json!({"message": {"messageId": "m", "role": "ROLE_USER", "parts": [{"data": {"option": "explode"}}], "taskId": "inc-1"}}),
+        );
+        assert_eq!(decode(&bad_option).unwrap_err().code, INVALID_PARAMS);
         assert_eq!(
             decode(&req("GetTask", json!({"id": "x"}))),
             Ok(Call::GetTask { id: "x".into() })

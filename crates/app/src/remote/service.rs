@@ -4,8 +4,9 @@
 use domain::{BeadId, BeadKind, Forbidden, Principal, RigBudgetExceeded, RigSpend, Scope, Tokens};
 
 use super::a2a::{A2aState, CANCELED_LABEL, Task, epic_task, inbox_task};
+use super::attention::{AttentionOption, incident_task_id};
 use super::{Rig, SubmitError, TailError};
-use crate::bead::BeadStatus;
+use crate::bead::{Bead, BeadStatus};
 use crate::console::resolve;
 use crate::events::{EventKind, FactoryEvent};
 use crate::ports::{Clock, StoreError};
@@ -99,7 +100,8 @@ pub async fn list_tasks(
         out.push(epic_task(&epic, &children, &now));
     }
     for item in crate::console::inbox(rig.store.as_ref()).await? {
-        out.push(inbox_task(&item, &now));
+        let task = incident_task_bead(rig, &item).await?;
+        out.push(inbox_task(&item, task.as_ref(), &now));
     }
     Ok(out)
 }
@@ -155,7 +157,10 @@ pub async fn get_task(
             let children = rig.store.children(&bead.id).await?;
             Ok(epic_task(&bead, &children, &now))
         }
-        Some(BeadKind::Incident | BeadKind::Question) => Ok(inbox_task(&bead, &now)),
+        Some(BeadKind::Incident | BeadKind::Question) => {
+            let task = incident_task_bead(rig, &bead).await?;
+            Ok(inbox_task(&bead, task.as_ref(), &now))
+        }
         Some(
             BeadKind::Task
             | BeadKind::Verify
@@ -164,6 +169,18 @@ pub async fn get_task(
             | BeadKind::PlanRequest,
         )
         | None => Err(RemoteError::TaskNotFound { id: id.to_owned() }),
+    }
+}
+
+/// The task an incident bead points at, when it still exists.
+async fn incident_task_bead(rig: &Rig, item: &Bead) -> Result<Option<Bead>, RemoteError> {
+    let Some(id) = incident_task_id(item) else {
+        return Ok(None);
+    };
+    match rig.store.show(&id).await {
+        Ok(b) => Ok(Some(b)),
+        Err(StoreError::NotFound { .. }) => Ok(None),
+        Err(e) => Err(e.into()),
     }
 }
 
@@ -234,6 +251,143 @@ pub async fn send_message(
             Ok(Sent::Resolved { task, reopened })
         }
     }
+}
+
+/// An attention option, applied. `note` is required by `RetryWithGuidance`, `Replan`, `Answer`.
+///
+/// # Errors
+/// Scope (`resolve`, or `plan` for the epic-level options), `TaskNotFound`, `EmptyMessage`
+/// when a required note is missing, ledger failures.
+pub async fn apply_option(
+    rig: &Rig,
+    clock: &dyn Clock,
+    who: &Principal,
+    item_id: &str,
+    option: AttentionOption,
+    note: &str,
+) -> Result<Sent, RemoteError> {
+    let needs_note = matches!(
+        option,
+        AttentionOption::RetryWithGuidance | AttentionOption::Replan | AttentionOption::Answer
+    );
+    if needs_note && note.trim().is_empty() {
+        return Err(RemoteError::EmptyMessage);
+    }
+    let bead_id = BeadId::try_new(item_id).map_err(|_| RemoteError::TaskNotFound {
+        id: item_id.to_owned(),
+    })?;
+    let item = match rig.store.show(&bead_id).await {
+        Ok(b) => b,
+        Err(StoreError::NotFound { .. }) => {
+            return Err(RemoteError::TaskNotFound {
+                id: item_id.to_owned(),
+            });
+        }
+        Err(e) => return Err(e.into()),
+    };
+    let task = incident_task_bead(rig, &item).await?;
+    let epic = task
+        .as_ref()
+        .and_then(|t| t.parent.clone())
+        .or_else(|| item.parent.clone());
+    let text = if note.trim().is_empty() {
+        format!("{} by operator", option.as_str())
+    } else {
+        note.to_owned()
+    };
+    match option {
+        AttentionOption::RetryFresh | AttentionOption::Answer => {
+            send_message(rig, clock, who, Some(item_id), &text).await
+        }
+        AttentionOption::RetryWithGuidance => {
+            authorize(rig, clock, who, Scope::Resolve, "SendMessage")?;
+            if let Some(t) = &task {
+                rig.store
+                    .note(&t.id, &format!("guidance: {}", note.trim()))
+                    .await?;
+            }
+            send_message(rig, clock, who, Some(item_id), &text).await
+        }
+        AttentionOption::StopEpic => {
+            let Some(epic) = epic else {
+                return Err(RemoteError::TaskNotFound {
+                    id: format!("epic of {item_id}"),
+                });
+            };
+            cancel_task(rig, clock, who, epic.as_ref())
+                .await
+                .map(|task| Sent::Resolved {
+                    task,
+                    reopened: None,
+                })
+        }
+        AttentionOption::Replan => {
+            let Some(epic_id) = epic else {
+                return Err(RemoteError::TaskNotFound {
+                    id: format!("epic of {item_id}"),
+                });
+            };
+            let epic_bead = rig.store.show(&epic_id).await?;
+            cancel_task(rig, clock, who, epic_id.as_ref()).await?;
+            let plan_text = format!(
+                "{}\n\n{}\n\nOperator guidance after a failed attempt: {}",
+                epic_bead.title,
+                epic_bead.description,
+                note.trim()
+            );
+            send_message(rig, clock, who, None, &plan_text).await
+        }
+    }
+}
+
+/// Per-rig counts for the landing page.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(
+    feature = "serde",
+    derive(serde::Serialize),
+    serde(rename_all = "camelCase")
+)]
+pub struct Overview {
+    pub rig: String,
+    pub epics: usize,
+    pub working: usize,
+    pub attention: usize,
+    pub done: usize,
+}
+
+/// Counts for one rig from its task list (a watcher's view).
+///
+/// # Errors
+/// As `list_tasks`.
+pub async fn overview(
+    rig: &Rig,
+    clock: &dyn Clock,
+    who: &Principal,
+) -> Result<Overview, RemoteError> {
+    let tasks = list_tasks(rig, clock, who).await?;
+    let is_epic = |t: &Task| {
+        t.metadata
+            .get("factory")
+            .and_then(|f| f.get("kind"))
+            .and_then(serde_json::Value::as_str)
+            == Some("epic")
+    };
+    Ok(Overview {
+        rig: rig.name.to_string(),
+        epics: tasks.iter().filter(|t| is_epic(t)).count(),
+        working: tasks
+            .iter()
+            .filter(|t| is_epic(t) && t.status.state == A2aState::Working)
+            .count(),
+        attention: tasks
+            .iter()
+            .filter(|t| t.status.state == A2aState::InputRequired)
+            .count(),
+        done: tasks
+            .iter()
+            .filter(|t| is_epic(t) && t.status.state.is_terminal())
+            .count(),
+    })
 }
 
 /// `CancelTask`: close every open task under the epic and the epic itself, labelled so it
