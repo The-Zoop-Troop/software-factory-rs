@@ -172,12 +172,13 @@ async fn run_all(
 }
 
 /// Signatures of a rig that cannot run the checks, as opposed to checks that fail.
-const ENVIRONMENT_SIGNATURES: [&str; 9] = [
+const ENVIRONMENT_SIGNATURES: [&str; 10] = [
     "permission denied",
     "no space left on device",
     "read-only file system",
     "cannot execute binary file",
     "command not found",
+    "could not find `protoc`",
     "could not resolve host",
     "connection refused",
     "network is unreachable",

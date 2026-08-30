@@ -7,7 +7,7 @@ ARG BINSTALL_VERSION=1.22.0
 ENV RUSTUP_HOME=/work/cache/rustup CARGO_HOME=/work/cache/cargo \
     PATH=/work/cache/cargo/bin:/home/factory/.local/bin:/usr/local/bin:/usr/bin:/bin
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev pkg-config libssl-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev pkg-config libssl-dev protobuf-compiler \
     && rm -rf /var/lib/apt/lists/* && chown -R factory:factory /work/cache
 USER factory
 RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain "${RUST_VERSION}" \
