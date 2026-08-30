@@ -474,15 +474,14 @@ async fn rig_events(
         )
             .into_response();
     }
-    let start = match q.cursor {
-        Some(c) => c,
-        None => rig
-            .events
-            .read_from(u64::MAX)
-            .await
-            .map_or(0, |(_, end)| end),
-    };
-    Sse::new(rig_stream(s, rig, who, start))
+    // Same start/replay rules as `/events`: `cursor` resumes, otherwise `backlog` most recent
+    // records are replayed (flagged) before the stream goes live.
+    let (start, backlog) = stream_start(&rig, &q).await;
+    let replay: Vec<Result<Event, std::convert::Infallible>> = backlog
+        .iter()
+        .map(|r| Ok(event_frame(&rig.name, start, r, true)))
+        .collect();
+    Sse::new(futures::stream::iter(replay).chain(rig_stream(s, rig, who, start)))
         .keep_alive(KeepAlive::default())
         .into_response()
 }
