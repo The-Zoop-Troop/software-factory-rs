@@ -43,7 +43,14 @@ fn principal(client: &str, scopes: &[Scope]) -> anyhow::Result<Principal> {
 /// # Errors
 /// Only if the hard-coded seed data were invalid.
 pub(crate) async fn world() -> anyhow::Result<(FakeAuth, FakeRegistry)> {
-    let (r, store, ..) = rig("toy", FakePlanner::returning("toy-new"));
+    let (r, store, _, tail) = rig("toy", FakePlanner::returning("toy-new"));
+    tail.push("worker-1", Some(BeadId::try_new("toy-abc.1")?), "claimed");
+    tail.push("verifier", Some(BeadId::try_new("toy-abc.1")?), "verified");
+    tail.push(
+        "integrator",
+        Some(BeadId::try_new("toy-abc.1")?),
+        "integrated",
+    );
     let epic = BeadId::try_new("toy-abc")?;
     store.seed_epic(epic.clone(), &[]).await;
     let merged = Sha::try_new("1".repeat(40))?;

@@ -38,7 +38,7 @@ export const refreshRig = (rig: RigName): Promise<boolean> => attempt(loadRig(ri
 export const submitPlan = (rig: RigName, text: string): Promise<boolean> =>
   attempt(
     withApi((api) => api.plan(rig, text)).pipe(
-      Effect.tap((task) => Effect.sync(() => { notify('success', `Epic ${task.id} created`, task.metadata.factory.title); })),
+      Effect.tap((task) => Effect.sync(() => { notify('info', `Plan queued as ${task.id}`, 'The rig\'s planner is on it; the card updates when the epic exists.'); })),
       Effect.flatMap(() => loadRig(rig)),
     ),
   );

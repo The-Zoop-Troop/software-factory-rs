@@ -433,6 +433,37 @@ fn updates(
 pub(crate) struct EventsQuery {
     /// Byte cursor into the rig's log; omit to start from now (only new events).
     pub cursor: Option<u64>,
+    /// Bearer token as a query parameter: browsers' `EventSource` cannot set headers.
+    /// Accepted on the event-stream endpoints only.
+    pub token: Option<String>,
+    /// Without `cursor`: replay this many of the most recent records before going live.
+    pub backlog: Option<usize>,
+}
+
+/// The stream's starting point and the records to replay first.
+async fn stream_start(rig: &Rig, q: &EventsQuery) -> (u64, Vec<app::EventRecord>) {
+    match q.cursor {
+        Some(c) => (c, Vec::new()),
+        None => match rig.events.read_from(0).await {
+            Ok((all, end)) => {
+                let len = all.len();
+                let n = q.backlog.unwrap_or(0).min(len);
+                (end, all.into_iter().skip(len - n).collect())
+            }
+            Err(_) => (0, Vec::new()),
+        },
+    }
+}
+
+fn principal_for_stream(
+    s: &AppState,
+    headers: &HeaderMap,
+    q: &EventsQuery,
+) -> Result<Principal, Box<Response>> {
+    match q.token.as_deref().and_then(|t| s.auth.authenticate(t)) {
+        Some(p) => Ok(p),
+        None => principal(s, headers),
+    }
 }
 
 fn event_frame(rig: &RigName, cursor: u64, record: &app::EventRecord) -> Event {
@@ -454,7 +485,7 @@ async fn rig_events(
     Query(q): Query<EventsQuery>,
     headers: HeaderMap,
 ) -> Response {
-    let who = match principal(&s, &headers) {
+    let who = match principal_for_stream(&s, &headers, &q) {
         Ok(p) => p,
         Err(r) => return *r,
     };
@@ -524,7 +555,7 @@ async fn all_events(
     Query(q): Query<EventsQuery>,
     headers: HeaderMap,
 ) -> Response {
-    let who = match principal(&s, &headers) {
+    let who = match principal_for_stream(&s, &headers, &q) {
         Ok(p) => p,
         Err(r) => return *r,
     };
@@ -536,15 +567,16 @@ async fn all_events(
         let Some(rig) = s.registry.rig(&name) else {
             continue;
         };
-        let start = match q.cursor {
-            Some(c) => c,
-            None => rig
-                .events
-                .read_from(u64::MAX)
-                .await
-                .map_or(0, |(_, end)| end),
-        };
-        streams.push(rig_stream(s.clone(), rig, who.clone(), start).boxed());
+        let (start, backlog) = stream_start(&rig, &q).await;
+        let replay: Vec<Result<Event, std::convert::Infallible>> = backlog
+            .iter()
+            .map(|r| Ok(event_frame(&rig.name, start, r)))
+            .collect();
+        streams.push(
+            futures::stream::iter(replay)
+                .chain(rig_stream(s.clone(), rig, who.clone(), start))
+                .boxed(),
+        );
     }
     Sse::new(futures::stream::select_all(streams))
         .keep_alive(KeepAlive::default())

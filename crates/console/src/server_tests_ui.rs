@@ -260,6 +260,15 @@ async fn whoami_rig_counts_and_attention_options() {
     );
 }
 
+/// Status without reading the (possibly endless) body.
+async fn status_only(s: &AppState, path: &str) -> StatusCode {
+    router(s.clone())
+        .oneshot(Request::get(path).body(Body::empty()).expect("req"))
+        .await
+        .expect("resp")
+        .status()
+}
+
 async fn first_frames(
     s: &AppState,
     path: &str,
@@ -323,7 +332,16 @@ async fn rig_and_fan_in_event_streams() {
     assert_eq!(st, StatusCode::OK);
     let f: Value = serde_json::from_str(&frames[0]).unwrap();
     assert_eq!(f["record"]["kind"], "integrated");
-    assert_eq!(get(&s, "/events", None).await.0, StatusCode::UNAUTHORIZED);
+    assert_eq!(status_only(&s, "/events").await, StatusCode::UNAUTHORIZED);
+    // Browsers cannot set headers on EventSource: the token may ride in the query string.
+    assert_eq!(
+        status_only(&s, "/events?token=watcher").await,
+        StatusCode::OK
+    );
+    assert_eq!(
+        status_only(&s, "/rigs/toy/events?token=nope").await,
+        StatusCode::UNAUTHORIZED
+    );
 }
 
 #[tokio::test]

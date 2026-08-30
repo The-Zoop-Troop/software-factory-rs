@@ -39,6 +39,8 @@ export const FactoryMeta = Schema.Struct({
   closed: Schema.optionalWith(Schema.Number, { default: () => 0 }),
   working: Schema.optionalWith(Schema.Number, { default: () => 0 }),
   incidents: Schema.optionalWith(Schema.Number, { default: () => 0 }),
+  epic: Schema.optional(Schema.NullOr(Schema.String)),
+  failure: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
 export const Task = Schema.Struct({

@@ -45,7 +45,9 @@ describe('rig-page', () => {
     root.querySelector('plan-form')?.dispatchEvent(new CustomEvent('submit-plan', { detail: { text: 'more work please' }, bubbles: true, composed: true }));
     await settle();
     await page.updateComplete;
-    expect(root.querySelectorAll('epic-card').length).toBe(2);
+    expect(root.querySelectorAll('epic-card').length).toBe(1);
+    expect(root.querySelectorAll('request-card').length).toBe(1);
+    expect(root.querySelector('live-feed')).not.toBeNull();
   });
 });
 

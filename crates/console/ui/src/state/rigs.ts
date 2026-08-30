@@ -7,6 +7,7 @@ export const tasksByRig = signal<Readonly<Record<string, ReadonlyArray<Task>>>>(
 export const currentRig = signal<RigName | null>(null);
 
 export const isEpic = (t: Task): boolean => t.metadata.factory.kind === 'epic';
+export const isRequest = (t: Task): boolean => t.metadata.factory.kind === 'plan_request';
 export const needsHuman = (t: Task): boolean => t.status.state === 'TASK_STATE_INPUT_REQUIRED';
 export const isTerminal = (t: Task): boolean =>
   t.status.state === 'TASK_STATE_COMPLETED' ||

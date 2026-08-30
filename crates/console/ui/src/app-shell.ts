@@ -2,6 +2,8 @@ import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { refreshAll } from './actions.js';
+import { startLive, stopLive } from './live.js';
+import { streamStatus } from './state/events.js';
 import { connect, disconnect } from './core/runtime.js';
 import { Router } from './router.js';
 import { attentionCount } from './state/rigs.js';
@@ -29,6 +31,7 @@ export class AppShell extends SignalWatcher(LitElement) {
     .connecting .dot { background: var(--warn); animation: pulse 1s infinite; }
     .offline .dot { background: var(--danger); }
     .status { display: inline-flex; gap: .5rem; align-items: center; font-size: .85rem; color: var(--fg-muted); }
+    .stream.live { color: var(--ok); font-weight: 700; } .stream.reconnecting, .stream.connecting { color: var(--warn); }
     main { padding: var(--space-6); max-inline-size: 80rem; inline-size: 100%; margin-inline: auto; }
     @keyframes pulse { 50% { opacity: .4; } }
   `];
@@ -52,12 +55,14 @@ export class AppShell extends SignalWatcher(LitElement) {
     saveToken(tok);
     connect({ baseUrl: baseUrl.get(), token: tok });
     void refreshAll();
+    startLive(baseUrl.get(), tok);
     if (this.timer !== undefined) clearInterval(this.timer);
     this.timer = window.setInterval(() => { void refreshAll(); }, 15_000);
   }
 
   private stop(): void {
     if (this.timer !== undefined) clearInterval(this.timer);
+    stopLive();
     disconnect();
     connection.set('idle');
     saveToken('');
@@ -71,7 +76,7 @@ export class AppShell extends SignalWatcher(LitElement) {
       <header class=${conn}>
         <a class="brand" href="/">factory</a>
         ${attention > 0 ? html`<span class="badge warn" role="status">${attention} need${attention === 1 ? 's' : ''} you</span>` : ''}
-        <span class="status" aria-live="polite"><span class="dot" aria-hidden="true"></span>${conn}</span>
+        <span class="status" aria-live="polite"><span class="dot" aria-hidden="true"></span>${conn}${conn === 'online' ? html` · <span class="stream ${streamStatus.get()}">${streamStatus.get() === 'live' ? 'live' : streamStatus.get()}</span>` : ''}</span>
         <form @submit=${this.onConnect}>
           ${token.get() === '' || conn === 'idle'
             ? html`<label>Token <input name="token" type="password" autocomplete="off" required .value=${this.draft} @input=${(e: Event) => { this.draft = (e.target as HTMLInputElement).value; }}></label>

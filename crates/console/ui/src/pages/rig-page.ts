@@ -4,11 +4,13 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { repeat } from 'lit/directives/repeat.js';
 import { resolveItem, refreshRig, stopEpic, submitPlan } from '../actions.js';
 import type { RigName } from '../core/schema.js';
-import { currentRig, isEpic, needsHuman, tasksByRig } from '../state/rigs.js';
+import { currentRig, isEpic, isRequest, needsHuman, tasksByRig } from '../state/rigs.js';
 import { controls } from '../styles/shared.js';
 import '../components/epic-card.js';
 import '../components/plan-form.js';
 import '../components/inbox-item.js';
+import '../components/request-card.js';
+import '../components/live-feed.js';
 import type { PlanForm } from '../components/plan-form.js';
 
 @customElement('rig-page')
@@ -42,7 +44,8 @@ export class RigPage extends SignalWatcher(LitElement) {
   override render() {
     const tasks = tasksByRig.get()[this.rig] ?? [];
     const epics = tasks.filter(isEpic);
-    const inbox = tasks.filter((t) => !isEpic(t) && needsHuman(t));
+    const requests = tasks.filter(isRequest);
+    const inbox = tasks.filter((t) => !isEpic(t) && !isRequest(t) && needsHuman(t));
     return html`
       <header><a href="/">Rigs</a><span class="muted">/</span><h1 style="--vt: rig-${this.rig}">${this.rig}</h1></header>
       <plan-form ?pending=${this.planning} @submit-plan=${this.onPlan}></plan-form>
@@ -50,11 +53,19 @@ export class RigPage extends SignalWatcher(LitElement) {
         <h2 id="inbox-h">Needs you <span class="count">${inbox.length}</span></h2>
         <div class="grid">${repeat(inbox, (t) => t.id, (t) => html`<inbox-item .task=${t} ?pending=${this.resolving === t.id} @resolve-item=${this.onResolve}></inbox-item>`)}</div>
       </section>`}
+      ${requests.length === 0 ? '' : html`<section aria-labelledby="req-h">
+        <h2 id="req-h">Planning <span class="count">${requests.length}</span></h2>
+        <div class="grid">${repeat(requests, (t) => t.id, (t) => html`<request-card .task=${t}></request-card>`)}</div>
+      </section>`}
       <section aria-labelledby="epics-h">
         <h2 id="epics-h">Epics <span class="count">${epics.length}</span></h2>
         ${epics.length === 0
           ? html`<p class="empty">Nothing in flight. Submit a plan above.</p>`
           : html`<div class="grid">${repeat(epics, (t) => t.id, (t) => html`<epic-card .task=${t} @stop-epic=${this.onStop}></epic-card>`)}</div>`}
+      </section>
+      <section aria-labelledby="feed-h">
+        <h2 id="feed-h">Live</h2>
+        <live-feed rig=${this.rig}></live-feed>
       </section>`;
   }
 

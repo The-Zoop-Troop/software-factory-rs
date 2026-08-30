@@ -26,11 +26,11 @@ describe('actions over the fake console', () => {
   it('plan, resolve, stop notify and refresh', async () => {
     connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [incident] } }, 'ok');
     expect(await submitPlan(rig, 'build a thing')).toBe(true);
-    expect(notices.get()[0]?.title).toMatch(/Epic .* created/);
+    expect(notices.get()[0]?.title).toMatch(/Plan queued as/);
     expect(tasksByRig.get()['toy']?.length).toBe(2);
     expect(await resolveItem(rig, 'inc-1', 'done')).toBe(true);
     expect(await stopEpic(rig, 'toy-2')).toBe(true);
-    expect(notices.get().map((n) => n.tone)).toEqual(['success', 'success', 'warning']);
+    expect(notices.get().map((n) => n.tone)).toEqual(['info', 'success', 'warning']);
     expect(await refreshRig(rig)).toBe(true);
   });
 
