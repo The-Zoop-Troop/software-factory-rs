@@ -59,7 +59,8 @@ verify rate, incidents by reason, tokens per landed task, role idle time, retry 
 3. `fac-n7j.3` `app::metrics` — the pure fold, tested on the anonymised Phase 0 log
 4. `fac-n7j.4` `factory metrics` + console route
 5. `fac-n7j.5` console Throughput view
-6. `fac-n7j.6` `RIG_WORKERS` replicas, measured on a later phase of the guide project
+6. `fac-n7j.6` `RIG_WORKERS` replicas (compose `deploy.replicas`, shipped); measured on a
+   later phase of the guide project — before/after table to be added here
 7. `fac-n7j.7` history read model: closed epics in the A2A read models + a server-side,
    epic-filtered read of the full event log (the list of past epics derives from
    `task_planned` … `epic_closed`, no `bd` calls)

@@ -184,7 +184,9 @@ $R exec steward sh -c 'cd /work/rig && factory metrics --csv'                 # 
 The table gives per-stage p50/max (queue wait, session, verify wait, verify, integrate wait,
 integrate), wall-clock vs. work, the critical path along task dependencies, the retry tax, and
 the peak number of live sessions. "More workers could save up to" is wall-clock minus the
-critical path. The same report backs `GET /rigs/<rig>/metrics?epic=` on the console.
+critical path. The same report backs `GET /rigs/<rig>/metrics?epic=` on the console, and the
+epic page's **throughput →** link draws every attempt by stage. When it says a second worker
+would pay, set `RIG_WORKERS=2` in the rig's `compose.env` and `up -d` again.
 
 ## 6. Act on incidents
 

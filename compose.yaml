@@ -79,6 +79,10 @@ services:
   worker:
     <<: *rig
     command: [work, --interval, "10"]
+    # RIG_WORKERS replicas share the ledger and cache; leases serialise claims and each replica
+    # is its own agent (worker-<container>). Measure with `factory metrics` before raising it.
+    deploy:
+      replicas: ${RIG_WORKERS:-1}
 
   # Same image, Codex harness: needs OPENAI_API_KEY (and optionally CODEX_MODEL) in docker/rig.env.
   worker-codex:
