@@ -19,6 +19,10 @@ use serde_json::Value;
 
 use crate::rpc::{self, Call, RpcError, obj, val};
 
+#[path = "server_rigs.rs"]
+mod rigs;
+use rigs::list_rigs;
+
 #[derive(Clone)]
 pub(crate) struct AppState {
     pub auth: Arc<dyn Authenticator>,
@@ -202,40 +206,6 @@ async fn whoami(State(s): State<AppState>, headers: HeaderMap) -> Response {
             .into_response()
         }
     }
-}
-
-/// Visible rigs with counts (epics, working, attention, done); a rig that cannot be read
-/// right now is listed with `error` instead of counts.
-async fn list_rigs(State(s): State<AppState>, headers: HeaderMap) -> Response {
-    let p = match principal(&s, &headers) {
-        Err(r) => return *r,
-        Ok(p) => p,
-    };
-    let mut names: Vec<Value> = Vec::new();
-    let mut counts: Vec<Value> = Vec::new();
-    for name in s
-        .registry
-        .names()
-        .iter()
-        .filter(|r| p.allows(r, domain::Scope::Watch))
-    {
-        names.push(Value::String(name.to_string()));
-        let Some(rig) = s.registry.rig(name) else {
-            continue;
-        };
-        match app::overview(&rig, s.clock.as_ref(), &p).await {
-            Ok(o) => counts.push(val(&o)),
-            Err(e) => counts.push(obj([
-                ("rig", name.to_string().into()),
-                ("error", e.to_string().into()),
-            ])),
-        }
-    }
-    Json(obj([
-        ("rigs", Value::Array(names)),
-        ("overview", Value::Array(counts)),
-    ]))
-    .into_response()
 }
 
 async fn rig_card(State(s): State<AppState>, Path(rig): Path<String>) -> Response {
