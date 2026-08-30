@@ -212,4 +212,33 @@ While a session runs, the epic page's **Working** column shows what it has chang
 (files, +/− lines, sampled on every lease heartbeat); the feed shows the same as quiet lines.
 
 ## 7. Review what landed
+
+An epic closing means every task was verified and landed on the integration branch; it does
+not mean you have read the code. Review the branch as you would a colleague's — the factory
+made the diff small enough to do that:
+
+```sh
+git fetch origin
+git log --oneline origin/main..origin/feat/<feature>     # one commit per task, titled by task
+git diff --stat origin/main...origin/feat/<feature>
+```
+
+What the first phase of this run looked like: 5 tasks, 5 commits, first-pass verification on
+3 of them, one rebase after a conflict, two infrastructure incidents that cost a retry each,
+and `main` untouched (`git log -1 origin/main` still shows the pre-run commit). Read in this
+order:
+
+1. **The verify beads** (`bd show <epic>.2` etc. in the rig, or the console's task rows): the
+   commands that actually ran are the contract. If a command was weaker than you wanted, fix
+   the plan slice for the next phase rather than the code now.
+2. **Tests added** — every task's acceptance said "tests"; check the diff adds them, not just
+   passes them.
+3. **Docs the task touched** — the planner puts a docs/overlay task in each epic; that is the
+   one most likely to drift from the code when two tasks conflict, so read it against the code.
+
+Anything you want changed goes back through the factory as a new plan slice ("review notes:
+…") rather than a hand edit on the branch — a hand commit is fine, but the next session
+rebases onto it blind. Then stop the rig (`docker compose -p factory-<rig> down`; the ledger
+and repo volumes survive) and gate the next phase.
+
 ## 8. The end-state sweep and teardown
