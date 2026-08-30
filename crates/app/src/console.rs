@@ -92,10 +92,9 @@ pub async fn resolve(
     {
         let reopened = domain::FactoryMeta {
             state: TaskState::Open,
-            usage: domain::Usage {
-                attempts: Attempts::new(0),
-                ..meta.usage
-            },
+            // Fresh attempts *and* fresh budget: the operator asked for a retry, not a
+            // continuation of a session that already blew its limits.
+            usage: domain::Usage::default(),
             lease_expiries: Attempts::new(0),
             ..meta
         };
