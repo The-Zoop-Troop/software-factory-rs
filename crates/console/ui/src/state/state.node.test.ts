@@ -59,7 +59,7 @@ describe('attention and epic views', () => {
   it('filters events per epic and lists alert deliveries', async () => {
     const ev = await import('./events.js');
     ev.reset();
-    const mk = (bead: string | null, kind: string, extra: Record<string, unknown> = {}) => ({ rig: 'toy', cursor: 1, record: { at: 1, actor: 'x', bead, kind, ...extra } });
+    const mk = (bead: string | null, kind: string, extra: Record<string, unknown> = {}) => ({ rig: 'toy', cursor: 1, replay: false, record: { at: 1, actor: 'x', bead, kind, ...extra } });
     ev.push(mk('ep-1.2', 'claimed'));
     ev.push(mk('ep-1', 'epic_closed'));
     ev.push(mk('ep-10.1', 'claimed'));

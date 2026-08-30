@@ -51,13 +51,14 @@ export const badges = css`
   .badge {
     display: inline-flex; align-items: center; gap: 0.35em;
     padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.02em;
-    text-transform: uppercase; background: var(--accent-soft); color: var(--accent-strong);
+    text-transform: uppercase; background: var(--accent-soft); color: light-dark(var(--accent-strong), oklch(from var(--accent) 85% c h));
   }
   .badge::before { content: ''; inline-size: 0.5em; block-size: 0.5em; border-radius: 50%; background: currentColor; }
   .badge.working::before { animation: pulse 1.4s infinite var(--ease-out); }
-  .badge.ok { background: color-mix(in oklch, var(--ok) 18%, transparent); color: oklch(from var(--ok) 40% c h); }
-  .badge.warn { background: color-mix(in oklch, var(--warn) 22%, transparent); color: oklch(from var(--warn) 40% c h); }
-  .badge.danger { background: color-mix(in oklch, var(--danger) 16%, transparent); color: var(--danger); }
-  .badge.info { background: color-mix(in oklch, var(--info) 18%, transparent); color: oklch(from var(--info) 40% c h); }
+  .badge.ok { background: color-mix(in oklch, var(--ok) 18%, transparent); color: light-dark(oklch(from var(--ok) 38% c h), oklch(from var(--ok) 85% c h)); }
+  .badge.warn { background: color-mix(in oklch, var(--warn) 22%, transparent); color: light-dark(oklch(from var(--warn) 40% c h), oklch(from var(--warn) 88% c h)); }
+  .badge.danger { background: color-mix(in oklch, var(--danger) 16%, transparent); color: light-dark(var(--danger), oklch(from var(--danger) 80% c h)); }
+  .badge.info { background: color-mix(in oklch, var(--info) 18%, transparent); color: light-dark(oklch(from var(--info) 38% c h), oklch(from var(--info) 85% c h)); }
+  .badge.working { color: light-dark(var(--accent-strong), oklch(from var(--accent) 85% c h)); }
   @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.6); opacity: 0.5; } }
 `;

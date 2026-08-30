@@ -1,6 +1,6 @@
 # Exec plan: web console v2
 
-- **Status:** active · **Owner:** human steers, agents execute · **Started:** 2026-08-29
+- **Status:** completed 2026-08-29 · **Owner:** human steers, agents execute · **Started:** 2026-08-29
 - **Beads epic:** ``
 - **Depends on:** `docs/exec-plans/completed/remote-control.md` (console API, A2UI surface, alerts)
 - **Skills:** `~/git-repos/personal_brand/{effect-fp-skill,lit-web-apps-skill,modern-css-skill,semantic-html-skill}`
@@ -123,6 +123,7 @@ over the app fakes (a `console serve --fake` mode), `vite build`; CI job `ui` on
 - 2026-08-29 — Evidence is *derived* from what the roles already leave on beads (the Verifier's note block, the Integrator's incident reason, budget/usage on the task) rather than a new metadata field: no `META_VERSION` change, nothing to migrate, and every existing rig gets structured incidents immediately. A dedicated `last_run` field can come later if the notes format proves too loose.
 - 2026-08-29 — The event stream authenticates with `?token=` because `EventSource` cannot send headers; accepted on the stream endpoints only, and the token never appears in a log line (the console logs paths without query strings).
 - 2026-08-29 — Streams replay a small backlog (`?backlog=N`) so a fresh page shows what just happened; per-card updates come from a debounced `ListTasks` refresh of the rig that emitted the event rather than from patching cards out of event payloads — one read model, no drift.
+- 2026-08-29 — lit-analyzer's CSS validation is off: it rejects `@starting-style`, container queries, `text-wrap`, `view-transition-name`; ESLint + tsc + browser tests remain the gate for templates.
 
 ## Progress
 
@@ -131,4 +132,4 @@ over the app fakes (a `console serve --fake` mode), `vite build`; CI job `ui` on
 - [x] live-state (server: `GET /rigs/<rig>/events` + `GET /events` SSE with cursor/backlog and `?token=` for EventSource; `SendMessage returnImmediately` queues a plan and returns the request as a task; planner progress notes + `plan_started/planned/plan_failed` events. UI: Effect `Stream` over EventSource with backoff reconnect, events store with human descriptions, live feed per rig, request cards with planner progress, stream status in the header, toasts for events that matter, debounced per-rig refresh on every frame) — 2026-08-29
 - [ ] actions-with-feedback
 - [ ] attention-center + epic-detail
-- [ ] polish
+- [x] polish (dark/light oklch palette with readable badges in both, motion via `@starting-style`/view transitions with reduced-motion respected, toasts that expire and cap, replayed events kept out of notifications, empty states on every page, `docs/design-docs/web-console.md`, README screenshots, lit-analyzer CSS check disabled for modern CSS) — 2026-08-29

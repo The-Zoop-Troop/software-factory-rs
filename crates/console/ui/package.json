@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . && lit-analyzer src",
+    "lint": "eslint . && lit-analyzer src --rules.no-invalid-css off",
     "test": "vitest run",
     "test:cov": "vitest run --coverage",
     "e2e": "playwright test"

@@ -6,7 +6,7 @@ import { onFrame, startLive, stopLive } from '../live.js';
 import { notices, reset as resetNotices } from './notices.js';
 
 const frame = (kind: string, extra: Record<string, unknown> = {}, rig = 'toy'): EventFrame => ({
-  rig, cursor: 1, record: { at: 1, actor: 'worker', bead: 'ep-1.1', kind, ...extra },
+  rig, cursor: 1, replay: false, record: { at: 1, actor: 'worker', bead: 'ep-1.1', kind, ...extra },
 });
 
 beforeEach(() => { reset(); resetNotices(); stopLive(); });
@@ -73,6 +73,9 @@ suite('event stream', () => {
     expect(notices.get()[0]?.tone).toBe('danger');
     onFrame(frame('sweep_done'));
     expect(notices.get().length).toBe(1);
+    onFrame({ ...frame('escalated'), replay: true });
+    expect(notices.get().length).toBe(1);
+    expect(recent.get().length).toBe(3);
     stopLive();
     expect(streamStatus.get()).toBe('off');
     expect(created).toBe(1);

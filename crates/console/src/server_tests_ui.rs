@@ -326,6 +326,7 @@ async fn rig_and_fan_in_event_streams() {
     assert_eq!(first["rig"], "toy");
     assert_eq!(first["record"]["kind"], "claimed");
     assert_eq!(first["cursor"], 2);
+    assert_eq!(first["replay"], false);
     // Fan-in over every visible rig, from a cursor.
     tail.push("integrator", Some(id("ep-1.1")), "integrated");
     let (st, frames) = first_frames(&s, "/events?cursor=2", "watcher", 1).await;

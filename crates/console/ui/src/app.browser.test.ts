@@ -92,8 +92,8 @@ describe('attention drawer, epic page, alerts log', () => {
     reset();
     const withChildren = { ...epic, metadata: { factory: { ...epic.metadata.factory, children: [{ id: 'ep-1.1', title: 'Do it', state: 'incident', attempts: 3, attemptLimit: 3, tokens: 12000, branch: 'task/ep-1.1', closed: false }] } } };
     connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [withChildren, incident] } }, 'ok');
-    push({ rig: 'toy', cursor: 1, record: { at: 1, actor: 'worker', bead: 'ep-1.1', kind: 'claimed', holder: 'w-1' } });
-    push({ rig: 'toy', cursor: 2, record: { at: 2, actor: 'worker', bead: 'zz-1', kind: 'claimed' } });
+    push({ rig: 'toy', cursor: 1, replay: false, record: { at: 1, actor: 'worker', bead: 'ep-1.1', kind: 'claimed', holder: 'w-1' } });
+    push({ rig: 'toy', cursor: 2, replay: false, record: { at: 2, actor: 'worker', bead: 'zz-1', kind: 'claimed' } });
     const page = await fixture<HTMLElement>(html`<epic-page rig="toy" id="ep-1"></epic-page>`);
     await settle();
     await (page as unknown as { updateComplete: Promise<boolean> }).updateComplete;
@@ -105,7 +105,7 @@ describe('attention drawer, epic page, alerts log', () => {
     await import('./components/alerts-log.js');
     const log = await fixture<HTMLElement>(html`<alerts-log></alerts-log>`);
     expect((log.shadowRoot as ShadowRoot).textContent).toContain('No alerts');
-    push({ rig: 'toy', cursor: 3, record: { at: 3, actor: 'console', bead: null, kind: 'remote', action: 'alert', detail: 'ep-1 done' } });
+    push({ rig: 'toy', cursor: 3, replay: false, record: { at: 3, actor: 'console', bead: null, kind: 'remote', action: 'alert', detail: 'ep-1 done' } });
     await (log as unknown as { updateComplete: Promise<boolean> }).updateComplete;
     expect((log.shadowRoot as ShadowRoot).querySelectorAll('li').length).toBe(1);
   });

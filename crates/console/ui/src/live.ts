@@ -26,6 +26,7 @@ const scheduleRefresh = (rig: string): void => {
 
 export const onFrame = (frame: Parameters<typeof push>[0]): void => {
   push(frame);
+  if (frame.replay) return;
   scheduleRefresh(frame.rig);
   const line = describe(frame);
   if (line !== null) notify(line.tone, line.title, frame.rig);

@@ -113,6 +113,12 @@ docker compose up -d planner console           # remote control: A2A console on 
 Bring your project in with `RIG_REPO_URL` in `docker/rig.env` (cloned on first start) or by
 seeding the `repo` volume (`docker compose run --rm shell`).
 
+## Operator console
+
+![factory console — rig page](docs/images/console-rig-dark.png)
+
+Every rig is operated from the browser (`http://127.0.0.1:7700/` with a console token): live epics, queued plans with planner progress, incidents with evidence and one-click options (retry, retry with guidance, re-plan, stop), an attention drawer across rigs, per-epic task tables and timelines, and the alerts the console delivered. Lit + Effect, embedded in the `console` binary; see [`docs/design-docs/web-console.md`](docs/design-docs/web-console.md).
+
 ## Configuration
 
 Everything lives in `docker/rig.env` (gitignored; template in

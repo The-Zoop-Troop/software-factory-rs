@@ -466,11 +466,12 @@ fn principal_for_stream(
     }
 }
 
-fn event_frame(rig: &RigName, cursor: u64, record: &app::EventRecord) -> Event {
+fn event_frame(rig: &RigName, cursor: u64, record: &app::EventRecord, replay: bool) -> Event {
     Event::default().event("factory").data(
         obj([
             ("rig", rig.to_string().into()),
             ("cursor", cursor.into()),
+            ("replay", Value::Bool(replay)),
             ("record", val(record)),
         ])
         .to_string(),
@@ -535,7 +536,7 @@ fn rig_stream(
                 };
             let events: Vec<Result<Event, std::convert::Infallible>> = records
                 .iter()
-                .map(|r| Ok(event_frame(&rig.name, next, r)))
+                .map(|r| Ok(event_frame(&rig.name, next, r, false)))
                 .collect();
             if events.is_empty() {
                 s.clock
@@ -570,7 +571,7 @@ async fn all_events(
         let (start, backlog) = stream_start(&rig, &q).await;
         let replay: Vec<Result<Event, std::convert::Infallible>> = backlog
             .iter()
-            .map(|r| Ok(event_frame(&rig.name, start, r)))
+            .map(|r| Ok(event_frame(&rig.name, start, r, true)))
             .collect();
         streams.push(
             futures::stream::iter(replay)

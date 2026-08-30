@@ -13,6 +13,8 @@ export type EventRecord = typeof EventRecord.Type;
 export const EventFrame = Schema.Struct({
   rig: Schema.String,
   cursor: Schema.Number,
+  /** Replayed from the backlog on connect: shown in feeds, never announced. */
+  replay: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   record: EventRecord,
 });
 export type EventFrame = typeof EventFrame.Type;

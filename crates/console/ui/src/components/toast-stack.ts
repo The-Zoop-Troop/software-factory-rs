@@ -9,7 +9,7 @@ export class ToastStack extends SignalWatcher(LitElement) {
   static override styles = css`
     :host { position: fixed; inset-inline-end: 1rem; inset-block-end: 1rem; display: grid; gap: .5rem; z-index: 50; max-inline-size: min(28rem, 90vw); }
     .toast {
-      display: grid; grid-template-columns: 1fr auto; gap: .25rem .75rem; align-items: start;
+      display: grid; grid-template-columns: 1fr auto; grid-template-areas: "title close" "detail close"; gap: .25rem .75rem; align-items: start;
       padding: .75rem 1rem; border-radius: var(--radius); border: 1px solid var(--line);
       background: var(--bg-elev); backdrop-filter: blur(14px); box-shadow: var(--shadow);
       border-inline-start: 4px solid var(--tone);
@@ -17,8 +17,8 @@ export class ToastStack extends SignalWatcher(LitElement) {
       @starting-style { opacity: 0; translate: 1rem 0; }
     }
     .info { --tone: var(--info); } .success { --tone: var(--ok); } .warning { --tone: var(--warn); } .danger { --tone: var(--danger); }
-    strong { font-weight: 700; } p { grid-column: 1; color: var(--fg-muted); font-size: .9rem; }
-    button { grid-row: 1 / span 2; border: 0; background: transparent; color: var(--fg-muted); cursor: pointer; font-size: 1.1rem; }
+    strong { grid-area: title; font-weight: 700; } p { grid-area: detail; color: var(--fg-muted); font-size: .9rem; }
+    button { grid-area: close; border: 0; background: transparent; color: var(--fg-muted); cursor: pointer; font-size: 1.1rem; line-height: 1; }
   `;
 
   override render() {
