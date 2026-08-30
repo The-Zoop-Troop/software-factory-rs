@@ -68,3 +68,45 @@ describe('app-shell', () => {
     expect((again.shadowRoot as ShadowRoot).querySelector('input[name=token]')).not.toBeNull();
   });
 });
+
+describe('attention drawer, epic page, alerts log', () => {
+  it('drawer lists items across rigs and links to the epic', async () => {
+    const { attentionOf } = await import('./core/schema.js');
+    void attentionOf;
+    await import('./components/attention-drawer.js');
+    connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [epic, incident] } }, 'ok');
+    const { refreshAll } = await import('./actions.js');
+    await refreshAll();
+    const el = await fixture<HTMLElement>(html`<attention-drawer></attention-drawer>`);
+    const root = el.shadowRoot as ShadowRoot;
+    expect(root.querySelector('.badge')?.textContent).toContain('1 needs you');
+    (root.querySelector('button') as HTMLButtonElement).click();
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect((root.querySelector('dialog') as HTMLDialogElement).open).toBe(true);
+    expect(root.querySelector('li a')?.getAttribute('href')).toBe('/rigs/toy/epics/ep-1');
+  });
+
+  it('epic page shows children, needs-you items, and a timeline', async () => {
+    await import('./pages/epic-page.js');
+    const { push, reset } = await import('./state/events.js');
+    reset();
+    const withChildren = { ...epic, metadata: { factory: { ...epic.metadata.factory, children: [{ id: 'ep-1.1', title: 'Do it', state: 'incident', attempts: 3, attemptLimit: 3, tokens: 12000, branch: 'task/ep-1.1', closed: false }] } } };
+    connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [withChildren, incident] } }, 'ok');
+    push({ rig: 'toy', cursor: 1, record: { at: 1, actor: 'worker', bead: 'ep-1.1', kind: 'claimed', holder: 'w-1' } });
+    push({ rig: 'toy', cursor: 2, record: { at: 2, actor: 'worker', bead: 'zz-1', kind: 'claimed' } });
+    const page = await fixture<HTMLElement>(html`<epic-page rig="toy" id="ep-1"></epic-page>`);
+    await settle();
+    await (page as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    const root = page.shadowRoot as ShadowRoot;
+    expect(root.querySelectorAll('tbody tr').length).toBe(1);
+    expect(root.textContent).toContain('Do it');
+    expect(root.querySelectorAll('inbox-item').length).toBe(1);
+    expect(root.querySelectorAll('.timeline li').length).toBe(1);
+    await import('./components/alerts-log.js');
+    const log = await fixture<HTMLElement>(html`<alerts-log></alerts-log>`);
+    expect((log.shadowRoot as ShadowRoot).textContent).toContain('No alerts');
+    push({ rig: 'toy', cursor: 3, record: { at: 3, actor: 'console', bead: null, kind: 'remote', action: 'alert', detail: 'ep-1 done' } });
+    await (log as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect((log.shadowRoot as ShadowRoot).querySelectorAll('li').length).toBe(1);
+  });
+});

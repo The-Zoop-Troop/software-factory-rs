@@ -25,6 +25,12 @@ export const routes: ReadonlyArray<Route> = [
     template: (p) => html`<rig-page .rig=${p['rig'] ?? ''}></rig-page>`,
     title: (p) => `Factory — ${p['rig'] ?? ''}`,
   },
+  {
+    path: '/rigs/:rig/epics/:id',
+    enter: () => import('./pages/epic-page.js'),
+    template: (p) => html`<epic-page .rig=${p['rig'] ?? ''} .id=${p['id'] ?? ''}></epic-page>`,
+    title: (p) => `Factory — ${p['id'] ?? ''}`,
+  },
 ];
 
 export const matchRoute = (url: URL): { readonly route: Route; readonly params: Params } | null => {

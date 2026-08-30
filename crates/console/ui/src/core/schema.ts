@@ -41,7 +41,18 @@ export const FactoryMeta = Schema.Struct({
   incidents: Schema.optionalWith(Schema.Number, { default: () => 0 }),
   epic: Schema.optional(Schema.NullOr(Schema.String)),
   failure: Schema.optional(Schema.NullOr(Schema.String)),
+  children: Schema.optionalWith(Schema.Array(Schema.Struct({
+    id: Schema.String,
+    title: Schema.String,
+    state: Schema.String,
+    attempts: Schema.Number,
+    attemptLimit: Schema.Number,
+    tokens: Schema.Number,
+    branch: Schema.optional(Schema.NullOr(Schema.String)),
+    closed: Schema.Boolean,
+  })), { default: () => [] }),
 });
+export type Child = typeof FactoryMeta.Type['children'][number];
 
 export const Task = Schema.Struct({
   id: TaskId,

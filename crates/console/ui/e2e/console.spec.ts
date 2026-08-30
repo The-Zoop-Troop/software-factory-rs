@@ -18,11 +18,16 @@ test('connect, see rigs, open a rig, plan, resolve, stop', async ({ page }) => {
   await expect(page.getByText('live', { exact: true })).toBeVisible();
   // The incident shows its evidence and applies an option with a note (the fake rig is one
   // shared state across tests, so the only incident is consumed here).
-  await expect(page.getByText('The branch no longer merges')).toBeVisible();
+  await expect(page.getByText('The branch no longer merges').first()).toBeVisible();
   await page.getByRole('button', { name: 'Retry with guidance' }).click();
   await page.getByLabel('Your note').fill('keep it POSIX');
   await page.getByRole('button', { name: 'Confirm' }).click();
   await expect(page.getByText(/retry with guidance applied/)).toBeVisible();
+  // Epic detail: tasks table and timeline, reachable from the card title and the drawer.
+  await page.getByRole('link', { name: /toy-abc/ }).first().click();
+  await expect(page).toHaveURL(/\/rigs\/toy\/epics\/toy-abc$/);
+  await expect(page.getByRole('heading', { name: 'toy-abc' })).toBeVisible();
+  await expect(page.locator('tbody tr')).toHaveCount(3);
   await page.getByRole('button', { name: 'Stop' }).first().click();
   await page.getByRole('button', { name: 'Stop the epic' }).click();
   await expect(page.getByText(/Stopped/)).toBeVisible();

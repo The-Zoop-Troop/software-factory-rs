@@ -6,7 +6,7 @@ import { startLive, stopLive } from './live.js';
 import { streamStatus } from './state/events.js';
 import { connect, disconnect } from './core/runtime.js';
 import { Router } from './router.js';
-import { attentionCount } from './state/rigs.js';
+import './components/attention-drawer.js';
 import { baseUrl, connection, loadToken, saveToken, token } from './state/session.js';
 import { controls, badges } from './styles/shared.js';
 import './components/toast-stack.js';
@@ -71,11 +71,10 @@ export class AppShell extends SignalWatcher(LitElement) {
 
   override render() {
     const conn = connection.get();
-    const attention = attentionCount.get();
     return html`
       <header class=${conn}>
         <a class="brand" href="/">factory</a>
-        ${attention > 0 ? html`<span class="badge warn" role="status">${attention} need${attention === 1 ? 's' : ''} you</span>` : ''}
+        <attention-drawer></attention-drawer>
         <span class="status" aria-live="polite"><span class="dot" aria-hidden="true"></span>${conn}${conn === 'online' ? html` · <span class="stream ${streamStatus.get()}">${streamStatus.get() === 'live' ? 'live' : streamStatus.get()}</span>` : ''}</span>
         <form @submit=${this.onConnect}>
           ${token.get() === '' || conn === 'idle'

@@ -50,3 +50,13 @@ export const reset = (): void => {
   tasksByRig.set({});
   currentRig.set(null);
 };
+
+/** Everything that needs a human, across rigs, newest rig first. */
+export const attentionItems = computed<ReadonlyArray<{ readonly rig: string; readonly task: Task }>>(() =>
+  Object.entries(tasksByRig.get()).flatMap(([rig, tasks]) =>
+    tasks.filter((t) => needsHuman(t) && !isEpic(t) && !isRequest(t)).map((task) => ({ rig, task })),
+  ),
+);
+
+/** A task by id on a rig, if loaded. */
+export const taskById = (rig: string, id: string): Task | undefined => (tasksByRig.get()[rig] ?? []).find((t) => t.id === id);

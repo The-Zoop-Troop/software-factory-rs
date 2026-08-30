@@ -13,6 +13,7 @@ import '../components/plan-form.js';
 import '../components/inbox-item.js';
 import '../components/request-card.js';
 import '../components/live-feed.js';
+import '../components/alerts-log.js';
 import type { PlanForm } from '../components/plan-form.js';
 
 @customElement('rig-page')
@@ -68,6 +69,10 @@ export class RigPage extends SignalWatcher(LitElement) {
       <section aria-labelledby="feed-h">
         <h2 id="feed-h">Live</h2>
         <live-feed rig=${this.rig}></live-feed>
+      </section>
+      <section aria-labelledby="alerts-h">
+        <h2 id="alerts-h">Alerts sent</h2>
+        <alerts-log></alerts-log>
       </section>`;
   }
 

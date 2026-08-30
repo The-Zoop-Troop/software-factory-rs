@@ -18,7 +18,7 @@ export const push = (frame: EventFrame): void => {
 
 export const forRig = (rig: string) => computed(() => recent.get().filter((f) => f.rig === rig));
 
-const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined || v === null ? '' : JSON.stringify(v));
+export const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined || v === null ? '' : JSON.stringify(v));
 
 /** Human line for an event, or null when it is noise (steward sweeps, heartbeats). */
 export const describe = (f: EventFrame): { readonly title: string; readonly tone: 'info' | 'success' | 'warning' | 'danger' } | null => {
@@ -57,3 +57,16 @@ export const reset = (): void => {
   recent.set([]);
   lastEventAt.set(null);
 };
+
+/** Alert deliveries the console recorded (webhook / chat), newest first. */
+export const alerts = computed(() =>
+  recent
+    .get()
+    .filter((f) => f.record.kind === 'remote' && (f.record['action'] === 'alert' || f.record['action'] === 'alert-failed'))
+    .slice()
+    .reverse(),
+);
+
+/** Events under an epic (the epic itself and its children `epic.N`). */
+export const forEpic = (rig: string, epic: string) =>
+  computed(() => recent.get().filter((f) => f.rig === rig && typeof f.record.bead === 'string' && (f.record.bead === epic || f.record.bead.startsWith(`${epic}.`))));

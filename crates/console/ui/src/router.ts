@@ -53,9 +53,17 @@ export class Router implements ReactiveController {
       document.title = match.route.title(match.params);
       this.host.requestUpdate();
     };
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
-    if (typeof doc.startViewTransition === 'function') doc.startViewTransition(apply);
-    else apply();
+    interface Transition { readonly finished: Promise<void>; readonly ready: Promise<void>; readonly updateCallbackDone: Promise<void> }
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => Transition };
+    if (typeof doc.startViewTransition === 'function') {
+      // A transition is skipped when another starts or the tab is hidden; that is not an error.
+      const t = doc.startViewTransition(apply);
+      t.finished.catch(() => undefined);
+      t.ready.catch(() => undefined);
+      t.updateCallbackDone.catch(() => undefined);
+    } else {
+      apply();
+    }
   }
 
   private readonly onClick = (e: MouseEvent): void => {

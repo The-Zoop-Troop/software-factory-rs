@@ -10,7 +10,7 @@ export class EpicCard extends LitElement {
     :host { display: block; container-type: inline-size; }
     article { display: grid; gap: var(--space-3); }
     header { display: flex; justify-content: space-between; gap: var(--space-3); align-items: start; flex-wrap: wrap; }
-    h3 { font-size: 1.05rem; font-weight: 700; text-wrap: balance; }
+    h3 { font-size: 1.05rem; font-weight: 700; text-wrap: balance; } h3 a { color: inherit; text-decoration: none; } h3 a:hover { text-decoration: underline; }
     .id { color: var(--fg-muted); font-family: var(--mono); font-size: .8rem; }
     .progress { display: grid; gap: var(--space-1); }
     .bar { block-size: .5rem; border-radius: 999px; background: var(--line); overflow: clip; }
@@ -29,6 +29,8 @@ export class EpicCard extends LitElement {
   `];
 
   @property({ attribute: false }) task!: Task;
+  /** When set, the title links to the epic page. */
+  @property() rig = '';
   @property({ type: Boolean }) pending = false;
   @property({ type: Boolean }) allowed = true;
   @property() reason = '';
@@ -41,7 +43,7 @@ export class EpicCard extends LitElement {
     return html`<article class="surface" aria-labelledby="t-${this.task.id}">
       <header>
         <div>
-          <h3 id="t-${this.task.id}">${f.title === '' ? this.task.id : f.title}</h3>
+          <h3 id="t-${this.task.id}">${this.rig === '' ? (f.title === '' ? this.task.id : f.title) : html`<a href="/rigs/${this.rig}/epics/${this.task.id}">${f.title === '' ? this.task.id : f.title}</a>`}</h3>
           <span class="id">${this.task.id}</span>
         </div>
         <state-badge .state=${this.task.status.state}></state-badge>
