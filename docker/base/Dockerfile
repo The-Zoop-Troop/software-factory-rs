@@ -39,6 +39,8 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # --- the base runtime ---
 FROM debian:bookworm-slim AS base
 ARG BD_VERSION
+ARG DOLT_VERSION
+ARG DOLT_SHA256
 ARG CLAUDE_VERSION
 ARG OPENCODE_VERSION
 ARG CODEX_VERSION
