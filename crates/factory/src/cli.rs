@@ -207,6 +207,14 @@ pub(crate) enum Command {
         /// Integration branch.
         #[arg(long, default_value = "main")]
         main: String,
+        /// Branches the factory must never integrate into or push (comma-separated).
+        #[arg(
+            long,
+            env = "RIG_PROTECTED_BRANCHES",
+            default_value = "main,master",
+            value_delimiter = ','
+        )]
+        protected: Vec<String>,
         /// Remote to push main to after landing (omit for local-only).
         #[arg(long)]
         remote: Option<String>,
@@ -509,6 +517,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             worktrees,
             events,
             main,
+            protected,
             remote,
             checks,
             check_timeout,
@@ -522,6 +531,11 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             let store = BdCli::new(&cli.workdir).with_actor("integrator");
             let cfg = IntegrateConfig {
                 main: BranchName::try_new(main)?,
+                protected: protected
+                    .iter()
+                    .filter(|p| !p.trim().is_empty())
+                    .map(|p| BranchName::try_new(p.trim()))
+                    .collect::<Result<Vec<_>, _>>()?,
                 remote,
                 checks: checks
                     .into_iter()

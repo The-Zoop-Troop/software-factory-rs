@@ -17,6 +17,9 @@ pub struct IntegrateConfig {
     /// Project-wide checks run on the rebased head before it lands. Empty = trust the verify bead.
     pub checks: Vec<VerifyCommand>,
     pub check_timeout: Duration,
+    /// Branches the factory must never integrate into or push (`main`, `master` by default).
+    /// A rig whose integration branch is protected refuses to run at all.
+    pub protected: Vec<BranchName>,
 }
 
 /// What one integration pass did.
@@ -33,6 +36,10 @@ pub struct IntegrateReport {
 pub enum IntegratorError {
     #[error(transparent)]
     Store(#[from] StoreError),
+    #[error(
+        "integration branch `{branch}` is protected; the factory never lands on it (set RIG_MAIN / --main to a feature branch, or change --protected deliberately)"
+    )]
+    ProtectedBranch { branch: BranchName },
 }
 
 /// Land every open merge bead whose task is `mergeable`, in listing order.
@@ -49,6 +56,11 @@ pub async fn integrate_once(
     cfg: &IntegrateConfig,
     actor: &str,
 ) -> Result<IntegrateReport, IntegratorError> {
+    if cfg.protected.contains(&cfg.main) {
+        return Err(IntegratorError::ProtectedBranch {
+            branch: cfg.main.clone(),
+        });
+    }
     let mut report = IntegrateReport::default();
     for bead in store.list_active(BeadKind::Merge).await? {
         let Some(meta) = bead.merge.clone() else {
@@ -313,6 +325,7 @@ mod tests {
                 .map(|c| VerifyCommand::try_new(*c).expect("test command"))
                 .collect(),
             check_timeout: Duration::from_seconds(10),
+            protected: vec![],
         }
     }
 
@@ -559,5 +572,34 @@ mod tests {
         assert_eq!(report.skipped, 1);
         assert!(store.list_active(BeadKind::Merge).await.unwrap().is_empty());
         assert!(repo.added.lock().unwrap().is_empty());
+    }
+}
+
+#[cfg(test)]
+mod protected_tests {
+    use super::*;
+    use crate::testing::{FakeRepo, FakeRunner, FakeStore, FixedClock, MemorySink};
+
+    #[tokio::test]
+    async fn a_protected_integration_branch_is_refused_before_anything_runs() {
+        let store = FakeStore::default();
+        let repo = FakeRepo::default();
+        let runner = FakeRunner::default();
+        let clock = FixedClock(domain::Timestamp::from_unix_seconds(0));
+        let log = MemorySink::default();
+        let main = BranchName::try_new("main").expect("branch");
+        let cfg = IntegrateConfig {
+            main: main.clone(),
+            remote: Some("origin".into()),
+            checks: vec![],
+            check_timeout: Duration::from_minutes(1),
+            protected: vec![main.clone(), BranchName::try_new("master").expect("branch")],
+        };
+        let err = integrate_once(&store, &repo, &runner, &clock, &log, &cfg, "i")
+            .await
+            .expect_err("refused");
+        assert_eq!(err, IntegratorError::ProtectedBranch { branch: main });
+        assert!(err.to_string().contains("protected"));
+        assert!(log.events().await.is_empty());
     }
 }

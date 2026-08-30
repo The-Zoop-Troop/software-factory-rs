@@ -279,6 +279,7 @@ Options:
       --events <EVENTS>                Event log path (JSONL, appended) [default: .factory/events.jsonl]
       --token <TOKEN>                  Bearer token for --rig [env: FACTORY_TOKEN]
       --main <MAIN>                    Integration branch [default: main]
+      --protected <PROTECTED>          Branches the factory must never integrate into or push (comma-separated) [env: RIG_PROTECTED_BRANCHES=] [default: main,master]
       --remote <REMOTE>                Remote to push main to after landing (omit for local-only)
       --check <CHECKS>                 Project-wide check to run on the rebased head before landing (repeatable)
       --check-timeout <CHECK_TIMEOUT>  Timeout per check, seconds [default: 1200]

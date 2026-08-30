@@ -28,7 +28,7 @@ docker compose exec steward factory inbox [--resolve <id> --note …]   # incide
 docker compose exec steward bd ready                                  # the ledger
 docker compose exec steward tail -f .factory/events.jsonl             # the event log
 ```
-Landing on a remote: pass `--remote origin` to `integrate` (edit the service command) and protect `main` on the remote so only the rig's deploy key can fast-forward it.
+Landing on a remote: set `RIG_MAIN` to the branch the factory may land on (`main`/`master` are refused by default — `RIG_PROTECTED_BRANCHES`) and pass `--remote origin` to `integrate` (edit the service command) and protect `main` on the remote so only the rig's deploy key can fast-forward it.
 
 ## Models and effort
 `RIG_HARNESS` picks the harness (`claude` default, `opencode`, `codex`); `CLAUDE_MODEL` / `OPENCODE_MODEL` / `CODEX_MODEL` pick the model for it; `RIG_EFFORT=low|medium|high|max` sets thinking effort (`claude --effort`, OpenCode message `variant`, Codex `model_reasoning_effort`, `max` → `xhigh`). Per role: `RIG_PLANNER_MODEL`/`RIG_PLANNER_EFFORT` and `RIG_WORKER_MODEL`/`RIG_WORKER_EFFORT` override — plan with a strong model at high effort, work with a cheaper one. On the CLI the same are `--harness`, `--model`, `--effort` on `plan` and `work`.
