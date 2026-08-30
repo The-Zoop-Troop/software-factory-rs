@@ -263,6 +263,10 @@ Rules:
 - Each task MUST include executable `verify` shell commands that prove the task is done when run \
 from the repository root of the task's branch (e.g. `cargo test -p auth`, `npm test -- login`, \
 `test -f docs/api.md`). A task with no verifiable outcome is not a task.
+- The repository root is your current directory: paths in verify commands are relative to it, \
+and the repository's own name is never a path component (`cargo test`, not \
+`cargo test --manifest-path <repo>/Cargo.toml`; `find .`, not `find <repo>`). Reference only \
+paths you have seen in the tree.
 - Verify commands are executed one per line by POSIX `/bin/sh` (dash), not bash, from the repo \
 root: source files with an explicit path (`. ./lib.sh` — never `source`, never `. lib.sh`, which \
 searches PATH), no `[[ ]]`, no arrays, no `set -o pipefail`. Each must exit 0 on success.
