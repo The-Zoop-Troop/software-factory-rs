@@ -27,6 +27,9 @@ pub(crate) enum RigCmdError {
     },
     #[error("registry {path} is malformed: {detail}")]
     Malformed { path: PathBuf, detail: String },
+    /// The rig came up but its doctor failed; the roles were stopped again.
+    #[error("rig {rig} is not healthy — roles stopped; doctor said:\n{report}")]
+    Doctor { rig: String, report: String },
 }
 
 fn io(path: &Path) -> impl Fn(std::io::Error) -> RigCmdError + '_ {
@@ -163,72 +166,17 @@ pub(crate) async fn create(
         dir.display()
     );
     if start {
-        docker
-            .compose(&rig.project(), &env, &layout.compose_file, &["up", "-d"])
-            .await?;
+        checked_up(docker, &rig, &env, layout).await?;
         out.push_str("started steward, verifier, integrator, worker, planner\n");
     }
     Ok(out)
 }
 
 /// `rig destroy`: bring the project down (optionally with volumes), forget it.
-/// Roles and egress down, `ledger` left up: a stopped rig keeps its history readable by the
-/// console (server mode reads beads through the ledger service).
-pub(crate) async fn stop(
-    docker: &dyn HostDocker,
-    layout: &Layout,
-    name: &str,
-) -> Result<String, RigCmdError> {
-    let name = RigName::try_new(name).map_err(|e| RigCmdError::Name {
-        detail: e.to_string(),
-    })?;
-    let registry = layout.load()?;
-    let rig = registry
-        .get(&name)
-        .cloned()
-        .ok_or_else(|| app::RegistryError::Unknown { name: name.clone() })?;
-    let env = layout.rig_dir(&name).join("compose.env");
-    docker
-        .compose(
-            &rig.project(),
-            &env,
-            &layout.compose_file,
-            &[
-                "stop",
-                "steward",
-                "verifier",
-                "integrator",
-                "worker",
-                "planner",
-                "egress",
-            ],
-        )
-        .await?;
-    Ok(format!(
-        "stopped rig {name} (ledger up: history stays readable)\n"
-    ))
-}
-
-/// Everything up again (ledger, egress, roles), profiles included as configured.
-pub(crate) async fn start(
-    docker: &dyn HostDocker,
-    layout: &Layout,
-    name: &str,
-) -> Result<String, RigCmdError> {
-    let name = RigName::try_new(name).map_err(|e| RigCmdError::Name {
-        detail: e.to_string(),
-    })?;
-    let registry = layout.load()?;
-    let rig = registry
-        .get(&name)
-        .cloned()
-        .ok_or_else(|| app::RegistryError::Unknown { name: name.clone() })?;
-    let env = layout.rig_dir(&name).join("compose.env");
-    docker
-        .compose(&rig.project(), &env, &layout.compose_file, &["up", "-d"])
-        .await?;
-    Ok(format!("started rig {name}\n"))
-}
+#[path = "rig_lifecycle.rs"]
+mod lifecycle;
+use lifecycle::checked_up;
+pub(crate) use lifecycle::{start, stop};
 
 pub(crate) async fn destroy(
     docker: &dyn HostDocker,
