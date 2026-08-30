@@ -56,3 +56,4 @@ docker compose build && docker compose up -d      # a rig; see docs/DEPLOYMENT.m
 factory doctor && factory watch && factory inbox     # health, progress, what needs a human
 factory plan --harness opencode --model provider/model --text "..."
 ```
+- `docs/guides/first-project.md` — walkthrough: a real multi-repo change through the factory, end to end

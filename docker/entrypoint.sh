@@ -13,10 +13,20 @@ if [ ! -d "$RIG_DIR/.beads" ]; then
 fi
 bd metrics off >/dev/null 2>&1 || true
 
+# A hosted-git token (fine-grained, scoped to this repo) is applied as a URL rewrite so it
+# never appears in RIG_REPO_URL, .gitmodules, or a log line: both SSH and HTTPS forms of the
+# host resolve to token-authenticated HTTPS.
+if [ -n "${RIG_GIT_TOKEN:-}" ]; then
+  host=${RIG_GIT_HOST:-github.com}
+  git config --global "url.https://x-access-token:${RIG_GIT_TOKEN}@${host}/.insteadOf" "git@${host}:"
+  git config --global --add "url.https://x-access-token:${RIG_GIT_TOKEN}@${host}/.insteadOf" "https://${host}/"
+fi
+
 if [ ! -d "$REPO_DIR/.git" ]; then
   if [ -n "${RIG_REPO_URL:-}" ]; then
     echo "[rig] cloning $RIG_REPO_URL"
-    git clone --quiet "$RIG_REPO_URL" "$REPO_DIR"
+    if [ "${RIG_SUBMODULES:-0}" = 1 ]; then submod=(--recurse-submodules); else submod=(); fi
+    git clone --quiet "${submod[@]}" --branch "${RIG_MAIN:-main}" "$RIG_REPO_URL" "$REPO_DIR"
   else
     echo "[rig] no repo at $REPO_DIR and RIG_REPO_URL unset; creating an empty one"
     git init --quiet -b "${RIG_MAIN:-main}" "$REPO_DIR"

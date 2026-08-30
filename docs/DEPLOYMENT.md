@@ -15,7 +15,7 @@ docker/build.sh rust                        # base + runtime image + egress prox
 docker compose up -d                        # egress, steward, verifier, integrator, worker (claude)
 docker compose run --rm shell doctor --probe   # tools, ledger, repo, credentials; --probe sends one token per harness
 ```
-Bring your project in: set `RIG_REPO_URL` in `rig.env` (cloned on first start), or seed the `repo` volume via `docker compose run --rm shell`.
+Bring your project in: set `RIG_REPO_URL` in `rig.env` (cloned on first start from `RIG_MAIN`; `RIG_GIT_TOKEN` authenticates through a git URL rewrite so the token never appears in a URL or log; `RIG_SUBMODULES=1` recurses), or seed the `repo` volume via `docker compose run --rm shell`.
 
 ## Operate
 ```sh
