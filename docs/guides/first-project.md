@@ -147,6 +147,54 @@ API shapes, error types, env vars the upstream epic produced) into the next epic
 order in your exec plan so anyone can see what is waiting on what.
 
 ## 5. Watch
+
+What the console shows, in the order things happen:
+
+| Moment | Where it shows |
+|---|---|
+| plan queued → planner reading the repo → epic created | request card on the rig page (progress line), then the epic card |
+| a task claimed | epic page → Tasks table: `leased`, "held by worker-…", attempts, tokens; Live feed line |
+| the session working | *nothing yet* between `claimed` and `submitted` (see the note below) |
+| task submitted → verified → landed on the feature branch | Live feed / epic Timeline: `submitted`, `verified`, `landed on main`-style lines; the epic card's counter advances |
+| something needs a human | header badge, rig page **Needs you**, epic page incident panel |
+
+While a session runs, the code is real and visible from the host if you want proof:
+
+```sh
+R="docker compose -p factory-<rig> --env-file ~/.factory/<rig>/compose.env -f compose.yaml"
+$R exec worker sh -c 'git -C /work/rig/.factory/worktrees/task__<task-id> diff --stat'   # the worktree the session edits
+$R logs -f worker                                                                         # harness events
+$R exec steward sh -c 'cd /work/rig && factory watch'                                     # ledger view
+```
+
+Landed work is on `<feature-branch>` at the remote after every `integrated` event (one squash
+commit per task, message from the task title). `main` is untouched.
+
 ## 6. Act on incidents
+
+An incident is a task the factory gave up on: verify failed three times, a merge no longer
+applies, the budget ran out, or a lease kept expiring. The incident panel shows the reason in
+plain words, the attempts/tokens used, the branch, and the **last verify output** — read that
+first; in this run both first incidents were infrastructure, not the model's code:
+
+- `fork/exec /tmp/go-build…/runner.test: permission denied` — the rig's `/tmp` is a `noexec`
+  tmpfs; Go builds test binaries there. Fixed in the go runtime image (`GOTMPDIR` on the cache
+  volume). Symptom of the same class for other stacks: anything that executes from `/tmp`.
+- `token budget exceeded: 9,193,403 of 400,000` after one session — the Codex CLI reports the
+  cached prompt prefix as input on every turn; the adapter now counts uncached tokens only, and
+  `RIG_TASK_TOKENS` raises the per-task budget written by the planner (2,000,000 for this run).
+
+Then pick an option on the panel:
+
+- **Retry** — reopen with fresh attempts and budget (use after fixing an environment problem).
+- **Retry with guidance** — same, plus a note the next session reads first ("use POSIX sh",
+  "the fixture lives in tests/data") — the most productive lever when the model misread the task.
+- **Re-plan** — stop the epic and queue a new plan from its goal plus your note, when the
+  decomposition itself was wrong.
+- **Stop the epic** — when the work is no longer wanted.
+
+A question from an agent (`question` kind) is answered the same way; the answer is recorded on
+the ledger and read by the session that asked.
+
 ## 7. Review what landed
 ## 8. The end-state sweep and teardown
