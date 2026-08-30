@@ -82,7 +82,9 @@ factory rig list
 `--no-start` registers the rig without running it, so you can create all of them now and bring
 them up one at a time. Each rig is its own compose project (`factory-<rig>`) with its own
 `ledger`, `repo` and `cache` volumes; the shared console is generated into `~/.factory/console/`.
-A rig whose repository needs a database gets `DATABASE_URL=postgres://factory:factory@postgres:5432/factory`
+Each rig also runs a `ledger` service — its Dolt SQL server — which every role and the console
+use; the first `factory rig create` on a host writes `~/.factory/ledger.password` (0600) and
+puts it in each rig's `compose.env`. A rig whose repository needs a database gets `DATABASE_URL=postgres://factory:factory@postgres:5432/factory`
 in its env and is started with the `postgres` profile — a throwaway database on the rig network,
 migrated by the tests themselves.
 

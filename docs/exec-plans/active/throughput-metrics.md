@@ -74,5 +74,9 @@ verify rate, incidents by reason, tokens per landed task, role idle time, retry 
   the read models list active beads only and the timeline is an in-memory ring; the data was
   never lost (ledger + events.jsonl on the volume). The throughput page is a per-epic history
   view, so both ship here. Events, not `bd`, feed history lists (ledger latency, `fac-crw`).
+- 2026-08-30 — the first measurement that mattered was not in the log: a `bd` call took
+  3–16 s (embedded Dolt, six processes on one volume lock), which stretched `/rigs` to 100 s+
+  and reaped a live lease. Fixed as `fac-crw`: one Dolt SQL server per rig (`ledger` service),
+  45–200 ms per call measured on a copy of the Phase 0 ledger.
 - 2026-08-30 — stage events are additive `EventKind` variants; the metrics module is pure and
   lives in `app`, so the planner can consume the same numbers later.

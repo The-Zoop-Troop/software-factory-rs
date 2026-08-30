@@ -4,6 +4,8 @@
 
 ARG RUST_VERSION=1.97.1
 ARG BD_VERSION=1.2.2
+ARG DOLT_VERSION=2.3.1
+ARG DOLT_SHA256=0a2a318f27c5e1088a2883038573c2054e00f356dc9752e74bca934f8321959a
 ARG CLAUDE_VERSION=2.1.250
 ARG OPENCODE_VERSION=1.18.18
 ARG CODEX_VERSION=0.149.1
@@ -69,6 +71,13 @@ RUN set -eu; cd /tmp; \
     echo "${expected}  ${asset}" | sha256sum -c -; \
     tar -xzf "${asset}"; install -m 0755 bd /usr/local/bin/bd; rm -rf /tmp/*; \
     bd version
+
+# dolt: the ledger's SQL server (one per rig, see docs/design-docs/ledger.md). Pinned + checksummed.
+RUN set -eu; cd /tmp; \
+    curl -fsSLo dolt.tgz "https://github.com/dolthub/dolt/releases/download/v${DOLT_VERSION}/dolt-linux-amd64.tar.gz"; \
+    echo "${DOLT_SHA256}  dolt.tgz" | sha256sum -c -; \
+    tar -xzf dolt.tgz; install -m 0755 dolt-linux-amd64/bin/dolt /usr/local/bin/dolt; rm -rf /tmp/*; \
+    dolt version
 
 RUN groupadd -g 10001 factory && useradd -m -u 10001 -g factory -s /bin/bash factory \
     # Pre-create the volume mount points so fresh named volumes inherit factory's ownership.

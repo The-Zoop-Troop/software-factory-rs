@@ -9,3 +9,10 @@
 - Credentials arrive as env from `docker/rig.env` (gitignored) at start; OpenCode's provider config is generated from env by the entrypoint and reads the key via `{env:…}`.
 - Roles are compose services sharing the image: `steward`, `verifier`, `integrator`, `worker`, `worker-opencode`, `worker-codex` (profile), one-shots `plan`, `shell`.
 - Threat model and what the rig does *not* protect: `docs/SECURITY.md`.
+
+## Services
+
+`ledger` (the rig's Dolt SQL server, first up, health-checked), `egress` (the only route out),
+then the roles: `steward`, `verifier`, `integrator`, `worker`, `planner`; optional profiles add
+a rig-local `console`, `postgres`, `redis`, an OpenCode worker, and a chat bridge. Roles wait
+for `ledger` to be healthy. See `ledger.md` for why the server exists.

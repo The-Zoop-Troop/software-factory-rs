@@ -15,6 +15,9 @@ x-rig: &rig
     HTTP_PROXY: http://egress:8888
     NO_PROXY: localhost,127.0.0.1,egress
     RUST_LOG: info
+    # The rig's Dolt server (service `ledger`); the same password on every rig of a host.
+    BEADS_DOLT_PASSWORD: ${LEDGER_PASSWORD:-factory}
+    LEDGER_PASSWORD: ${LEDGER_PASSWORD:-factory}
   volumes:
     - ledger:/work/rig
     - repo:/work/rig/repo
@@ -27,10 +30,27 @@ x-rig: &rig
   mem_limit: 6g
   cpus: 4
   tmpfs: [/tmp:size=1g]
-  depends_on: [egress]
+  depends_on:
+    egress: { condition: service_started }
+    ledger: { condition: service_healthy }
   restart: unless-stopped
 
 services:
+  # One Dolt SQL server per rig over the ledger volume; every role and the console talk to it
+  # as `ledger-<rig>` (docs/design-docs/ledger.md).
+  ledger:
+    <<: *rig
+    command: [ledger]
+    depends_on: []
+    networks:
+      rig:
+        aliases: ["ledger-${RIG_NAME:-rig}"]
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/3307"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
   egress:
     build:
       context: docker

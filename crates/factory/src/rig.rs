@@ -84,10 +84,12 @@ impl Layout {
         };
         write("rigs.toml", registry.console_registry())?;
         write("compose.yaml", registry.console_compose(image, 7700))?;
+        let pw = ledger_password(self)?;
         write(
             "compose.env",
-            format!("COMPOSE_PROJECT_NAME={CONSOLE_PROJECT}\n"),
+            format!("COMPOSE_PROJECT_NAME={CONSOLE_PROJECT}\nLEDGER_PASSWORD={pw}\n"),
         )?;
+        restrict(&console.join("compose.env"))?;
         let tokens = console.join("tokens.toml");
         if !tokens.exists() {
             std::fs::write(&tokens, TOKENS_EXAMPLE).map_err(io(&tokens))?;
@@ -138,7 +140,10 @@ pub(crate) async fn create(
     let dir = layout.rig_dir(&name);
     std::fs::create_dir_all(&dir).map_err(io(&dir))?;
     let env = dir.join("compose.env");
-    std::fs::write(&env, rig.compose_env()).map_err(io(&env))?;
+    let pw = ledger_password(layout)?;
+    std::fs::write(&env, format!("{}LEDGER_PASSWORD={pw}\n", rig.compose_env()))
+        .map_err(io(&env))?;
+    restrict(&env)?;
     let rig_env = dir.join("rig.env");
     match secrets {
         Some(src) => {
@@ -442,4 +447,70 @@ pub(crate) async fn run(
         RigCommand::Console { down } => console(docker, layout, !down).await?,
     };
     Ok(out)
+}
+
+/// One password per host for every rig's Dolt server (`~/.factory/ledger.password`, 0600),
+/// generated on first use. The rig networks are private, so it only keeps a stray process on
+/// the host from talking SQL to a ledger; it is never a secret that leaves the machine.
+fn ledger_password(layout: &Layout) -> Result<String, RigCmdError> {
+    let path = layout.root.join("ledger.password");
+    if let Ok(existing) = std::fs::read_to_string(&path) {
+        let trimmed = existing.trim();
+        if !trimmed.is_empty() {
+            return Ok(trimmed.to_owned());
+        }
+    }
+    std::fs::create_dir_all(&layout.root).map_err(io(&layout.root))?;
+    // 16 random bytes from the OS, hex-encoded; no clock, no rand crate.
+    let bytes = std::fs::File::open("/dev/urandom")
+        .and_then(|mut f| {
+            use std::io::Read as _;
+            let mut b = [0u8; 16];
+            f.read_exact(&mut b).map(|()| b)
+        })
+        .map_err(io(std::path::Path::new("/dev/urandom")))?;
+    let pw = bytes.iter().fold(String::with_capacity(32), |mut acc, b| {
+        use std::fmt::Write as _;
+        let _ = write!(acc, "{b:02x}");
+        acc
+    });
+    std::fs::write(&path, format!("{pw}\n")).map_err(io(&path))?;
+    restrict(&path)?;
+    Ok(pw)
+}
+
+/// 0600 on files that carry a password.
+fn restrict(path: &std::path::Path) -> Result<(), RigCmdError> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)).map_err(io(path))?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod ledger_password_tests {
+    use super::*;
+
+    #[test]
+    fn one_password_per_host_generated_once_and_private() {
+        let root = std::env::temp_dir().join(format!("factory-pw-{}", std::process::id()));
+        let layout = Layout {
+            root: root.clone(),
+            compose_file: PathBuf::from("compose.yaml"),
+        };
+        let first = ledger_password(&layout).ok();
+        let again = ledger_password(&layout).ok();
+        assert!(first.is_some() && first == again);
+        assert_eq!(first.map(|p| p.len()), Some(32));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let mode = std::fs::metadata(root.join("ledger.password"))
+                .map(|m| m.permissions().mode() & 0o777)
+                .ok();
+            assert_eq!(mode, Some(0o600));
+        }
+    }
 }

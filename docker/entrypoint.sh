@@ -13,6 +13,24 @@ if [ ! -d "$RIG_DIR/.beads" ]; then
 fi
 bd metrics off >/dev/null 2>&1 || true
 
+# The `ledger` role serves this rig's Dolt database to every other role (and the console) so a
+# `bd` call costs milliseconds instead of opening the engine in-process under a shared lock.
+# It runs before the clone: it needs no repository.
+if [ "${1:-}" = ledger ]; then
+  cd "$RIG_DIR"
+  host="ledger-${RIG_NAME:-rig}"
+  pw="${LEDGER_PASSWORD:-factory}"
+  bd dolt set host "$host" >/dev/null 2>&1
+  bd dolt set port 3307 >/dev/null 2>&1
+  bd dolt set user factory >/dev/null 2>&1
+  jq '. + {dolt_mode: "server"} | del(.dolt_server_port)' .beads/metadata.json > .beads/metadata.json.tmp \
+    && mv .beads/metadata.json.tmp .beads/metadata.json
+  echo 3307 > .beads/dolt-server.port
+  (cd .beads/embeddeddolt && dolt sql -q "CREATE USER IF NOT EXISTS 'factory'@'%' IDENTIFIED BY '${pw}'; ALTER USER 'factory'@'%' IDENTIFIED BY '${pw}'; GRANT ALL ON *.* TO 'factory'@'%';" >/dev/null)
+  echo "[rig] ledger: dolt sql-server on ${host}:3307 over $RIG_DIR/.beads/embeddeddolt"
+  exec dolt sql-server --data-dir "$RIG_DIR/.beads/embeddeddolt" -H 0.0.0.0 -P 3307 --loglevel=warning
+fi
+
 # A hosted-git token (fine-grained, scoped to this repo) is applied as a URL rewrite so it
 # never appears in RIG_REPO_URL, .gitmodules, or a log line: both SSH and HTTPS forms of the
 # host resolve to token-authenticated HTTPS.
