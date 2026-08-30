@@ -176,17 +176,25 @@ impl HostRegistry {
     /// A compose file for one console over every rig's ledger volume (external volumes) and on
     /// every rig's network, so `bd` reaches each rig's `ledger-<rig>` server.
     #[must_use]
-    pub fn console_compose(&self, image: &str, port: u16) -> String {
+    /// `present` limits the networks the console joins to those that exist (a rig created with
+    /// `--no-start` has none yet); `None` joins every rig's.
+    pub fn console_compose(&self, image: &str, port: u16, present: Option<&[String]>) -> String {
         let mounts = self.rig.iter().fold(String::new(), |mut s, r| {
             let _ = writeln!(s, "      - {}:/work/rigs/{}", r.volume("ledger"), r.name);
             s
         });
-        let nets = self.rig.iter().fold(String::new(), |mut s, r| {
-            let _ = writeln!(s, "      - {}", r.network());
+        let joins: Vec<String> = self
+            .rig
+            .iter()
+            .map(HostRig::network)
+            .filter(|n| present.is_none_or(|p| p.contains(n)))
+            .collect();
+        let nets = joins.iter().fold(String::new(), |mut s, n| {
+            let _ = writeln!(s, "      - {n}");
             s
         });
-        let networks = self.rig.iter().fold(String::new(), |mut s, r| {
-            let _ = writeln!(s, "  {}:\n    external: true", r.network());
+        let networks = joins.iter().fold(String::new(), |mut s, n| {
+            let _ = writeln!(s, "  {n}:\n    external: true");
             s
         });
         let volumes = self.rig.iter().fold(String::new(), |mut s, r| {
@@ -231,6 +239,12 @@ pub trait HostDocker: Send + Sync {
     /// # Errors
     /// Missing docker.
     async fn volume_exists(&self, name: &str) -> Result<bool, HostError>;
+
+    /// Does a compose network exist on this host (a rig that has run at least once)?
+    ///
+    /// # Errors
+    /// Docker unreachable.
+    async fn network_exists(&self, name: &str) -> Result<bool, HostError>;
     /// Tar a volume's contents into `dest`.
     ///
     /// # Errors
@@ -397,7 +411,7 @@ mod tests {
         let (reg, _) = registry();
         let toml = reg.console_registry();
         assert!(toml.contains("ledger = \"/work/rigs/toy\""));
-        let compose = reg.console_compose("factory-rig:base", 7700);
+        let compose = reg.console_compose("factory-rig:base", 7700, None);
         assert!(compose.contains("factory-toy_ledger:/work/rigs/toy"));
         assert!(compose.contains("external: true"));
         assert!(compose.contains("127.0.0.1:7700:7700"));
@@ -486,12 +500,18 @@ mod ledger_tests {
                 .expect("add")
                 .0;
         }
-        let yaml = reg.console_compose("factory-rig:base", 7700);
+        let yaml = reg.console_compose("factory-rig:base", 7700, None);
         assert!(
             yaml.contains("      - factory-a_rig\n") && yaml.contains("      - factory-b_rig\n")
         );
         assert!(yaml.contains("  factory-a_rig:\n    external: true"));
         assert!(yaml.contains("BEADS_DOLT_PASSWORD: ${LEDGER_PASSWORD:-factory}"));
         assert_eq!(reg.rig[0].network(), "factory-a_rig");
+        let only_a = reg.console_compose(
+            "factory-rig:base",
+            7700,
+            Some(&["factory-a_rig".to_owned()]),
+        );
+        assert!(only_a.contains("      - factory-a_rig\n") && !only_a.contains("factory-b_rig"));
     }
 }

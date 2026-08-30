@@ -15,6 +15,7 @@ use tokio::sync::Mutex;
 pub struct FakeHostDocker {
     pub calls: Mutex<Vec<String>>,
     pub volumes: Mutex<std::collections::BTreeSet<String>>,
+    pub networks: Mutex<std::collections::BTreeSet<String>>,
     pub ps: Mutex<BTreeMap<String, String>>,
     pub archived: Mutex<Vec<(String, PathBuf)>>,
     pub restored: Mutex<Vec<(String, PathBuf)>>,
@@ -60,6 +61,10 @@ impl crate::HostDocker for FakeHostDocker {
     async fn volume_exists(&self, name: &str) -> Result<bool, crate::HostError> {
         self.check("volume")?;
         Ok(self.volumes.lock().await.contains(name))
+    }
+    async fn network_exists(&self, name: &str) -> Result<bool, crate::HostError> {
+        self.check("network")?;
+        Ok(self.networks.lock().await.contains(name))
     }
     async fn archive_volume(&self, volume: &str, dest: &Path) -> Result<(), crate::HostError> {
         self.check("archive")?;

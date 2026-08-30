@@ -83,7 +83,7 @@ impl Layout {
             std::fs::write(&p, body).map_err(io(&p))
         };
         write("rigs.toml", registry.console_registry())?;
-        write("compose.yaml", registry.console_compose(image, 7700))?;
+        write("compose.yaml", registry.console_compose(image, 7700, None))?;
         let pw = ledger_password(self)?;
         write(
             "compose.env",
@@ -325,6 +325,20 @@ pub(crate) async fn console(
     let registry = layout.load()?;
     layout.save(&registry, "factory-rig:base")?;
     let dir = layout.console_dir();
+    // Join only the rig networks that exist: a rig that never ran has none, and compose refuses
+    // to start over a missing external network. Re-run `factory rig console` after a new rig's first start.
+    let mut present = Vec::new();
+    for r in &registry.rig {
+        if docker.network_exists(&r.network()).await? {
+            present.push(r.network());
+        }
+    }
+    let compose = dir.join("compose.yaml");
+    std::fs::write(
+        &compose,
+        registry.console_compose("factory-rig:base", 7700, Some(&present)),
+    )
+    .map_err(io(&compose))?;
     let args: &[&str] = if up { &["up", "-d"] } else { &["down"] };
     docker
         .compose(

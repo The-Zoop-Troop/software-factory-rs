@@ -112,6 +112,16 @@ impl HostDocker for DockerCli {
         Ok(out.lines().any(|l| l.trim() == name))
     }
 
+    async fn network_exists(&self, name: &str) -> Result<bool, HostError> {
+        let out = self
+            .run(
+                "network ls",
+                &["network", "ls", "--format", "{{.Name}}"].map(str::to_owned),
+            )
+            .await?;
+        Ok(out.lines().any(|l| l.trim() == name))
+    }
+
     async fn archive_volume(&self, volume: &str, dest: &Path) -> Result<(), HostError> {
         let (dir, name) = split_dest(dest)?;
         std::fs::create_dir_all(&dir).map_err(|e| HostError::Command {
