@@ -39,7 +39,7 @@ The `console` service exposes the rig over A2A on `127.0.0.1:7700` (`CONSOLE_POR
 openssl rand -hex 32 > phone.token
 docker compose run --rm console console hash-token < phone.token    # → sha256 for tokens.toml
 cp docker/console/tokens.toml.example docker/console/tokens.toml   # paste the hash, set grants
-PLANNER_HARNESS=opencode docker compose up -d planner console      # planner serves the plan queue (harness of your choice)
+PLANNER_HARNESS=opencode docker compose --profile console up -d planner console   # single-rig console (multi-rig hosts: `factory rig console`)
 curl -s localhost:7700/rigs/toy/.well-known/agent-card.json | jq .skills[].id
 curl -s -H "Authorization: Bearer $(cat phone.token)" -d '{"jsonrpc":"2.0","id":1,"method":"ListTasks"}' localhost:7700/rigs/toy/a2a
 ```

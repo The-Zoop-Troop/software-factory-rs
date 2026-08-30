@@ -97,9 +97,12 @@ services:
 
   # Remote control (docs/exec-plans/completed/remote-control.md). Only the console is reachable
   # from outside the rig network, on the loopback port below; put TLS in front for real use.
+  # Single-rig console. Opt in with `--profile console`; hosts running several rigs use the shared
+  # console from `factory rig console` instead (one process over every rig's ledger).
   console:
     <<: *rig
     command: [console]
+    profiles: [console]
     env_file: []   # no provider credentials here, ever
     environment:
       RIG_NAME: ${RIG_NAME:-toy}

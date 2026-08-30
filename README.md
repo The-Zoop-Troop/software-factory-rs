@@ -107,7 +107,7 @@ docker compose run --rm shell doctor           # tools, ledger, repo, credential
 docker compose run --rm -e RIG_HARNESS=opencode plan \
   --text "Add a --verbose flag to the CLI, with a test and a README section."
 docker compose exec steward factory watch      # progress per epic; `factory inbox` for incidents
-docker compose up -d planner console           # remote control: A2A console on 127.0.0.1:7700 (+ browser UI at /)
+docker compose --profile console up -d planner console   # remote control: A2A console on 127.0.0.1:7700 (+ browser UI at /)
 ```
 
 Bring your project in with `RIG_REPO_URL` in `docker/rig.env` (cloned on first start) or by
