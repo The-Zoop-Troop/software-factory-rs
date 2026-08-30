@@ -233,6 +233,12 @@ mod tests {
     #[test]
     fn parse_from_handles_partial_lines_and_junk() {
         let a = r#"{"at":"t","actor":"w","bead":"x-1","kind":"claimed","holder":"w"}"#;
+        let numeric = "{\"at\":1788093449,\"actor\":\"planner\",\"bead\":\"be-1\",\"kind\":\"progress\",\"files\":3}\n";
+        assert_eq!(
+            parse_from(numeric.as_bytes(), 0).0.len(),
+            1,
+            "rigs write `at` as unix seconds"
+        );
         let bytes = format!("{a}\nnot json\n{a}\n{{\"partial\":").into_bytes();
         let (recs, next) = parse_from(&bytes, 0);
         assert_eq!(recs.len(), 2);

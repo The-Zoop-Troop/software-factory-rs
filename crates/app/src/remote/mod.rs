@@ -34,6 +34,11 @@ pub trait Authenticator: Send + Sync {
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EventRecord {
+    /// Unix seconds as written by the rigs; kept as text so old string-stamped logs still read.
+    #[cfg_attr(
+        feature = "serde",
+        serde(deserialize_with = "at_from_number_or_string")
+    )]
     pub at: String,
     pub actor: String,
     #[cfg_attr(feature = "serde", serde(default))]
@@ -41,6 +46,21 @@ pub struct EventRecord {
     pub kind: String,
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub detail: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Rigs write `at` as unix seconds; older logs and fixtures wrote a string. Accept both.
+#[cfg(feature = "serde")]
+fn at_from_number_or_string<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
+    #[derive(serde::Deserialize)]
+    #[serde(untagged)]
+    enum Raw {
+        Number(i64),
+        Text(String),
+    }
+    Ok(match <Raw as serde::Deserialize>::deserialize(d)? {
+        Raw::Number(n) => n.to_string(),
+        Raw::Text(t) => t,
+    })
 }
 
 /// Reading the event log failed.
