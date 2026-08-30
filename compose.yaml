@@ -4,6 +4,17 @@
 
 # Images are built by `docker/build.sh [runtime]` (base + runtime + egress allowlist); pick one
 # with RIG_IMAGE (default: the rust runtime, which this repository itself needs).
+# Every rig container's environment; services that add their own keys merge this in.
+x-rig-env: &rig-env
+  HTTPS_PROXY: http://egress:8888
+  HTTP_PROXY: http://egress:8888
+  NO_PROXY: localhost,127.0.0.1,egress
+  RUST_LOG: info
+  # The rig's Dolt server (service `ledger`); the same password on every rig of a host.
+  RIG_NAME: ${RIG_NAME:-rig}
+  BEADS_DOLT_PASSWORD: ${LEDGER_PASSWORD:-factory}
+  LEDGER_PASSWORD: ${LEDGER_PASSWORD:-factory}
+
 x-rig: &rig
   image: ${RIG_IMAGE:-factory-rig:rust}
   # RIG_ENV_FILE: the rig's secrets/env (set by `factory rig create`; single-rig default below).
@@ -11,14 +22,7 @@ x-rig: &rig
     - path: ${RIG_ENV_FILE:-docker/rig.env}
       required: false
   environment:
-    HTTPS_PROXY: http://egress:8888
-    HTTP_PROXY: http://egress:8888
-    NO_PROXY: localhost,127.0.0.1,egress
-    RUST_LOG: info
-    # The rig's Dolt server (service `ledger`); the same password on every rig of a host.
-    RIG_NAME: ${RIG_NAME:-rig}
-    BEADS_DOLT_PASSWORD: ${LEDGER_PASSWORD:-factory}
-    LEDGER_PASSWORD: ${LEDGER_PASSWORD:-factory}
+    <<: *rig-env
   volumes:
     - ledger:/work/rig
     - repo:/work/rig/repo
@@ -89,6 +93,7 @@ services:
   worker-codex:
     <<: *rig
     environment:
+      <<: *rig-env
       HTTPS_PROXY: http://egress:8888
       HTTP_PROXY: http://egress:8888
       NO_PROXY: localhost,127.0.0.1,egress
@@ -101,6 +106,7 @@ services:
   worker-opencode:
     <<: *rig
     environment:
+      <<: *rig-env
       HTTPS_PROXY: http://egress:8888
       HTTP_PROXY: http://egress:8888
       NO_PROXY: localhost,127.0.0.1,egress
@@ -116,6 +122,7 @@ services:
     <<: *rig
     command: [planner]
     environment:
+      <<: *rig-env
       HTTPS_PROXY: http://egress:8888
       HTTP_PROXY: http://egress:8888
       NO_PROXY: localhost,127.0.0.1,egress
@@ -132,6 +139,7 @@ services:
     profiles: [console]
     env_file: []   # no provider credentials here, ever
     environment:
+      <<: *rig-env
       RIG_NAME: ${RIG_NAME:-toy}
       CONSOLE_URL: ${CONSOLE_URL:-http://127.0.0.1:7700}
       RUST_LOG: ${RUST_LOG:-info}
@@ -151,6 +159,7 @@ services:
     command: [telegram]
     env_file: []
     environment:
+      <<: *rig-env
       HTTPS_PROXY: http://egress:8888
       NO_PROXY: localhost,127.0.0.1,egress,console
       RUST_LOG: ${RUST_LOG:-info}
@@ -168,6 +177,7 @@ services:
     networks: [rig, outside]
     ports: ["80:80", "443:443"]
     environment:
+      <<: *rig-env
       CONSOLE_DOMAIN: ${CONSOLE_DOMAIN:-localhost}
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
