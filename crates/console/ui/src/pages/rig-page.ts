@@ -2,13 +2,14 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { repeat } from 'lit/directives/repeat.js';
-import { applyOption, pending, resolveItem, refreshRig, stopEpic, submitPlan } from '../actions.js';
+import { applyOption, loadHistory, pending, resolveItem, refreshRig, stopEpic, submitPlan } from '../actions.js';
 import type { AttentionOption } from '../core/schema.js';
 import { can, whyNot } from '../state/session.js';
 import type { RigName } from '../core/schema.js';
-import { currentRig, isEpic, isRequest, needsHuman, tasksByRig } from '../state/rigs.js';
+import { currentRig, historyByRig, isEpic, isRequest, needsHuman, tasksByRig } from '../state/rigs.js';
 import { controls } from '../styles/shared.js';
 import '../components/epic-card.js';
+import '../components/state-badge.js';
 import '../components/plan-form.js';
 import '../components/inbox-item.js';
 import '../components/request-card.js';
@@ -19,6 +20,17 @@ import type { PlanForm } from '../components/plan-form.js';
 @customElement('rig-page')
 export class RigPage extends SignalWatcher(LitElement) {
   static override styles = [controls, css`
+    details.completed summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: var(--space-2); }
+    details.completed summary::-webkit-details-marker { display: none; }
+    details.completed summary::before { content: '▸'; color: var(--fg-muted); transition: transform 150ms; }
+    details.completed[open] summary::before { transform: rotate(90deg); }
+    details.completed summary h2 { margin: 0; }
+    details.completed table { width: 100%; border-collapse: collapse; }
+    details.completed th, details.completed td { text-align: left; padding: var(--space-2) var(--space-3); border-block-end: 1px solid var(--line); }
+    details.completed .num { text-align: right; font-variant-numeric: tabular-nums; }
+    details.completed .mono { font-family: var(--mono); font-size: 0.85em; }
+    details.completed .muted { color: var(--fg-muted); }
+
     :host { display: grid; gap: var(--space-6); }
     header { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
     h1 { font-size: 1.6rem; font-weight: 800; font-family: var(--mono); view-transition-name: var(--vt); }
@@ -37,6 +49,7 @@ export class RigPage extends SignalWatcher(LitElement) {
     super.connectedCallback();
     currentRig.set(this.rig as RigName);
     void refreshRig(this.rig as RigName);
+    void loadHistory(this.rig as RigName);
   }
 
   override disconnectedCallback(): void {
@@ -49,6 +62,7 @@ export class RigPage extends SignalWatcher(LitElement) {
     const epics = tasks.filter(isEpic);
     const requests = tasks.filter(isRequest);
     const inbox = tasks.filter((t) => !isEpic(t) && !isRequest(t) && needsHuman(t));
+    const done = (historyByRig.get()[this.rig] ?? []).filter(isEpic);
     return html`
       <header><a href="/">Rigs</a><span class="muted">/</span><h1 style="--vt: rig-${this.rig}">${this.rig}</h1></header>
       <plan-form ?pending=${this.planning} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @submit-plan=${this.onPlan}></plan-form>
@@ -66,6 +80,20 @@ export class RigPage extends SignalWatcher(LitElement) {
           ? html`<p class="empty">Nothing in flight. Submit a plan above.</p>`
           : html`<div class="grid">${repeat(epics, (t) => t.id, (t) => html`<epic-card .task=${t} rig=${this.rig} ?pending=${pending.get().has(t.id)} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @stop-epic=${this.onStop}></epic-card>`)}</div>`}
       </section>
+      ${done.length === 0 ? '' : html`<section aria-labelledby="done-h">
+        <details class="completed">
+          <summary><h2 id="done-h">Completed <span class="count">${done.length}</span></h2></summary>
+          <div class="surface"><table>
+            <thead><tr><th>Epic</th><th class="num">Tasks</th><th class="num">Tokens</th><th>State</th></tr></thead>
+            <tbody>${repeat(done, (t) => t.id, (t) => html`<tr>
+              <td><a href="/rigs/${this.rig}/epics/${t.id}"><strong>${t.metadata.factory.title}</strong></a><br><span class="mono muted">${t.id}</span></td>
+              <td class="num">${t.metadata.factory.closed}/${t.metadata.factory.tasks}</td>
+              <td class="num">${Math.round(t.metadata.factory.children.reduce((s, c) => s + c.tokens, 0) / 1000)}k</td>
+              <td><state-badge .state=${t.status.state}></state-badge></td>
+            </tr>`)}</tbody>
+          </table></div>
+        </details>
+      </section>`}
       <section aria-labelledby="feed-h">
         <h2 id="feed-h">Live</h2>
         <live-feed rig=${this.rig}></live-feed>

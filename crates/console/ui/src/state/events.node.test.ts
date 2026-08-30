@@ -1,7 +1,7 @@
 import { describe as suite, it, expect, beforeEach } from 'vitest';
 import { Effect, Stream } from 'effect';
 import { eventStream, type EventFrame, type EventSourceLike } from '../core/events.js';
-import { describe, forRig, latestProgress, push, recent, recordDate, reset, streamStatus } from './events.js';
+import { describe, forEpic, forRig, latestProgress, push, recent, recordDate, reset, setEpicHistory, streamStatus } from './events.js';
 import { onFrame, startLive, stopLive } from '../live.js';
 import { notices, reset as resetNotices } from './notices.js';
 
@@ -12,6 +12,20 @@ const frame = (kind: string, extra: Record<string, unknown> = {}, rig = 'toy'): 
 beforeEach(() => { reset(); resetNotices(); stopLive(); });
 
 suite('events store', () => {
+  it('merges loaded history under the live ring for an epic, de-duplicated and in time order', () => {
+    setEpicHistory('toy', 'ep-1', [
+      { at: 10, actor: 'planner', bead: 'ep-1.1', kind: 'task_planned' },
+      { at: 20, actor: 'worker', bead: 'ep-1.1', kind: 'claimed' },
+      { at: 15, actor: 'stewardd', bead: 'zz-9', kind: 'claimed' },
+    ]);
+    push({ rig: 'toy', cursor: 7, replay: false, record: { at: 20, actor: 'worker', bead: 'ep-1.1', kind: 'claimed' } });
+    push({ rig: 'toy', cursor: 8, replay: false, record: { at: 30, actor: 'worker', bead: 'ep-1.1', kind: 'submitted' } });
+    const kinds = forEpic('toy', 'ep-1').map((f) => `${String(f.record.at)}:${f.record.kind}`);
+    expect(kinds).toEqual(['10:task_planned', '20:claimed', '30:submitted']);
+    reset();
+    expect(forEpic('toy', 'ep-1')).toEqual([]);
+  });
+
   it('turns any at into a valid date', () => {
     expect(recordDate(1788093449).getTime()).toBe(1788093449000);
     expect(recordDate('1788093449').getTime()).toBe(1788093449000);

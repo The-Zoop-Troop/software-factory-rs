@@ -1,6 +1,6 @@
 // Recent events per rig (a ring buffer), stream status, and what the UI derives from them.
 import { signal, computed } from '@lit-labs/signals';
-import type { EventFrame } from '../core/events.js';
+import type { EventFrame, EventRecord } from '../core/events.js';
 
 export type StreamStatus = 'off' | 'connecting' | 'live' | 'reconnecting';
 
@@ -62,6 +62,7 @@ export const describe = (f: EventFrame): Line | null => {
 };
 
 export const reset = (): void => {
+  historyFrames.set({});
   streamStatus.set('off');
   recent.set([]);
   lastEventAt.set(null);
@@ -76,9 +77,32 @@ export const alerts = computed(() =>
     .reverse(),
 );
 
-/** Events under an epic (the epic itself and its children `epic.N`). */
-export const forEpic = (rig: string, epic: string): ReadonlyArray<EventFrame> =>
-  recent.get().filter((f) => f.rig === rig && typeof f.record.bead === 'string' && (f.record.bead === epic || f.record.bead.startsWith(`${epic}.`)));
+/** Full-log history per `rig/epic`, loaded from the console; merged under the live ring. */
+export const historyFrames = signal<Readonly<Record<string, ReadonlyArray<EventFrame>>>>({});
+export const setEpicHistory = (rig: string, epic: string, records: ReadonlyArray<EventRecord>): void => {
+  historyFrames.set({ ...historyFrames.get(), [`${rig}/${epic}`]: records.map((record) => ({ rig, cursor: 0, replay: true, record })) });
+};
+
+const under = (epic: string) => (f: EventFrame): boolean =>
+  typeof f.record.bead === 'string' && (f.record.bead === epic || f.record.bead.startsWith(`${epic}.`));
+const key = (f: EventFrame): string => `${String(f.record.at)}|${f.record.kind}|${str(f.record.bead)}|${f.record.actor}`;
+const seconds = (at: unknown): number => (typeof at === 'number' ? at : Number(at) || 0);
+
+/** Events under an epic (the epic itself and its children `epic.N`): loaded history plus the
+ * live ring, de-duplicated and in time order. */
+export const forEpic = (rig: string, epic: string): ReadonlyArray<EventFrame> => {
+  const live = recent.get().filter((f) => f.rig === rig).filter(under(epic));
+  const past = (historyFrames.get()[`${rig}/${epic}`] ?? []).filter(under(epic));
+  const seen = new Set<string>();
+  const out: EventFrame[] = [];
+  for (const f of [...past, ...live]) {
+    const k = key(f);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(f);
+  }
+  return out.sort((a, b) => seconds(a.record.at) - seconds(b.record.at));
+};
 
 /** The most recent progress sample per bead among `frames` (what a running session has changed so far). */
 export const latestProgress = (frames: ReadonlyArray<EventFrame>): ReadonlyMap<string, Line> => {

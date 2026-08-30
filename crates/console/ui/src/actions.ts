@@ -6,7 +6,8 @@ import type { AttentionOption, RigName } from './core/schema.js';
 import { ConsoleApi } from './core/api.js';
 import { run, withApi } from './core/runtime.js';
 import { notify } from './state/notices.js';
-import { markUnavailable, rigs, setTasks } from './state/rigs.js';
+import { historyByRig, markUnavailable, rigs, setHistory, setTasks, taskById } from './state/rigs.js';
+import { setEpicHistory } from './state/events.js';
 import { connection, identity, lastError } from './state/session.js';
 import { signal } from '@lit-labs/signals';
 
@@ -64,6 +65,23 @@ export const refreshAll = (): Promise<boolean> => {
 };
 
 export const refreshRig = (rig: RigName): Promise<boolean> => attempt(loadRig(rig).pipe(Effect.asVoid));
+
+const historyOf = (rig: RigName) => historyByRig.get()[rig] ?? [];
+
+/** Closed epics of a rig (the Completed section). */
+export const loadHistory = (rig: RigName): Promise<boolean> =>
+  attempt(withApi((api) => api.history(rig)).pipe(Effect.map((ts) => { setHistory(rig, ts); })));
+
+/** A closed (or any) epic's page: the task itself if it is not loaded yet, and its full log. */
+export const loadEpicHistory = (rig: RigName, id: string): Promise<boolean> =>
+  attempt(
+    Effect.all([
+      taskById(rig, id) === undefined
+        ? withApi((api) => api.task(rig, id)).pipe(Effect.map((t) => { setHistory(rig, [...(historyOf(rig)).filter((x) => x.id !== t.id), t]); }))
+        : Effect.void,
+      withApi((api) => api.epicEvents(rig, id)).pipe(Effect.map((events) => { setEpicHistory(rig, id, events); })),
+    ], { discard: true }),
+  );
 
 export const submitPlan = (rig: RigName, text: string): Promise<boolean> =>
   attempt(

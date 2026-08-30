@@ -54,6 +54,7 @@ export const setTasks = (rig: RigName, tasks: ReadonlyArray<Task>): void => {
 };
 
 export const reset = (): void => {
+  historyByRig.set({});
   unavailable.set({});
   rigs.set([]);
   tasksByRig.set({});
@@ -68,4 +69,11 @@ export const attentionItems = computed<ReadonlyArray<{ readonly rig: string; rea
 );
 
 /** A task by id on a rig, if loaded. */
-export const taskById = (rig: string, id: string): Task | undefined => (tasksByRig.get()[rig] ?? []).find((t) => t.id === id);
+/** Closed epics per rig, loaded on demand (the Completed section, closed epic pages). */
+export const historyByRig = signal<Readonly<Record<string, ReadonlyArray<Task>>>>({});
+export const setHistory = (rig: RigName, tasks: ReadonlyArray<Task>): void => {
+  historyByRig.set({ ...historyByRig.get(), [rig]: tasks });
+};
+/** Live first, then history — a closed epic keeps its page. */
+export const taskById = (rig: string, id: string): Task | undefined =>
+  (tasksByRig.get()[rig] ?? []).find((t) => t.id === id) ?? (historyByRig.get()[rig] ?? []).find((t) => t.id === id);

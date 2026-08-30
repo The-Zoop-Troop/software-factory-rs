@@ -39,6 +39,26 @@ describe('routes', () => {
   });
 });
 
+describe('rig-page history', () => {
+  it('lists completed epics under a collapsed section and the closed epic page replays its log', async () => {
+    await import('./pages/epic-page.js');
+    const done = Schema.decodeSync(Task)({ id: 'ep-0', contextId: 'ep-0', status: { state: 'TASK_STATE_COMPLETED', timestamp: 't' }, metadata: { factory: { kind: 'epic', title: 'Shipped it', tasks: 2, closed: 2, children: [{ id: 'ep-0.1', title: 'a', state: 'closed', attempts: 1, attemptLimit: 3, tokens: 4000, closed: true }] } } });
+    connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [epic] }, history: { toy: [done] }, events: { 'toy/ep-0': [{ at: 1, actor: 'planner', bead: 'ep-0.1', kind: 'task_planned' }, { at: 2, actor: 'worker', bead: 'ep-0.1', kind: 'claimed' }] } }, 'ok');
+    const page = await fixture<RigPage>(html`<rig-page rig="toy"></rig-page>`);
+    const root = page.shadowRoot as ShadowRoot;
+    const details = await until(() => root.querySelector('details.completed'));
+    expect(details.querySelector('summary')?.textContent).toContain('Completed');
+    expect(details.querySelector('tbody a')?.getAttribute('href')).toBe('/rigs/toy/epics/ep-0');
+    expect(details.querySelector('tbody')?.textContent).toContain('2/2');
+
+    const ep = await fixture<HTMLElement>(html`<epic-page rig="toy" id="ep-0"></epic-page>`);
+    const er = ep.shadowRoot as ShadowRoot;
+    const items = await until(() => { const li = er.querySelectorAll('.timeline li'); return li.length >= 2 ? li : null; });
+    expect(items.length).toBe(2);
+    expect(er.querySelector('epic-card')).not.toBeNull();
+  });
+});
+
 describe('rig-page', () => {
   it('renders epics and inbox from the store and drives actions', async () => {
     connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [epic, incident] } }, 'ok');

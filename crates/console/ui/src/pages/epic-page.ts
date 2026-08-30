@@ -2,7 +2,7 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { repeat } from 'lit/directives/repeat.js';
-import { applyOption, pending, refreshRig, stopEpic } from '../actions.js';
+import { applyOption, pending, refreshRig, stopEpic, loadEpicHistory } from '../actions.js';
 import type { AttentionOption, Child, RigName } from '../core/schema.js';
 import { attentionOf } from '../core/schema.js';
 import { describe, forEpic, latestProgress, recordDate } from '../state/events.js';
@@ -45,6 +45,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
     super.connectedCallback();
     currentRig.set(this.rig as RigName);
     if (taskById(this.rig, this.id) === undefined) void refreshRig(this.rig as RigName);
+    void loadEpicHistory(this.rig as RigName, this.id);
   }
 
   override disconnectedCallback(): void {
@@ -57,7 +58,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
     const inbox = (tasksByRig.get()[this.rig] ?? []).filter((t) => attentionOf(t.status.message)?.epicId === this.id || (t.contextId === this.id && t.id !== this.id && t.metadata.factory.kind !== 'epic'));
     const all = forEpic(this.rig, this.id);
     const working = latestProgress(all);
-    const events = all.slice(-40).reverse();
+    const events = all.slice(-80).reverse();
     return html`
       <header><a href="/">Rigs</a><span class="muted">/</span><a href="/rigs/${this.rig}">${this.rig}</a><span class="muted">/</span><h1>${this.id}</h1></header>
       ${epic === undefined ? html`<p class="empty">Loading ${this.id}…</p>` : html`

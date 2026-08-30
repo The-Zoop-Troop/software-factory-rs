@@ -4,6 +4,9 @@ import type { ApiError } from './errors.js';
 import { Unauthorized, Forbidden, TaskNotFound } from './errors.js';
 import { decode, fetchJson, rejectIfError } from './interop.js';
 import { AgentCard, RigList, RpcReply, Task, TaskList, Whoami, type AttentionOption, type RigName, type Task as TaskT } from './schema.js';
+import { EventRecord } from './events.js';
+
+const EpicEvents = Schema.Struct({ epic: Schema.String, events: Schema.Array(EventRecord) });
 
 export interface ConsoleApiShape {
   readonly rigs: () => Effect.Effect<ReadonlyArray<RigName>, ApiError>;
@@ -15,6 +18,10 @@ export interface ConsoleApiShape {
   readonly stop: (rig: RigName, id: string) => Effect.Effect<TaskT, ApiError>;
   readonly whoami: () => Effect.Effect<Whoami, ApiError>;
   readonly applyOption: (rig: RigName, id: string, option: AttentionOption, note: string) => Effect.Effect<TaskT, ApiError>;
+  /** Closed epics — the rig's history. */
+  readonly history: (rig: RigName) => Effect.Effect<ReadonlyArray<TaskT>, ApiError>;
+  /** Every log record under an epic, oldest first (history, not the live ring). */
+  readonly epicEvents: (rig: RigName, id: string) => Effect.Effect<ReadonlyArray<EventRecord>, ApiError>;
 }
 
 export class ConsoleApi extends Context.Tag('ConsoleApi')<ConsoleApi, ConsoleApiShape>() {}
@@ -63,6 +70,19 @@ export const ConsoleApiLive = (session: Session): Layer.Layer<ConsoleApi> =>
         Effect.map((t) => t.tasks),
       ),
     task: (rig, id) => rpc(session, rig, 'GetTask', { id }).pipe(Effect.flatMap(taskOf)),
+    history: (rig) =>
+      rpc(session, rig, 'ListTasks', { history: true }).pipe(
+        Effect.flatMap((r) => decode(TaskList, r)),
+        Effect.map((t) => t.tasks),
+      ),
+    epicEvents: (rig, id) =>
+      fetchJson(`${session.baseUrl}/rigs/${rig}/epics/${encodeURIComponent(id)}/events`, {
+        headers: { authorization: `Bearer ${session.token}` },
+      }).pipe(
+        Effect.flatMap(rejectIfError),
+        Effect.flatMap((b) => decode(EpicEvents, b)),
+        Effect.map((e) => e.events),
+      ),
     // Non-blocking: the console returns the queued request as a SUBMITTED task; the event
     // stream and refreshes carry it to COMPLETED (epic created) or FAILED.
     plan: (rig, text) =>
@@ -93,13 +113,17 @@ export interface FakeWorld {
   tasks: Record<string, ReadonlyArray<TaskT>>;
   readonly scopes?: ReadonlyArray<'watch' | 'plan' | 'resolve' | 'admin'>;
   applied?: Array<{ id: string; option: AttentionOption; note: string }>;
+  /** Closed epics per rig. */
+  history?: Record<string, ReadonlyArray<TaskT>>;
+  /** Log records per `rig/epic`. */
+  events?: Record<string, ReadonlyArray<EventRecord>>;
 }
 
 export const ConsoleApiFake = (world: FakeWorld, token: string): Layer.Layer<ConsoleApi> => {
   const auth = <A>(f: () => Effect.Effect<A, ApiError>): Effect.Effect<A, ApiError> =>
     token === world.token ? f() : Effect.fail(new Unauthorized({ detail: 'missing or unknown bearer token' }));
   const find = (rig: RigName, id: string): Effect.Effect<TaskT, TaskNotFound> => {
-    const t = (world.tasks[rig] ?? []).find((x) => x.id === id);
+    const t = [...(world.tasks[rig] ?? []), ...(world.history?.[rig] ?? [])].find((x) => x.id === id);
     return t === undefined ? Effect.fail(new TaskNotFound({ id })) : Effect.succeed(t);
   };
   const withState = (t: TaskT, state: TaskT['status']['state']): TaskT => ({ ...t, status: { ...t.status, state } });
@@ -124,6 +148,8 @@ export const ConsoleApiFake = (world: FakeWorld, token: string): Layer.Layer<Con
     resolve: (rig, id) => auth(() => find(rig, id).pipe(Effect.map((t) => withState(t, 'TASK_STATE_COMPLETED')))),
     stop: (rig, id) => auth(() => find(rig, id).pipe(Effect.map((t) => withState(t, 'TASK_STATE_CANCELED')))),
     whoami: () => auth(() => Effect.succeed({ client: 'fake', grants: world.rigs.map((rig) => ({ rig, scopes: world.scopes ?? ['admin'] })) })),
+    history: (rig) => auth(() => Effect.succeed(world.history?.[rig] ?? [])),
+    epicEvents: (rig, id) => auth(() => Effect.succeed(world.events?.[`${rig}/${id}`] ?? [])),
     applyOption: (rig, id, option, note) =>
       auth(() => {
         world.applied = [...(world.applied ?? []), { id, option, note }];
