@@ -47,7 +47,7 @@ pub async fn verify_once(
             report.skipped += 1;
             continue;
         };
-        match verify_one(store, repo, runner, &meta).await {
+        match verify_one(store, repo, runner, clock, log, actor, &bead.id, &meta).await {
             Ok(Outcome::Blocked { reason: detail }) => {
                 report.failed += 1;
                 log.record(&FactoryEvent {
@@ -106,16 +106,32 @@ enum Outcome {
     NotAwaiting,
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "ports plus the stage identity; nothing outlives the call"
+)]
 async fn verify_one(
     store: &dyn BeadStore,
     repo: &dyn Repo,
     runner: &dyn Runner,
+    clock: &dyn Clock,
+    log: &dyn EventSink,
+    actor: &str,
+    verify_bead: &domain::BeadId,
     meta: &VerifyMeta,
 ) -> Result<Outcome, TransitionError> {
     let task = load_task(store, &meta.task).await?;
     let TaskState::InVerify { branch, head } = &task.state else {
         return Ok(Outcome::NotAwaiting);
     };
+    log.record(&FactoryEvent {
+        at: clock.now(),
+        actor: actor.to_owned(),
+        bead: Some(meta.task.clone()),
+        kind: EventKind::VerifyStarted {
+            verify_bead: verify_bead.clone(),
+        },
+    });
     let worktree = repo.worktree_add(branch, head).await?;
     let result = run_all(runner, &worktree.path, meta).await;
     // Remove the worktree before deciding, so a store failure can't leak a checkout.
@@ -346,6 +362,17 @@ mod tests {
         assert_eq!(repo.added.lock().unwrap().len(), 1);
         assert_eq!(repo.removed.lock().unwrap().len(), 1);
         assert_eq!(runner.calls.lock().unwrap().len(), 2);
+        let kinds: Vec<_> = log.events().await.into_iter().map(|e| e.kind).collect();
+        assert!(
+            matches!(
+                &kinds[..],
+                [
+                    EventKind::VerifyStarted { .. },
+                    EventKind::Verified { passed: true, .. }
+                ]
+            ),
+            "verify_started precedes verified: {kinds:?}"
+        );
     }
 
     #[tokio::test]

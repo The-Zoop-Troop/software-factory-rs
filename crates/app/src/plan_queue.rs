@@ -131,10 +131,23 @@ pub async fn plan_queued_once(
         Err(e) => format!("{FAILED_PREFIX}{e}"),
     };
     match &result {
-        Ok(report) => record(
-            "planned",
-            format!("{} ({} tasks)", report.epic, report.tasks.len()),
-        ),
+        Ok(report) => {
+            for (task, needs) in &report.edges {
+                sink.record(&FactoryEvent {
+                    at: clock.now(),
+                    actor: "planner".to_owned(),
+                    bead: Some(task.clone()),
+                    kind: EventKind::TaskPlanned {
+                        epic: report.epic.clone(),
+                        needs: needs.clone(),
+                    },
+                });
+            }
+            record(
+                "planned",
+                format!("{} ({} tasks)", report.epic, report.tasks.len()),
+            );
+        }
         Err(e) => record("plan_failed", e.to_string()),
     }
     store.note(&request.id, &line).await?;

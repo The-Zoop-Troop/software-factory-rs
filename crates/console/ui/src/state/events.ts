@@ -35,6 +35,9 @@ export const describe = (f: EventFrame): Line | null => {
     case 'verified': return r['passed'] === true ? { title: `${bead} verified`, tone: 'success' } : { title: `${bead} failed verification`, tone: 'warning' };
     case 'integrated': return r['landed'] ? { title: `${bead} landed on main`, tone: 'success' } : { title: `${bead} could not be integrated`, tone: 'warning' };
     case 'escalated': return { title: `${bead} needs you`, tone: 'danger' };
+    case 'verify_started': return { title: `${bead} checks running`, tone: 'info', quiet: true };
+    case 'integrate_started': return { title: `${bead} landing`, tone: 'info', quiet: true };
+    case 'task_planned': return { title: `${bead} planned`, tone: 'info', quiet: true };
     case 'progress': return { title: `${bead} working: ${num(r['files'])} files, +${num(r['insertions'])}/-${num(r['deletions'])}`, tone: 'info', quiet: true };
     case 'verify_blocked': return { title: `${bead}: the rig could not run its checks (${str(r['detail'])})`, tone: 'danger' };
     case 'lease_reaped': return { title: `${bead} lease expired; reopened`, tone: 'warning' };

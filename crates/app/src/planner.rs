@@ -20,6 +20,8 @@ use crate::ports::{
 pub struct PlanReport {
     pub epic: BeadId,
     pub tasks: Vec<(TaskKey, BeadId)>,
+    /// Each task's `needs` as bead ids, in creation order — the dependency graph for metrics.
+    pub edges: Vec<(BeadId, Vec<BeadId>)>,
     pub tokens: domain::Tokens,
 }
 
@@ -90,6 +92,32 @@ pub async fn plan(
     Ok(report)
 }
 
+/// The verify bead is created first so the task can point at it; it NEEDS the task so
+/// `bd ready` hides it until the task is done.
+async fn verify_placeholder(
+    store: &dyn BeadStore,
+    epic: &BeadId,
+    t: &domain::PlannedTask,
+) -> Result<BeadId, PlannerError> {
+    Ok(store
+        .create(NewBead {
+            title: Title::derived(&format!("verify: {}", t.title)),
+            description: t
+                .acceptance
+                .iter()
+                .map(|a| format!("- {a}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+            kind: BeadKind::Verify,
+            priority: Priority::MEDIUM,
+            parent: Some(epic.clone()),
+            needs: vec![],
+            acceptance: None,
+            meta: None,
+        })
+        .await?)
+}
+
 /// Write a validated plan to the ledger: epic, optional reference bead, then tasks in
 /// topological order so every `needs` edge points at an already-created bead.
 async fn materialize(
@@ -135,30 +163,14 @@ async fn materialize(
     }
 
     let mut ids: BTreeMap<TaskKey, BeadId> = BTreeMap::new();
+    let mut edges = Vec::with_capacity(plan.tasks.len());
     for t in &plan.tasks {
         let needs = t
             .needs
             .iter()
             .filter_map(|k| ids.get(k).cloned())
             .collect::<Vec<_>>();
-        // Verify bead first so the task can point at it; it NEEDS the task so `bd ready` hides it.
-        let verify_placeholder = store
-            .create(NewBead {
-                title: Title::derived(&format!("verify: {}", t.title)),
-                description: t
-                    .acceptance
-                    .iter()
-                    .map(|a| format!("- {a}"))
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-                kind: BeadKind::Verify,
-                priority: Priority::MEDIUM,
-                parent: Some(epic.clone()),
-                needs: vec![],
-                acceptance: None,
-                meta: None,
-            })
-            .await?;
+        let verify_placeholder = verify_placeholder(store, &epic, t).await?;
         let task = store
             .create(NewBead {
                 title: t.title.clone(),
@@ -166,7 +178,7 @@ async fn materialize(
                 kind: BeadKind::Task,
                 priority: Priority::HIGH,
                 parent: Some(epic.clone()),
-                needs,
+                needs: needs.clone(),
                 acceptance: Some(t.acceptance.join("\n")),
                 meta: Some(BeadMeta::Task(FactoryMeta {
                     verify_bead: verify_placeholder.clone(),
@@ -189,12 +201,14 @@ async fn materialize(
             )
             .await?;
         store.add_needs(&verify_placeholder, &task).await?;
+        edges.push((task.clone(), needs));
         ids.insert(t.key.clone(), task);
     }
     let tasks = ids.into_iter().collect();
     Ok(PlanReport {
         epic,
         tasks,
+        edges,
         tokens: Tokens::new(0),
     })
 }
@@ -326,6 +340,23 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(report.tasks.len(), 2);
+        // `edges` follow creation (topological) order: schema first, then endpoint needing it.
+        let schema = report
+            .tasks
+            .iter()
+            .find(|(k, _)| k.to_string() == "schema")
+            .map(|(_, id)| id.clone())
+            .unwrap();
+        let endpoint = report
+            .tasks
+            .iter()
+            .find(|(k, _)| k.to_string() == "endpoint")
+            .map(|(_, id)| id.clone())
+            .unwrap();
+        assert_eq!(
+            report.edges,
+            vec![(schema.clone(), vec![]), (endpoint, vec![schema])]
+        );
         let tasks = store.list_active(BeadKind::Task).await.unwrap();
         assert_eq!(tasks.len(), 2);
         let endpoint = tasks.iter().find(|t| t.title == "Login endpoint").unwrap();

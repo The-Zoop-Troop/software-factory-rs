@@ -25,6 +25,8 @@ pub enum EventKind {
     },
     /// A worker gave a task back without submitting (errored session, no changes).
     Released { holder: String, detail: String },
+    /// Verifier picked up an awaiting task and is running its checks (the other edge of `Verified`).
+    VerifyStarted { verify_bead: BeadId },
     /// Verifier ran a verify bead against a task.
     Verified { passed: bool, verify_bead: BeadId },
     /// Verifier could not run the checks (environment); the task is an incident, no attempt charged.
@@ -35,6 +37,11 @@ pub enum EventKind {
         insertions: u32,
         deletions: u32,
     },
+    /// Integrator picked up a mergeable task and is rebasing it (the other edge of `Integrated`).
+    IntegrateStarted { merge_bead: BeadId },
+    /// Planner wrote a task; `needs` are the sibling tasks it waits for. With `Integrated` of each
+    /// need this gives the moment a task became ready, with no Steward bookkeeping.
+    TaskPlanned { epic: BeadId, needs: Vec<BeadId> },
     /// Integrator landed (or failed to land) a branch on main.
     Integrated {
         merge_bead: BeadId,
