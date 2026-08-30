@@ -5,7 +5,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { applyOption, pending, refreshRig, stopEpic } from '../actions.js';
 import type { AttentionOption, Child, RigName } from '../core/schema.js';
 import { attentionOf } from '../core/schema.js';
-import { describe, forEpic, latestProgress } from '../state/events.js';
+import { describe, forEpic, latestProgress, recordDate } from '../state/events.js';
 import { currentRig, taskById, tasksByRig } from '../state/rigs.js';
 import { can, whyNot } from '../state/session.js';
 import { badges, controls, surface } from '../styles/shared.js';
@@ -84,7 +84,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
             <h2 id="tl-h">Timeline</h2>
             ${events.length === 0 ? html`<p class="empty">No events for this epic in the current session.</p>` : html`<ol class="timeline">${repeat(events, (f) => `${String(f.cursor)}:${String(f.record.at)}:${f.record.kind}`, (f) => {
               const line = describe(f) ?? { title: `${f.record.actor}: ${f.record.kind}`, tone: 'info' as const };
-              const at = typeof f.record.at === 'number' ? new Date(f.record.at * 1000) : new Date(f.record.at);
+              const at = recordDate(f.record.at);
               return html`<li class=${line.tone}><span>${line.title}<time datetime=${at.toISOString()}>${at.toLocaleTimeString()}</time></span></li>`;
             })}</ol>`}
           </section>

@@ -1,7 +1,7 @@
 import { describe as suite, it, expect, beforeEach } from 'vitest';
 import { Effect, Stream } from 'effect';
 import { eventStream, type EventFrame, type EventSourceLike } from '../core/events.js';
-import { describe, forRig, latestProgress, push, recent, reset, streamStatus } from './events.js';
+import { describe, forRig, latestProgress, push, recent, recordDate, reset, streamStatus } from './events.js';
 import { onFrame, startLive, stopLive } from '../live.js';
 import { notices, reset as resetNotices } from './notices.js';
 
@@ -12,6 +12,13 @@ const frame = (kind: string, extra: Record<string, unknown> = {}, rig = 'toy'): 
 beforeEach(() => { reset(); resetNotices(); stopLive(); });
 
 suite('events store', () => {
+  it('turns any at into a valid date', () => {
+    expect(recordDate(1788093449).getTime()).toBe(1788093449000);
+    expect(recordDate('1788093449').getTime()).toBe(1788093449000);
+    expect(recordDate('2026-08-30T12:00:00Z').getTime()).toBe(Date.parse('2026-08-30T12:00:00Z'));
+    expect(Number.isNaN(recordDate('t').getTime())).toBe(false);
+  });
+
   it('shows progress in the feed and the epic page but never as a toast', () => {
     const f = frame('progress', { files: 3, insertions: 40, deletions: 2 });
     expect(describe(f)).toEqual({ title: 'ep-1.1 working: 3 files, +40/-2', tone: 'info', quiet: true });

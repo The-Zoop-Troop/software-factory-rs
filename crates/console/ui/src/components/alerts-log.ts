@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { repeat } from 'lit/directives/repeat.js';
-import { alerts, str } from '../state/events.js';
+import { alerts, str, recordDate } from '../state/events.js';
 
 /** Webhook / chat deliveries the console made during this session. */
 @customElement('alerts-log')
@@ -21,7 +21,7 @@ export class AlertsLog extends SignalWatcher(LitElement) {
     if (rows.length === 0) return html`<p class="empty">No alerts delivered while this session has been connected.</p>`;
     return html`<ol aria-live="polite">${repeat(rows, (f) => `${f.rig}:${String(f.cursor)}:${String(f.record.at)}`, (f) => {
       const failed = f.record['action'] === 'alert-failed';
-      const at = typeof f.record.at === 'number' ? new Date(f.record.at * 1000) : new Date(f.record.at);
+      const at = recordDate(f.record.at);
       return html`<li class=${failed ? 'failed' : ''}><span>${str(f.record['detail'])}<time datetime=${at.toISOString()}>${f.rig} · ${at.toLocaleTimeString()}</time></span></li>`;
     })}</ol>`;
   }

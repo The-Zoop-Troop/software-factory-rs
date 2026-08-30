@@ -91,3 +91,10 @@ export const latestProgress = (frames: ReadonlyArray<EventFrame>): ReadonlyMap<s
   }
   return out;
 };
+
+/** A record's `at` as a Date: unix seconds (number or numeric string) or an ISO string; never invalid. */
+export const recordDate = (at: unknown): Date => {
+  const n = typeof at === 'number' ? at : typeof at === 'string' && /^\d+$/.test(at) ? Number(at) : NaN;
+  const d = Number.isFinite(n) ? new Date(n * 1000) : new Date(typeof at === 'string' ? at : NaN);
+  return Number.isNaN(d.getTime()) ? new Date(0) : d;
+};

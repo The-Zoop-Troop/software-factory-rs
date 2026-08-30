@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { repeat } from 'lit/directives/repeat.js';
-import { describe, recent, streamStatus } from '../state/events.js';
+import { describe, recent, streamStatus, recordDate } from '../state/events.js';
 
 /** The rig's recent events, newest first. */
 @customElement('live-feed')
@@ -28,7 +28,7 @@ export class LiveFeed extends SignalWatcher(LitElement) {
     if (rows.length === 0) return html`<p class="empty">${status === 'live' ? 'Listening — events appear here as the rig works.' : 'No events yet.'}</p>`;
     return html`<ol aria-live="polite">${repeat(rows, (f) => `${f.rig}:${String(f.cursor)}:${f.record.kind}:${String(f.record.at)}`, (f) => {
       const line = describe(f) ?? { title: `${f.record.actor}: ${f.record.kind}`, tone: 'info' as const };
-      const at = typeof f.record.at === 'number' ? new Date(f.record.at * 1000) : new Date(f.record.at);
+      const at = recordDate(f.record.at);
       return html`<li class=${line.tone}><span>${line.title}<time datetime=${at.toISOString()}>${at.toLocaleTimeString()}</time></span></li>`;
     })}</ol>`;
   }
