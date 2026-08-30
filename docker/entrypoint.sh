@@ -71,8 +71,9 @@ harness_args() {  # $1 = role (planner|worker)
   if [ "$role" = planner ]; then model=${RIG_PLANNER_MODEL:-$model}; effort=${RIG_PLANNER_EFFORT:-$effort}; fi
   if [ "$role" = worker ]; then model=${RIG_WORKER_MODEL:-$model}; effort=${RIG_WORKER_EFFORT:-$effort}; fi
   HARNESS_ARGS=(--harness "$h")
-  [ -n "$model" ] && HARNESS_ARGS+=(--model "$model")
-  [ -n "$effort" ] && HARNESS_ARGS+=(--effort "$effort")
+  # `if`, not `[ ] &&`: under set -e a false test as the last command would abort the script.
+  if [ -n "$model" ]; then HARNESS_ARGS+=(--model "$model"); fi
+  if [ -n "$effort" ]; then HARNESS_ARGS+=(--effort "$effort"); fi
 }
 harness_args worker
 
