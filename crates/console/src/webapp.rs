@@ -15,6 +15,9 @@ pub(crate) fn routes() -> Router<AppState> {
     Router::new()
         .route("/", get(index))
         .route("/rigs/{rig}", get(index))
+        // Every client route must be listed: a reload or a pasted link hits the server first.
+        .route("/rigs/{rig}/epics/{id}", get(index))
+        .route("/rigs/{rig}/epics/{id}/throughput", get(index))
         .route("/assets/{*path}", get(asset))
 }
 

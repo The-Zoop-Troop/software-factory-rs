@@ -27,6 +27,13 @@ pub(super) async fn list_rigs(State(s): State<AppState>, headers: HeaderMap) -> 
         let rig = s.registry.rig(name)?;
         let (clock, p) = (Arc::clone(&s.clock), p.clone());
         Some(async move {
+            if let Err(u) = rig.probe.available() {
+                return obj([
+                    ("rig", name.to_string().into()),
+                    ("error", u.to_string().into()),
+                    ("unavailable", true.into()),
+                ]);
+            }
             let read =
                 tokio::time::timeout(OVERVIEW_TIMEOUT, app::overview(&rig, clock.as_ref(), &p))
                     .await;

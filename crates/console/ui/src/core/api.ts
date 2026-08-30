@@ -4,12 +4,15 @@ import type { ApiError } from './errors.js';
 import { Unauthorized, Forbidden, TaskNotFound } from './errors.js';
 import { decode, fetchJson, rejectIfError } from './interop.js';
 import { AgentCard, MetricsReply, RigList, RpcReply, Task, TaskList, Whoami, type AttentionOption, type EpicMetrics, type RigName, type Task as TaskT } from './schema.js';
+
+export interface RigListT { readonly names: ReadonlyArray<RigName>; readonly unavailable: Readonly<Record<string, string>> }
 import { EventRecord } from './events.js';
 
 const EpicEvents = Schema.Struct({ epic: Schema.String, events: Schema.Array(EventRecord) });
 
 export interface ConsoleApiShape {
-  readonly rigs: () => Effect.Effect<ReadonlyArray<RigName>, ApiError>;
+  /** Rig names plus the ones the console says cannot answer right now (with the reason). */
+  readonly rigs: () => Effect.Effect<RigListT, ApiError>;
   readonly card: (rig: RigName) => Effect.Effect<AgentCard, ApiError>;
   readonly tasks: (rig: RigName) => Effect.Effect<ReadonlyArray<TaskT>, ApiError>;
   readonly task: (rig: RigName, id: string) => Effect.Effect<TaskT, ApiError>;
@@ -59,7 +62,10 @@ export const ConsoleApiLive = (session: Session): Layer.Layer<ConsoleApi> =>
       fetchJson(`${session.baseUrl}/rigs`, { headers: { authorization: `Bearer ${session.token}` } }).pipe(
         Effect.flatMap(rejectIfError),
         Effect.flatMap((b) => decode(RigList, b)),
-        Effect.map((r) => r.rigs),
+        Effect.map((r) => ({
+          names: r.rigs,
+          unavailable: Object.fromEntries(r.overview.filter((o) => o.unavailable === true || (o.error !== undefined && o.error !== null)).map((o) => [o.rig, o.error ?? 'unavailable'])),
+        })),
       ),
     card: (rig) =>
       fetchJson(`${session.baseUrl}/rigs/${rig}/.well-known/agent-card.json`, {}).pipe(
@@ -129,6 +135,8 @@ export interface FakeWorld {
   events?: Record<string, ReadonlyArray<EventRecord>>;
   /** Throughput reports per `rig/epic`. */
   metrics?: Record<string, EpicMetrics>;
+  /** Rigs the console reports as unable to answer, with the reason. */
+  unavailable?: Record<string, string>;
 }
 
 export const ConsoleApiFake = (world: FakeWorld, token: string): Layer.Layer<ConsoleApi> => {
@@ -140,7 +148,7 @@ export const ConsoleApiFake = (world: FakeWorld, token: string): Layer.Layer<Con
   };
   const withState = (t: TaskT, state: TaskT['status']['state']): TaskT => ({ ...t, status: { ...t.status, state } });
   return Layer.succeed(ConsoleApi, {
-    rigs: () => auth(() => Effect.succeed(world.rigs)),
+    rigs: () => auth(() => Effect.succeed({ names: world.rigs, unavailable: world.unavailable ?? {} })),
     card: (rig) =>
       Effect.succeed({ name: `factory rig ${rig}`, version: 'fake', skills: [{ id: 'plan', name: 'Plan' }] }),
     tasks: (rig) => auth(() => Effect.succeed(world.tasks[rig] ?? [])),

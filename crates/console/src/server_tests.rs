@@ -438,3 +438,44 @@ async fn metrics_reports_every_epic_in_the_log_or_one() {
     let (st, _) = get(&s, "/rigs/toy/metrics", Some("stranger")).await;
     assert_eq!(st, StatusCode::FORBIDDEN);
 }
+
+#[tokio::test]
+async fn a_rig_that_cannot_answer_is_refused_cheaply_and_deep_links_serve_the_app() {
+    let (s, _store, _tail) = state().await;
+    let rig = s
+        .registry
+        .rig(&RigName::try_new("toy").expect("r"))
+        .expect("rig");
+    let probe = rig.probe.clone();
+    let down = probe
+        .as_any()
+        .downcast_ref::<app::testing::remote::FakeProbe>()
+        .expect("fake probe");
+    if let Ok(mut d) = down.down.lock() {
+        *d = Some("no ledger yet: the rig has never run".to_owned());
+    }
+    let (st, body) = call(&s, Some("watcher"), "ListTasks", json!({})).await;
+    assert_eq!(st, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], -32001);
+    let (st, body) = get(&s, "/rigs", Some("watcher")).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(body["overview"][0]["unavailable"], true);
+    assert!(
+        body["overview"][0]["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("never run")
+    );
+    for path in ["/rigs/toy/epics/ep-1", "/rigs/toy/epics/ep-1/throughput"] {
+        let resp = router(s.clone())
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .body(Body::empty())
+                    .expect("req"),
+            )
+            .await
+            .expect("resp");
+        assert_eq!(resp.status(), StatusCode::OK, "{path}");
+    }
+}

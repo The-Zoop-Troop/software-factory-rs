@@ -68,7 +68,11 @@ export type Task = typeof Task.Type;
 
 export const TaskList = Schema.Struct({ tasks: Schema.Array(Task) });
 
-export const RigList = Schema.Struct({ rigs: Schema.Array(RigName) });
+export const RigList = Schema.Struct({
+  rigs: Schema.Array(RigName),
+  overview: Schema.optionalWith(Schema.Array(Schema.Struct({ rig: Schema.String, error: Schema.optional(Schema.NullOr(Schema.String)), unavailable: Schema.optional(Schema.Boolean) })), { default: () => [] }),
+});
+export type RigList = typeof RigList.Type;
 
 export const AgentCard = Schema.Struct({
   name: Schema.String,

@@ -123,6 +123,7 @@ pub fn rig(
         events: tail.clone(),
         planner: Arc::new(planner),
         budget: domain::RigBudget::default(),
+        probe: Arc::new(FakeProbe::default()),
     };
     (rig, store, sink, tail)
 }
@@ -202,5 +203,23 @@ impl A2aApi for FakeApi {
             c.push(id.to_owned());
         }
         self.find(id)
+    }
+}
+
+/// A probe that is up unless told otherwise.
+#[derive(Debug, Default)]
+pub struct FakeProbe {
+    pub down: Mutex<Option<String>>,
+}
+
+impl crate::remote::Probe for FakeProbe {
+    fn available(&self) -> Result<(), crate::remote::Unavailable> {
+        match self.down.lock().ok().and_then(|d| d.clone()) {
+            Some(reason) => Err(crate::remote::Unavailable { reason }),
+            None => Ok(()),
+        }
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }

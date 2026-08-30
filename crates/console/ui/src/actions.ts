@@ -57,8 +57,12 @@ export const refreshAll = (): Promise<boolean> => {
   return attempt(
     loadIdentity().pipe(
       Effect.flatMap(() => withApi((api) => api.rigs())),
-      Effect.tap((names) => Effect.sync(() => { rigs.set(names); })),
-      Effect.flatMap((names) => Effect.forEach(names, loadRigLenient, { concurrency: 4, discard: true })),
+      Effect.tap((r) => Effect.sync(() => {
+        rigs.set(r.names);
+        // The console already said these cannot answer: mark them, do not ask them.
+        for (const [name, why] of Object.entries(r.unavailable)) { markUnavailable(name, why); setTasks(name as RigName, []); }
+      })),
+      Effect.flatMap((r) => Effect.forEach(r.names.filter((n) => !(n in r.unavailable)), loadRigLenient, { concurrency: 4, discard: true })),
       Effect.tap(() => Effect.sync(() => { connection.set('online'); lastError.set(null); })),
     ),
   );

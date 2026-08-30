@@ -55,7 +55,7 @@ describe('fake api', () => {
 
   it('serves rigs, tasks, plan, resolve, stop', async () => {
     const w = world();
-    expect(await call(w, 'ok', (a) => a.rigs())).toEqual(['toy']);
+    expect(await call(w, 'ok', (a) => a.rigs())).toEqual({ names: ['toy'], unavailable: {} });
     expect((await call(w, 'ok', (a) => a.tasks(rig))).length).toBe(1);
     expect((await call(w, 'ok', (a) => a.card(rig))).name).toContain('toy');
     const planned = await call(w, 'ok', (a) => a.plan(rig, 'build it\nmore'));

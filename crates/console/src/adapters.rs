@@ -193,6 +193,62 @@ impl FileRegistry {
     }
 }
 
+/// Is the rig's ledger there, and (server mode) is its Dolt server answering? Reads two small
+/// files and, in server mode, opens one TCP connection with a short timeout.
+#[derive(Debug, Clone)]
+pub(crate) struct LedgerProbe {
+    ledger: PathBuf,
+}
+
+impl app::remote::Probe for LedgerProbe {
+    fn available(&self) -> Result<(), app::remote::Unavailable> {
+        let beads = self.ledger.join(".beads");
+        let meta_path = beads.join("metadata.json");
+        let meta = std::fs::read_to_string(&meta_path).map_err(|_| app::remote::Unavailable {
+            reason: "no ledger yet: the rig has never run".to_owned(),
+        })?;
+        let meta: serde_json::Value =
+            serde_json::from_str(&meta).unwrap_or(serde_json::Value::Null);
+        if meta.get("dolt_mode").and_then(|v| v.as_str()) != Some("server") {
+            return Ok(());
+        }
+        let host = meta
+            .get("dolt_server_host")
+            .and_then(|v| v.as_str())
+            .unwrap_or("127.0.0.1")
+            .to_owned();
+        let port = std::fs::read_to_string(beads.join("dolt-server.port"))
+            .ok()
+            .and_then(|p| p.trim().parse::<u16>().ok())
+            .unwrap_or(3307);
+        let addr = (host.as_str(), port)
+            .to_socket_addrs_first()
+            .ok_or_else(|| app::remote::Unavailable {
+                reason: format!("ledger server {host}:{port} does not resolve: the rig is stopped"),
+            })?;
+        std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(400))
+            .map(drop)
+            .map_err(|e| app::remote::Unavailable {
+                reason: format!(
+                    "ledger server {host}:{port} unreachable ({e}): the rig is stopped"
+                ),
+            })
+    }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+trait FirstAddr {
+    fn to_socket_addrs_first(&self) -> Option<std::net::SocketAddr>;
+}
+impl FirstAddr for (&str, u16) {
+    fn to_socket_addrs_first(&self) -> Option<std::net::SocketAddr> {
+        use std::net::ToSocketAddrs as _;
+        self.to_socket_addrs().ok()?.next()
+    }
+}
+
 fn rig_from(spec: &RigSpec) -> Result<Rig, std::io::Error> {
     if let Some(dir) = spec.events.parent() {
         std::fs::create_dir_all(dir)?;
@@ -214,6 +270,9 @@ fn rig_from(spec: &RigSpec) -> Result<Rig, std::io::Error> {
         events: Arc::new(FileTail::new(&spec.events)),
         planner,
         budget: spec.budget,
+        probe: Arc::new(LedgerProbe {
+            ledger: spec.ledger.clone(),
+        }),
     })
 }
 

@@ -98,6 +98,23 @@ pub trait PlanSubmitter: Send + Sync {
     async fn submit(&self, plan_text: &str) -> Result<BeadId, SubmitError>;
 }
 
+/// Why a rig cannot answer right now (no ledger yet, its server down).
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("rig unavailable: {reason}")]
+pub struct Unavailable {
+    pub reason: String,
+}
+
+/// A cheap check that a rig can be asked at all — microseconds, no `bd` process — so the
+/// console never spawns a store call that is bound to fail.
+pub trait Probe: Send + Sync {
+    /// # Errors
+    /// `Unavailable` with the reason an operator can act on.
+    fn available(&self) -> Result<(), Unavailable>;
+    /// For tests that need to flip a fake.
+    fn as_any(&self) -> &dyn std::any::Any;
+}
+
 /// Everything the control plane holds for one rig. No credentials, no Dolt handle.
 #[derive(Clone)]
 pub struct Rig {
@@ -107,6 +124,7 @@ pub struct Rig {
     pub events: Arc<dyn EventTail>,
     pub planner: Arc<dyn PlanSubmitter>,
     pub budget: RigBudget,
+    pub probe: Arc<dyn Probe>,
 }
 
 impl core::fmt::Debug for Rig {

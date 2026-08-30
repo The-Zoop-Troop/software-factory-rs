@@ -37,7 +37,7 @@ describe('live api over HTTP', () => {
       { status: 200, body: { jsonrpc: '2.0', id: 1, result: { task } } },
       { status: 200, body: { jsonrpc: '2.0', id: 1, result: task } },
     ]);
-    expect(await call((a) => a.rigs())).toEqual(['toy']);
+    expect((await call((a) => a.rigs())).names).toEqual(['toy']);
     expect((await call((a) => a.card(rig))).name).toBe('factory rig toy');
     expect((await call((a) => a.tasks(rig))).length).toBe(1);
     expect((await call((a) => a.task(rig, 'ep-1'))).id).toBe('ep-1');

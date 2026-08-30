@@ -268,6 +268,21 @@ async fn a2a(
             Err(RpcError::new(rpc::TASK_NOT_FOUND, "no such rig")),
         );
     };
+    if let Err(u) = rig.probe.available() {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            [(axum::http::header::RETRY_AFTER, "30")],
+            Json(obj([
+                ("jsonrpc", "2.0".into()),
+                ("id", req.id.clone()),
+                (
+                    "error",
+                    obj([("code", (-32001).into()), ("message", u.to_string().into())]),
+                ),
+            ])),
+        )
+            .into_response();
+    }
     let call = match rpc::decode(&req) {
         Ok(c) => c,
         Err(e) => return rpc_response(&req.id, Err(e)),

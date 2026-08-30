@@ -14,6 +14,16 @@ const incident = Schema.decodeSync(Task)({ id: 'inc-1', contextId: 'ep-1', statu
 beforeEach(() => { resetRigs(); resetNotices(); resetSession(); disconnect(); });
 
 describe('actions over the fake console', () => {
+  it('does not ask rigs the console marked unavailable, and marks them itself', async () => {
+    const { connectFake } = await import('./core/runtime.js');
+    const { unavailable, tasksByRig } = await import('./state/rigs.js');
+    connectFake({ token: 'ok', rigs: ['toy', 'idle'] as never, tasks: { toy: [] }, unavailable: { idle: 'no ledger yet: the rig has never run' } }, 'ok');
+    expect(await refreshAll()).toBe(true);
+    expect(unavailable.get()['idle']).toContain('never run');
+    expect(tasksByRig.get()['idle']).toEqual([]);
+    expect(unavailable.get()['toy']).toBeUndefined();
+  });
+
   it('refresh loads rigs and tasks and goes online', async () => {
     connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [incident] } }, 'ok');
     expect(connected()).toBe(true);
