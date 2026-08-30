@@ -16,7 +16,8 @@ export const push = (frame: EventFrame): void => {
   lastEventAt.set(Date.now());
 };
 
-export const forRig = (rig: string) => computed(() => recent.get().filter((f) => f.rig === rig));
+/** Events for one rig (a plain read; callers inside `render()` are tracked through `recent`). */
+export const forRig = (rig: string): ReadonlyArray<EventFrame> => recent.get().filter((f) => f.rig === rig);
 
 export const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined || v === null ? '' : JSON.stringify(v));
 
@@ -68,5 +69,5 @@ export const alerts = computed(() =>
 );
 
 /** Events under an epic (the epic itself and its children `epic.N`). */
-export const forEpic = (rig: string, epic: string) =>
-  computed(() => recent.get().filter((f) => f.rig === rig && typeof f.record.bead === 'string' && (f.record.bead === epic || f.record.bead.startsWith(`${epic}.`))));
+export const forEpic = (rig: string, epic: string): ReadonlyArray<EventFrame> =>
+  recent.get().filter((f) => f.rig === rig && typeof f.record.bead === 'string' && (f.record.bead === epic || f.record.bead.startsWith(`${epic}.`)));

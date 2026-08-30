@@ -21,12 +21,18 @@ describe('rig summaries', () => {
 });
 
 describe('notices', () => {
-  it('append and dismiss', () => {
-    const id = notify('info', 'hi', 'there');
-    notify('danger', 'bad');
+  it('append, cap, expire and dismiss', async () => {
+    const id = notify('info', 'hi', 'there', 0);
+    notify('danger', 'bad', undefined, 0);
     expect(notices.get().length).toBe(2);
     dismiss(id);
     expect(notices.get()[0]?.title).toBe('bad');
+    for (let i = 0; i < 6; i++) notify('info', `n${String(i)}`, undefined, 0);
+    expect(notices.get().length).toBe(4);
+    expect(notices.get()[0]?.title).toBe('n2');
+    notify('info', 'soon', undefined, 10);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(notices.get().some((n) => n.title === 'soon')).toBe(false);
   });
 });
 
@@ -60,7 +66,8 @@ describe('attention and epic views', () => {
     ev.push(mk(null, 'remote', { action: 'alert', detail: 'ep-1 done' }));
     ev.push(mk(null, 'remote', { action: 'alert-failed', detail: 'boom' }));
     ev.push(mk(null, 'remote', { action: 'plan', detail: 'x' }));
-    expect(ev.forEpic('toy', 'ep-1').get().map((f) => f.record.bead)).toEqual(['ep-1.2', 'ep-1']);
+    expect(ev.forEpic('toy', 'ep-1').map((f) => f.record.bead)).toEqual(['ep-1.2', 'ep-1']);
+    expect(ev.forRig('toy').length).toBe(6);
     expect(ev.alerts.get().map((f) => f.record['action'])).toEqual(['alert-failed', 'alert']);
     expect(ev.str({ a: 1 })).toBe('{"a":1}');
     expect(ev.str(null)).toBe('');

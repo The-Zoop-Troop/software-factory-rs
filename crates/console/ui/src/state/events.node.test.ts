@@ -15,7 +15,7 @@ suite('events store', () => {
   it('keeps a bounded ring and filters per rig', () => {
     for (let i = 0; i < 205; i++) push(frame('claimed', {}, i % 2 === 0 ? 'toy' : 'api'));
     expect(recent.get().length).toBe(200);
-    expect(forRig('toy').get().every((f) => f.rig === 'toy')).toBe(true);
+    expect(forRig('toy').every((f) => f.rig === 'toy')).toBe(true);
   });
 
   it('describes the events a human cares about and hides noise', () => {

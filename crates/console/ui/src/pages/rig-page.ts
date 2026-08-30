@@ -64,7 +64,7 @@ export class RigPage extends SignalWatcher(LitElement) {
         <h2 id="epics-h">Epics <span class="count">${epics.length}</span></h2>
         ${epics.length === 0
           ? html`<p class="empty">Nothing in flight. Submit a plan above.</p>`
-          : html`<div class="grid">${repeat(epics, (t) => t.id, (t) => html`<epic-card .task=${t} ?pending=${pending.get().has(t.id)} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @stop-epic=${this.onStop}></epic-card>`)}</div>`}
+          : html`<div class="grid">${repeat(epics, (t) => t.id, (t) => html`<epic-card .task=${t} rig=${this.rig} ?pending=${pending.get().has(t.id)} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @stop-epic=${this.onStop}></epic-card>`)}</div>`}
       </section>
       <section aria-labelledby="feed-h">
         <h2 id="feed-h">Live</h2>

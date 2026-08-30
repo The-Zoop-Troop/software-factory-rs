@@ -55,7 +55,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
   override render() {
     const epic = taskById(this.rig, this.id);
     const inbox = (tasksByRig.get()[this.rig] ?? []).filter((t) => attentionOf(t.status.message)?.epicId === this.id || (t.contextId === this.id && t.id !== this.id && t.metadata.factory.kind !== 'epic'));
-    const events = forEpic(this.rig, this.id).get().slice(-40).reverse();
+    const events = forEpic(this.rig, this.id).slice(-40).reverse();
     return html`
       <header><a href="/">Rigs</a><span class="muted">/</span><a href="/rigs/${this.rig}">${this.rig}</a><span class="muted">/</span><h1>${this.id}</h1></header>
       ${epic === undefined ? html`<p class="empty">Loading ${this.id}…</p>` : html`
