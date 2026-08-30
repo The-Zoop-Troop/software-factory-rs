@@ -29,6 +29,12 @@ pub enum EventKind {
     Verified { passed: bool, verify_bead: BeadId },
     /// Verifier could not run the checks (environment); the task is an incident, no attempt charged.
     VerifyBlocked { verify_bead: BeadId, detail: String },
+    /// A running session's worktree drift, sampled on each lease heartbeat.
+    Progress {
+        files: u32,
+        insertions: u32,
+        deletions: u32,
+    },
     /// Integrator landed (or failed to land) a branch on main.
     Integrated {
         merge_bead: BeadId,

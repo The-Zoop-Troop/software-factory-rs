@@ -45,8 +45,8 @@ pub use mcp::{McpConfig, McpConfigError, McpServer};
 pub use plan_queue::{Progress, QueuedOutcome, plan_outcome, plan_queued_once, plan_request};
 pub use planner::{PlanReport, PlannerError, plan};
 pub use ports::{
-    BeadStore, Clock, EventSink, Harness, HarnessOutcome, HarnessRequest, Repo, RunOutput, Runner,
-    ToolPolicy, Worktree,
+    BeadStore, Clock, DiffStat, EventSink, Harness, HarnessOutcome, HarnessRequest, Repo,
+    RunOutput, Runner, ToolPolicy, Worktree,
 };
 pub use remote::attention::{Attention, AttentionOption, attention_for};
 pub use remote::chat::{

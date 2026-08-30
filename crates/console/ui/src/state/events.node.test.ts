@@ -1,7 +1,7 @@
 import { describe as suite, it, expect, beforeEach } from 'vitest';
 import { Effect, Stream } from 'effect';
 import { eventStream, type EventFrame, type EventSourceLike } from '../core/events.js';
-import { describe, forRig, push, recent, reset, streamStatus } from './events.js';
+import { describe, forRig, latestProgress, push, recent, reset, streamStatus } from './events.js';
 import { onFrame, startLive, stopLive } from '../live.js';
 import { notices, reset as resetNotices } from './notices.js';
 
@@ -12,6 +12,14 @@ const frame = (kind: string, extra: Record<string, unknown> = {}, rig = 'toy'): 
 beforeEach(() => { reset(); resetNotices(); stopLive(); });
 
 suite('events store', () => {
+  it('shows progress in the feed and the epic page but never as a toast', () => {
+    const f = frame('progress', { files: 3, insertions: 40, deletions: 2 });
+    expect(describe(f)).toEqual({ title: 'ep-1.1 working: 3 files, +40/-2', tone: 'info', quiet: true });
+    onFrame(f);
+    expect(notices.get().length).toBe(0);
+    expect(latestProgress([frame('progress', { files: 1, insertions: 1, deletions: 0 }), f]).get('ep-1.1')?.title).toBe('3 files · +40/-2');
+  });
+
   it('keeps a bounded ring and filters per rig', () => {
     for (let i = 0; i < 205; i++) push(frame('claimed', {}, i % 2 === 0 ? 'toy' : 'api'));
     expect(recent.get().length).toBe(200);

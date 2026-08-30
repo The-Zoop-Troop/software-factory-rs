@@ -5,7 +5,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { applyOption, pending, refreshRig, stopEpic } from '../actions.js';
 import type { AttentionOption, Child, RigName } from '../core/schema.js';
 import { attentionOf } from '../core/schema.js';
-import { describe, forEpic } from '../state/events.js';
+import { describe, forEpic, latestProgress } from '../state/events.js';
 import { currentRig, taskById, tasksByRig } from '../state/rigs.js';
 import { can, whyNot } from '../state/session.js';
 import { badges, controls, surface } from '../styles/shared.js';
@@ -55,7 +55,9 @@ export class EpicPage extends SignalWatcher(LitElement) {
   override render() {
     const epic = taskById(this.rig, this.id);
     const inbox = (tasksByRig.get()[this.rig] ?? []).filter((t) => attentionOf(t.status.message)?.epicId === this.id || (t.contextId === this.id && t.id !== this.id && t.metadata.factory.kind !== 'epic'));
-    const events = forEpic(this.rig, this.id).slice(-40).reverse();
+    const all = forEpic(this.rig, this.id);
+    const working = latestProgress(all);
+    const events = all.slice(-40).reverse();
     return html`
       <header><a href="/">Rigs</a><span class="muted">/</span><a href="/rigs/${this.rig}">${this.rig}</a><span class="muted">/</span><h1>${this.id}</h1></header>
       ${epic === undefined ? html`<p class="empty">Loading ${this.id}…</p>` : html`
@@ -65,13 +67,14 @@ export class EpicPage extends SignalWatcher(LitElement) {
             <h2 id="tasks-h">Tasks</h2>
             ${epic.metadata.factory.children.length === 0 ? html`<p class="empty">No tasks yet — the planner is still working, or the epic is empty.</p>` : html`
             <div class="surface"><table>
-              <thead><tr><th>Task</th><th>State</th><th class="num">Attempts</th><th class="num">Tokens</th><th>Branch</th></tr></thead>
+              <thead><tr><th>Task</th><th>State</th><th class="num">Attempts</th><th class="num">Tokens</th><th>Branch</th><th>Working</th></tr></thead>
               <tbody>${repeat(epic.metadata.factory.children, (c: Child) => c.id, (c: Child) => html`<tr>
                 <td><strong>${c.title}</strong><br><span class="mono muted">${c.id}</span></td>
                 <td><span class="badge ${stateTone(c.state)}">${c.state.replace('_', ' ')}</span></td>
                 <td class="num">${c.attempts}/${c.attemptLimit}</td>
                 <td class="num">${Math.round(c.tokens / 1000)}k</td>
                 <td class="mono">${c.branch ?? ''}</td>
+                <td class="muted">${c.state === 'in_progress' ? (working.get(c.id)?.title ?? 'session starting') : ''}</td>
               </tr>`)}</tbody>
             </table></div>`}
             ${inbox.length === 0 ? nothing : html`<h2 style="margin-block-start: var(--space-6)">Needs you</h2>

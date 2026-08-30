@@ -99,6 +99,7 @@ pub enum GitOp {
     Rebase,
     FastForward,
     Push,
+    Status,
 }
 
 /// Failures from the git adapter, already translated.

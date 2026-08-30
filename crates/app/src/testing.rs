@@ -12,16 +12,15 @@ use async_trait::async_trait;
 use std::path::{Path, PathBuf};
 
 use domain::{
-    BeadId, BeadKind, BeadMeta, BranchName, Duration, FactoryMeta, MicroUsd, NonEmpty, Sha,
-    Timestamp, Tokens, Turns, VerifyCommand, VerifyMeta,
+    BeadId, BeadKind, BeadMeta, BranchName, Duration, FactoryMeta, NonEmpty, Sha, Timestamp,
+    VerifyCommand, VerifyMeta,
 };
 use tokio::sync::Mutex;
 
 use crate::bead::{Bead, BeadStatus, NewBead};
 use crate::events::FactoryEvent;
 use crate::ports::{
-    BeadStore, Clock, EventSink, Harness, HarnessError, HarnessOutcome, HarnessRequest, Repo,
-    RepoError, RunError, RunOutput, Runner, StoreError, Worktree,
+    BeadStore, Clock, EventSink, Repo, RepoError, RunError, RunOutput, Runner, StoreError, Worktree,
 };
 
 /// In-memory bead store. Ready == every active bead of the kind (no dependency graph).
@@ -393,12 +392,18 @@ pub struct FakeRepo {
     pub push_fails: bool,
     /// What `commit_all` reports as HEAD (the fake never has real changes).
     pub commit_head: Option<Sha>,
+    /// What `diff_stat` reports while a session runs.
+    pub drift: crate::ports::DiffStat,
     pub commits: std::sync::Mutex<Vec<String>>,
     pub rollbacks: std::sync::Mutex<Vec<(BranchName, Sha, Sha)>>,
 }
 
 #[async_trait]
 impl Repo for FakeRepo {
+    async fn diff_stat(&self, _worktree: &Worktree) -> Result<crate::ports::DiffStat, RepoError> {
+        Ok(self.drift)
+    }
+
     async fn worktree_add(&self, branch: &BranchName, head: &Sha) -> Result<Worktree, RepoError> {
         if self.missing.contains(head) {
             return Err(RepoError::RefNotFound {
@@ -539,41 +544,9 @@ impl Runner for FakeRunner {
     }
 }
 
-/// Returns a canned outcome for every request and records the requests.
-#[derive(Debug, Default)]
-pub struct FakeHarness {
-    pub outcome: Option<HarnessOutcome>,
-    pub requests: std::sync::Mutex<Vec<HarnessRequest>>,
-}
-
-impl FakeHarness {
-    #[must_use]
-    pub fn structured(value: serde_json::Value) -> Self {
-        Self {
-            outcome: Some(HarnessOutcome {
-                text: value.to_string(),
-                structured: Some(value),
-                tokens: Tokens::new(100),
-                cost_micro_usd: MicroUsd::new(1000),
-                turns: Turns::new(1),
-                is_error: false,
-            }),
-            requests: std::sync::Mutex::default(),
-        }
-    }
-}
-
-#[async_trait]
-impl Harness for FakeHarness {
-    async fn run(&self, req: HarnessRequest) -> Result<HarnessOutcome, HarnessError> {
-        self.requests.lock().expect("test mutex").push(req);
-        self.outcome.clone().ok_or_else(|| HarnessError::Spawn {
-            bin: PathBuf::from("fake"),
-            cause: crate::ports::Unavailable::NotInstalled,
-            detail: "unscripted".into(),
-        })
-    }
-}
+#[path = "testing_harness.rs"]
+mod harness;
+pub use harness::FakeHarness;
 
 #[path = "testing_flaky.rs"]
 mod flaky;

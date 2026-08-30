@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use app::domain::{BranchName, Sha};
-use app::{GitOp, Repo, RepoError, Worktree};
+use app::{DiffStat, GitOp, Repo, RepoError, Worktree};
 use async_trait::async_trait;
 use tokio::process::Command;
 
@@ -249,6 +249,22 @@ impl Repo for GitCli {
         Ok(())
     }
 
+    async fn diff_stat(&self, worktree: &Worktree) -> Result<DiffStat, RepoError> {
+        let numstat = Self::git_in(
+            GitOp::Status,
+            &worktree.path,
+            &["diff", "--numstat", "HEAD"],
+        )
+        .await?;
+        let untracked = Self::git_in(
+            GitOp::Status,
+            &worktree.path,
+            &["ls-files", "--others", "--exclude-standard"],
+        )
+        .await?;
+        Ok(parse_numstat(&numstat, &untracked))
+    }
+
     async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError> {
         let refspec = format!("{branch}:{branch}");
         self.git(GitOp::Push, &["push", "--quiet", remote, &refspec])
@@ -365,9 +381,42 @@ impl Repo for GitCli {
     }
 }
 
+/// Sum `git diff --numstat` lines; binary files show `-` and count as a file with no lines.
+/// Untracked paths are one file each.
+fn parse_numstat(numstat: &str, untracked: &str) -> DiffStat {
+    let tracked = numstat.lines().filter(|l| !l.trim().is_empty());
+    let (files, insertions, deletions) = tracked.fold((0, 0, 0), |(f, i, d), line| {
+        let mut cols = line.split('\t');
+        let ins = cols.next().and_then(|c| c.parse::<u32>().ok()).unwrap_or(0);
+        let del = cols.next().and_then(|c| c.parse::<u32>().ok()).unwrap_or(0);
+        (f + 1, i + ins, d + del)
+    });
+    let untracked_files = u32::try_from(untracked.lines().filter(|l| !l.trim().is_empty()).count())
+        .unwrap_or(u32::MAX);
+    DiffStat {
+        files: files + untracked_files,
+        insertions,
+        deletions,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn numstat_sums_lines_and_counts_untracked_files() {
+        let stat = parse_numstat("12\t3\tsrc/a.rs\n-\t-\tlogo.png\n\n", "new.rs\nnotes.md\n");
+        assert_eq!(
+            stat,
+            DiffStat {
+                files: 4,
+                insertions: 12,
+                deletions: 3
+            }
+        );
+        assert_eq!(parse_numstat("", ""), DiffStat::default());
+    }
 
     #[test]
     fn stderr_parses_into_each_variant() {

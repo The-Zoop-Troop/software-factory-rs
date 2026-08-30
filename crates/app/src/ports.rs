@@ -92,6 +92,15 @@ pub trait Clock: Send + Sync {
     async fn sleep(&self, d: Duration);
 }
 
+/// What a worktree currently differs by from its branch head — the Worker's progress signal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct DiffStat {
+    /// Files changed, added, or deleted (untracked files count).
+    pub files: u32,
+    pub insertions: u32,
+    pub deletions: u32,
+}
+
 /// A checked-out worktree. Removed by `Repo::worktree_remove`; never dropped silently.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Worktree {
@@ -160,6 +169,13 @@ pub trait Repo: Send + Sync {
     /// # Errors
     /// `Rejected` if the remote refuses; `Unavailable` if unreachable.
     async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError>;
+
+    /// How far `worktree` has drifted from its head (uncommitted work, untracked files included).
+    /// Read while a session runs so operators can see it working.
+    ///
+    /// # Errors
+    /// `Unavailable` if the worktree cannot be read.
+    async fn diff_stat(&self, worktree: &Worktree) -> Result<DiffStat, RepoError>;
 }
 
 /// Outcome of running a command.

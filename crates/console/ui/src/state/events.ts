@@ -20,9 +20,12 @@ export const push = (frame: EventFrame): void => {
 export const forRig = (rig: string): ReadonlyArray<EventFrame> => recent.get().filter((f) => f.rig === rig);
 
 export const str = (v: unknown): string => (typeof v === 'string' ? v : v === undefined || v === null ? '' : JSON.stringify(v));
+export const num = (v: unknown): string => (typeof v === 'number' ? String(v) : '0');
 
-/** Human line for an event, or null when it is noise (steward sweeps, heartbeats). */
-export const describe = (f: EventFrame): { readonly title: string; readonly tone: 'info' | 'success' | 'warning' | 'danger' } | null => {
+export interface Line { readonly title: string; readonly tone: 'info' | 'success' | 'warning' | 'danger'; readonly quiet?: boolean }
+
+/** Human line for an event, or null when it is noise (steward sweeps, heartbeats). `quiet` lines stay off the toasts. */
+export const describe = (f: EventFrame): Line | null => {
   const r = f.record;
   const bead = typeof r.bead === 'string' ? r.bead : '';
   switch (r.kind) {
@@ -32,6 +35,7 @@ export const describe = (f: EventFrame): { readonly title: string; readonly tone
     case 'verified': return r['passed'] === true ? { title: `${bead} verified`, tone: 'success' } : { title: `${bead} failed verification`, tone: 'warning' };
     case 'integrated': return r['landed'] ? { title: `${bead} landed on main`, tone: 'success' } : { title: `${bead} could not be integrated`, tone: 'warning' };
     case 'escalated': return { title: `${bead} needs you`, tone: 'danger' };
+    case 'progress': return { title: `${bead} working: ${num(r['files'])} files, +${num(r['insertions'])}/-${num(r['deletions'])}`, tone: 'info', quiet: true };
     case 'verify_blocked': return { title: `${bead}: the rig could not run its checks (${str(r['detail'])})`, tone: 'danger' };
     case 'lease_reaped': return { title: `${bead} lease expired; reopened`, tone: 'warning' };
     case 'epic_closed': return { title: `${bead} epic complete`, tone: 'success' };
@@ -72,3 +76,15 @@ export const alerts = computed(() =>
 /** Events under an epic (the epic itself and its children `epic.N`). */
 export const forEpic = (rig: string, epic: string): ReadonlyArray<EventFrame> =>
   recent.get().filter((f) => f.rig === rig && typeof f.record.bead === 'string' && (f.record.bead === epic || f.record.bead.startsWith(`${epic}.`)));
+
+/** The most recent progress sample per bead among `frames` (what a running session has changed so far). */
+export const latestProgress = (frames: ReadonlyArray<EventFrame>): ReadonlyMap<string, Line> => {
+  const out = new Map<string, Line>();
+  for (const f of frames) {
+    const r = f.record;
+    const bead = r.bead;
+    if (r.kind !== 'progress' || typeof bead !== 'string') continue;
+    out.set(bead, { title: `${num(r['files'])} files · +${num(r['insertions'])}/-${num(r['deletions'])}`, tone: 'info' });
+  }
+  return out;
+};
