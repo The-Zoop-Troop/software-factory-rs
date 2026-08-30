@@ -36,8 +36,10 @@ fi
 # host resolve to token-authenticated HTTPS.
 if [ -n "${RIG_GIT_TOKEN:-}" ]; then
   host=${RIG_GIT_HOST:-github.com}
-  git config --global "url.https://x-access-token:${RIG_GIT_TOKEN}@${host}/.insteadOf" "git@${host}:"
-  git config --global --add "url.https://x-access-token:${RIG_GIT_TOKEN}@${host}/.insteadOf" "https://${host}/"
+  key="url.https://x-access-token:${RIG_GIT_TOKEN}@${host}/.insteadOf"
+  git config --global --unset-all "$key" 2>/dev/null || true   # HOME persists across restarts
+  git config --global --add "$key" "git@${host}:"
+  git config --global --add "$key" "https://${host}/"
 fi
 
 if [ ! -d "$REPO_DIR/.git" ]; then
