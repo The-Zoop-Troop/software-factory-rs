@@ -80,7 +80,13 @@ factory rig list
 ```
 
 `--no-start` registers the rig without running it, so you can create all of them now and bring
-them up one at a time. Each rig is its own compose project (`factory-<rig>`) with its own
+them up one at a time.
+
+Pick the runtime by what *verification* needs, not just the language: a frontend whose tests
+run in a real browser (Vitest browser mode, Playwright) needs `--runtime web-e2e`, which ships
+Chromium for one pinned Playwright version — rigs cannot download browsers. Say so in the epic
+(or a reference bead): "pin `playwright` to the preinstalled version; never run `playwright
+install`". This run lost one attempt learning that on the portal rig. Each rig is its own compose project (`factory-<rig>`) with its own
 `ledger`, `repo` and `cache` volumes; the shared console is generated into `~/.factory/console/`.
 Each rig also runs a `ledger` service — its Dolt SQL server — which every role and the console
 use; the first `factory rig create` on a host writes `~/.factory/ledger.password` (0600) and
