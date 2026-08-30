@@ -3,7 +3,7 @@
 
 use std::fmt::Write as _;
 
-use domain::{BeadKind, Event, NonEmpty, TaskState, VerifyCommand, VerifyMeta};
+use domain::{BeadKind, Event, TaskState, VerifyCommand, VerifyMeta};
 
 use crate::events::{EventKind, FactoryEvent};
 use crate::ports::{BeadStore, Clock, EventSink, Repo, RunOutput, Runner, StoreError};
@@ -133,11 +133,16 @@ async fn verify_one(
         },
     });
     let worktree = repo.worktree_add(branch, head).await?;
-    let result = run_all(runner, &worktree.path, meta).await;
+    // The checkout is fresh: dependencies are installed by the prepare step, never by the plan.
+    let commands: Vec<VerifyCommand> = prepare_for(&worktree.path)
+        .into_iter()
+        .chain(meta.commands.iter().cloned())
+        .collect();
+    let result = run_all(runner, &worktree.path, &commands, meta.timeout).await;
     // Remove the worktree before deciding, so a store failure can't leak a checkout.
     repo.worktree_remove(worktree).await?;
 
-    let (passed, note) = summarize(&meta.commands, &result);
+    let (passed, note) = summarize(&commands, &result);
     let blocked = environmental(&result);
     let (event, outcome) = match (blocked, passed) {
         (_, true) => (Event::VerifyPassed, Outcome::Passed),
@@ -154,14 +159,54 @@ async fn verify_one(
 }
 
 /// Run commands in order; stop at the first failure. `Err` means the command couldn't spawn.
+/// Commands that make a fresh checkout verifiable, before the plan's own: `[verify] prepare`
+/// in `.factory/runtime.toml`, or a default from the lockfile present (`npm ci`, frozen pnpm /
+/// yarn installs, `go mod download`). Nothing for Rust: cargo fetches on its own.
+#[must_use]
+pub fn prepare_for(worktree: &std::path::Path) -> Vec<VerifyCommand> {
+    #[derive(serde::Deserialize, Default)]
+    struct Spec {
+        #[serde(default)]
+        verify: Verify,
+    }
+    #[derive(serde::Deserialize, Default)]
+    struct Verify {
+        #[serde(default)]
+        prepare: Option<Vec<String>>,
+    }
+    let declared = std::fs::read_to_string(worktree.join(".factory/runtime.toml"))
+        .ok()
+        .and_then(|t| toml::from_str::<Spec>(&t).ok())
+        .and_then(|s| s.verify.prepare);
+    let defaults = || {
+        [
+            ("package-lock.json", "npm ci"),
+            ("pnpm-lock.yaml", "pnpm install --frozen-lockfile"),
+            ("yarn.lock", "yarn install --frozen-lockfile"),
+            ("go.sum", "go mod download"),
+        ]
+        .into_iter()
+        .filter(|(lock, _)| worktree.join(lock).exists())
+        .map(|(_, cmd)| cmd.to_owned())
+        .take(1)
+        .collect::<Vec<_>>()
+    };
+    declared
+        .unwrap_or_else(defaults)
+        .iter()
+        .filter_map(|c| VerifyCommand::try_new(c).ok())
+        .collect()
+}
+
 async fn run_all(
     runner: &dyn Runner,
     cwd: &std::path::Path,
-    meta: &VerifyMeta,
+    commands: &[VerifyCommand],
+    timeout: domain::Duration,
 ) -> Vec<Result<RunOutput, crate::ports::RunError>> {
-    let mut results = Vec::with_capacity(meta.commands.len());
-    for cmd in &meta.commands {
-        let r = runner.run(cwd, cmd.as_ref(), meta.timeout).await;
+    let mut results = Vec::with_capacity(commands.len());
+    for cmd in commands {
+        let r = runner.run(cwd, cmd.as_ref(), timeout).await;
         let stop = !matches!(&r, Ok(o) if o.succeeded());
         results.push(r);
         if stop {
@@ -214,7 +259,7 @@ pub fn environmental(results: &[Result<RunOutput, crate::ports::RunError>]) -> O
 
 /// Pure: decide pass/fail and build the note that goes on the task bead.
 fn summarize(
-    commands: &NonEmpty<VerifyCommand>,
+    commands: &[VerifyCommand],
     results: &[Result<RunOutput, crate::ports::RunError>],
 ) -> (bool, String) {
     let all_ran = results.len() == commands.len();
@@ -259,266 +304,5 @@ fn tail(s: &str) -> &str {
 }
 
 #[cfg(test)]
-mod tests {
-    use domain::{
-        AgentId, BeadId, BranchName, Budget, Duration, FactoryMeta, Sha, Timestamp, Usage,
-    };
-
-    use super::*;
-    use crate::testing::{FakeRepo, FakeRunner, FakeStore, FixedClock, MemorySink};
-    use domain::{Attempts, Tokens};
-
-    fn id(s: &str) -> BeadId {
-        BeadId::try_new(s).unwrap()
-    }
-    fn sha(c: char) -> Sha {
-        Sha::try_new(core::iter::repeat_n(c, 40).collect::<String>()).unwrap()
-    }
-
-    async fn store_in_verify() -> FakeStore {
-        let store = FakeStore::default();
-        store
-            .seed_task(
-                id("fac-t"),
-                FactoryMeta {
-                    verify_bead: id("fac-v"),
-                    base: sha('a'),
-                    budget: Budget {
-                        attempts: Attempts::new(1),
-                        ..Budget::default()
-                    },
-                    usage: Usage::default(),
-                    lease_expiries: Attempts::new(0),
-                    state: TaskState::Open,
-                },
-            )
-            .await;
-        let now = Timestamp::from_unix_seconds(0);
-        apply_event(
-            &store,
-            &id("fac-t"),
-            Event::Claim {
-                holder: AgentId::try_new("w").unwrap(),
-                now,
-                ttl: Duration::from_seconds(9),
-            },
-        )
-        .await
-        .unwrap();
-        apply_event(
-            &store,
-            &id("fac-t"),
-            Event::Submit {
-                holder: AgentId::try_new("w").unwrap(),
-                branch: BranchName::try_new("task/fac-t").unwrap(),
-                head: sha('b'),
-                now,
-                tokens: Tokens::new(1),
-            },
-        )
-        .await
-        .unwrap();
-        store
-            .seed_verify(id("fac-v"), id("fac-t"), &["cargo test", "cargo clippy"])
-            .await;
-        store
-    }
-
-    #[tokio::test]
-    async fn pass_opens_merge_bead_and_cleans_worktree() {
-        let store = store_in_verify().await;
-        let repo = FakeRepo::default();
-        let mut runner = FakeRunner::default();
-        runner
-            .script
-            .insert("cargo test".into(), FakeRunner::ok("ok"));
-        runner
-            .script
-            .insert("cargo clippy".into(), FakeRunner::ok(""));
-        let log = MemorySink::default();
-        let report = verify_once(
-            &store,
-            &repo,
-            &runner,
-            &FixedClock(Timestamp::from_unix_seconds(1)),
-            &log,
-            "v",
-        )
-        .await
-        .unwrap();
-        assert_eq!(
-            report,
-            VerifyReport {
-                passed: 1,
-                ..VerifyReport::default()
-            }
-        );
-        assert!(matches!(
-            load_task(&store, &id("fac-t")).await.unwrap().state,
-            TaskState::Mergeable { .. }
-        ));
-        let merges = store.list_active(BeadKind::Merge).await.unwrap();
-        assert_eq!(merges.len(), 1);
-        assert_eq!(merges[0].merge.as_ref().unwrap().task, id("fac-t"));
-        assert_eq!(repo.added.lock().unwrap().len(), 1);
-        assert_eq!(repo.removed.lock().unwrap().len(), 1);
-        assert_eq!(runner.calls.lock().unwrap().len(), 2);
-        let kinds: Vec<_> = log.events().await.into_iter().map(|e| e.kind).collect();
-        assert!(
-            matches!(
-                &kinds[..],
-                [
-                    EventKind::VerifyStarted { .. },
-                    EventKind::Verified { passed: true, .. }
-                ]
-            ),
-            "verify_started precedes verified: {kinds:?}"
-        );
-    }
-
-    #[tokio::test]
-    async fn failure_stops_at_first_command_and_reopens_with_output() {
-        let store = store_in_verify().await;
-        let repo = FakeRepo::default();
-        let mut runner = FakeRunner::default();
-        runner.script.insert(
-            "cargo test".into(),
-            FakeRunner::fail(101, "test foo ... FAILED"),
-        );
-        let log = MemorySink::default();
-        let report = verify_once(
-            &store,
-            &repo,
-            &runner,
-            &FixedClock(Timestamp::from_unix_seconds(1)),
-            &log,
-            "v",
-        )
-        .await
-        .unwrap();
-        assert_eq!(report.failed, 1);
-        assert_eq!(
-            runner.calls.lock().unwrap().len(),
-            1,
-            "clippy must not run after a failure"
-        );
-        // attempts budget was 1, so this failure is an incident
-        assert!(matches!(
-            load_task(&store, &id("fac-t")).await.unwrap().state,
-            TaskState::Incident { .. }
-        ));
-        let notes = store.show(&id("fac-t")).await.unwrap().notes.unwrap();
-        assert!(notes.contains("verify FAILED"));
-        assert!(notes.contains("exit 101"));
-        assert!(notes.contains("test foo ... FAILED"));
-        assert_eq!(repo.removed.lock().unwrap().len(), 1);
-    }
-
-    #[tokio::test]
-    async fn skips_when_task_not_in_verify() {
-        let store = FakeStore::default();
-        store
-            .seed_task(
-                id("fac-t"),
-                FactoryMeta {
-                    verify_bead: id("fac-v"),
-                    base: sha('a'),
-                    budget: Budget::default(),
-                    usage: Usage::default(),
-                    lease_expiries: Attempts::new(0),
-                    state: TaskState::Open,
-                },
-            )
-            .await;
-        store.seed_verify(id("fac-v"), id("fac-t"), &["true"]).await;
-        let repo = FakeRepo::default();
-        let runner = FakeRunner::default();
-        let log = MemorySink::default();
-        let report = verify_once(
-            &store,
-            &repo,
-            &runner,
-            &FixedClock(Timestamp::from_unix_seconds(1)),
-            &log,
-            "v",
-        )
-        .await
-        .unwrap();
-        assert_eq!(report.skipped, 1);
-        assert!(repo.added.lock().unwrap().is_empty());
-    }
-
-    #[test]
-    fn summarize_marks_timeout() {
-        let out = RunOutput {
-            exit_code: None,
-            stdout: "partial".into(),
-            stderr: String::new(),
-            timed_out: true,
-        };
-        let cmds = NonEmpty::singleton(VerifyCommand::try_new("sleep 99").unwrap());
-        let (passed, note) = summarize(&cmds, &[Ok(out)]);
-        assert!(!passed);
-        assert!(note.contains("timed out"));
-    }
-
-    #[test]
-    fn tail_respects_char_boundaries() {
-        let s = "é".repeat(NOTE_TAIL);
-        assert!(tail(&s).chars().all(|c| c == 'é'));
-    }
-}
-
-#[cfg(test)]
-mod environment_tests {
-    use super::*;
-    use crate::testing::FakeRunner;
-
-    #[allow(clippy::unnecessary_wraps, reason = "the classifier takes results")]
-    fn out(code: i32, stderr: &str) -> Result<RunOutput, crate::ports::RunError> {
-        Ok(RunOutput {
-            exit_code: Some(code),
-            ..FakeRunner::fail(code, stderr)
-        })
-    }
-
-    #[test]
-    fn classifies_environment_failures_and_leaves_real_failures_alone() {
-        assert!(environmental(&[Ok(FakeRunner::ok("fine"))]).is_none());
-        assert!(environmental(&[out(1, "assertion failed: expected 2 got 3")]).is_none());
-        assert!(
-            environmental(&[out(127, "sh: docker: not found")])
-                .unwrap()
-                .contains("127")
-        );
-        assert!(environmental(&[out(126, "")]).unwrap().contains("126"));
-        assert!(
-            environmental(&[out(1, "fork/exec /tmp/go-build/x.test: Permission denied")])
-                .unwrap()
-                .contains("permission denied")
-        );
-        assert!(
-            environmental(&[out(2, "write /work: no space left on device")])
-                .unwrap()
-                .contains("no space")
-        );
-        assert!(
-            environmental(&[
-                Ok(FakeRunner::ok("ok")),
-                out(1, "curl: (6) Could not resolve host: example.com")
-            ])
-            .unwrap()
-            .contains("could not resolve")
-        );
-        let spawn = crate::ports::RunError {
-            command: "sh".into(),
-            cause: crate::Unavailable::NotInstalled,
-            detail: "no such file".into(),
-        };
-        assert!(
-            environmental(&[Err(spawn)])
-                .unwrap()
-                .contains("could not run")
-        );
-    }
-}
+#[path = "verifier_tests.rs"]
+mod tests;

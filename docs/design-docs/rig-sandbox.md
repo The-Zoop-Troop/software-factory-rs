@@ -10,6 +10,14 @@
 - Roles are compose services sharing the image: `steward`, `verifier`, `integrator`, `worker`, `worker-opencode`, `worker-codex` (profile), one-shots `plan`, `shell`.
 - Threat model and what the rig does *not* protect: `docs/SECURITY.md`.
 
+## Verification prepare step
+
+The Verifier checks a task's branch out fresh, so a project's dependencies are not there. Before
+the verify commands it runs `[verify] prepare = [...]` from `.factory/runtime.toml`, or — when
+that key is absent — one default chosen by the lockfile present: `npm ci`,
+`pnpm install --frozen-lockfile`, `yarn install --frozen-lockfile`, `go mod download` (nothing for
+Rust). `prepare = []` disables it. Its output lands in the task's note like any verify command.
+
 ## Services
 
 `ledger` (the rig's Dolt SQL server, first up, health-checked), `egress` (the only route out),

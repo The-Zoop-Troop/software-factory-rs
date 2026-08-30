@@ -274,6 +274,9 @@ paths you have seen in the tree.
 - Verify commands are executed one per line by POSIX `/bin/sh` (dash), not bash, from the repo \
 root: source files with an explicit path (`. ./lib.sh` — never `source`, never `. lib.sh`, which \
 searches PATH), no `[[ ]]`, no arrays, no `set -o pipefail`. Each must exit 0 on success.
+- Before your verify commands run, the factory prepares the fresh checkout (installs from the \
+lockfile: `npm ci`, frozen pnpm/yarn installs, `go mod download`; or `[verify] prepare` from \
+`.factory/runtime.toml`). Do not repeat that in verify commands; do commit the lockfile.
 - Verify commands run inside the factory's sandbox: the repository, its language toolchain and \
 package registries, and (when provided) `DATABASE_URL` for a throwaway database. There is NO \
 docker, no docker compose, no cloud CLIs, no credentials, no external services, and `/tmp` is \

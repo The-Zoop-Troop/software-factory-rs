@@ -29,6 +29,8 @@ Do this once per repository, on the feature branch, and push it:
 
 ```sh
 mkdir .factory
+# `[verify] prepare` is optional: without it the Verifier runs the install your lockfile implies
+# (`npm ci`, frozen pnpm/yarn, `go mod download`) before every verify.
 cat > .factory/runtime.toml <<'EOF'
 [runtime]
 name = "rust"            # rust | python | node | go | jvm | c-cpp | ruby | php | elixir | web-e2e | polyglot
