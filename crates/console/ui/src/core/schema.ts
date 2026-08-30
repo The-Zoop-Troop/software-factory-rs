@@ -79,3 +79,50 @@ export const RpcReply = Schema.Struct({
 /** Text of a message: its text parts joined. */
 export const messageText = (m: Message | undefined): string =>
   m === undefined ? '' : m.parts.flatMap((p) => ('text' in p ? [p.text] : [])).join('\n');
+
+export const Scope = Schema.Literal('watch', 'plan', 'resolve', 'admin');
+export type Scope = typeof Scope.Type;
+
+export const Whoami = Schema.Struct({
+  client: Schema.String,
+  grants: Schema.Array(Schema.Struct({ rig: Schema.String, scopes: Schema.Array(Scope) })),
+});
+export type Whoami = typeof Whoami.Type;
+
+export const AttentionOption = Schema.Literal('retry_fresh', 'retry_with_guidance', 'stop_epic', 'replan', 'answer');
+export type AttentionOption = typeof AttentionOption.Type;
+
+export const Counter = Schema.Struct({ used: Schema.Number, limit: Schema.Number });
+
+export const Attention = Schema.Struct({
+  kind: Schema.String,
+  id: Schema.String,
+  taskId: Schema.optional(Schema.NullOr(Schema.String)),
+  epicId: Schema.optional(Schema.NullOr(Schema.String)),
+  reason: Schema.Struct({ kind: Schema.String, summary: Schema.String, detail: Schema.String }),
+  attempts: Schema.optional(Schema.NullOr(Counter)),
+  tokens: Schema.optional(Schema.NullOr(Counter)),
+  branch: Schema.optional(Schema.NullOr(Schema.String)),
+  lastVerify: Schema.optional(Schema.NullOr(Schema.String)),
+  guidance: Schema.Array(Schema.String),
+  options: Schema.Array(Schema.Struct({
+    id: AttentionOption,
+    label: Schema.String,
+    description: Schema.String,
+    needsNote: Schema.Boolean,
+    destructive: Schema.Boolean,
+  })),
+});
+export type Attention = typeof Attention.Type;
+
+/** The structured attention item carried by an INPUT_REQUIRED message, if any. */
+export const attentionOf = (m: Message | undefined): Attention | undefined => {
+  if (m === undefined) return undefined;
+  for (const p of m.parts) {
+    if ('data' in p) {
+      const d = Schema.decodeUnknownEither(Attention)(p.data);
+      if (d._tag === 'Right') return d.right;
+    }
+  }
+  return undefined;
+};

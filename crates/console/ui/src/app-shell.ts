@@ -85,11 +85,17 @@ export class AppShell extends SignalWatcher(LitElement) {
         </form>
       </header>
       <main id="main">
-        <error-panel></error-panel>
+        <error-panel @recover=${this.onRecover}></error-panel>
         ${this.router.outlet}
       </main>
       <toast-stack></toast-stack>`;
   }
+
+  private readonly onRecover = (e: CustomEvent<{ action: string }>): void => {
+    if (e.detail.action === 'retry') { void refreshAll(); return; }
+    this.stop();
+    void this.updateComplete.then(() => { (this.shadowRoot?.querySelector('input[name=token]') as HTMLInputElement | null)?.focus(); });
+  };
 
   private readonly onConnect = (e: Event): void => {
     e.preventDefault();

@@ -28,9 +28,9 @@ describe('epic-card', () => {
     expect(root.querySelector('h3')?.textContent).toContain('Build it');
     expect(root.querySelector('output')?.textContent).toContain('1/4');
     expect(root.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')).toBe('25');
-    setTimeout(() => root.querySelector('button')?.click());
-    const ev = await oneEvent(el, 'stop-epic');
-    expect((ev as CustomEvent<{ id: string }>).detail.id).toBe('ep-1');
+    (root.querySelector('footer button') as HTMLButtonElement).click();
+    await el.updateComplete;
+    expect((root.querySelector('dialog') as HTMLDialogElement).open).toBe(true);
     const finished = await fixture<EpicCard>(html`<epic-card .task=${done}></epic-card>`);
     expect((finished.shadowRoot as ShadowRoot).querySelector('button')).toBeNull();
   });
@@ -52,7 +52,7 @@ describe('plan-form', () => {
     el.clear();
     el.pending = true;
     await el.updateComplete;
-    expect(root.textContent).toContain('Planning');
+    expect(root.textContent).toContain('Queuing');
   });
 });
 
@@ -86,5 +86,64 @@ describe('toast-stack and error-panel', () => {
     await panel.updateComplete;
     expect((panel.shadowRoot as ShadowRoot).querySelector('[role=alert]')?.textContent).toContain('Not allowed');
     lastError.set(null);
+  });
+});
+
+describe('attention-panel and scope-aware controls', () => {
+  const attention = {
+    kind: 'incident', id: 'inc-1', taskId: 'ep-1.3', epicId: 'ep-1',
+    reason: { kind: 'merge_conflict', summary: 'The branch no longer merges', detail: 'lib.sh' },
+    attempts: { used: 3, limit: 3 }, tokens: { used: 12000, limit: 400000 }, branch: 'task/x',
+    lastVerify: 'verify FAILED\n$ sh t.sh\n[exit 1]', guidance: ['use sh'],
+    options: [
+      { id: 'retry_fresh' as const, label: 'Retry', description: 'd', needsNote: false, destructive: false },
+      { id: 'retry_with_guidance' as const, label: 'Retry with guidance', description: 'd', needsNote: true, destructive: false },
+      { id: 'stop_epic' as const, label: 'Stop the epic', description: 'd', needsNote: false, destructive: true },
+    ],
+  };
+
+  it('shows evidence and emits options, with notes when required', async () => {
+    const { AttentionPanel } = await import('./attention-panel.js');
+    void AttentionPanel;
+    const el = await fixture<HTMLElement & { attention: typeof attention }>(html`<attention-panel .attention=${attention}></attention-panel>`);
+    const root = el.shadowRoot as ShadowRoot;
+    expect(root.textContent).toContain('attempts 3/3');
+    expect(root.querySelector('pre')?.textContent).toContain('exit 1');
+    expect(root.textContent).toContain('use sh');
+    const buttons = [...root.querySelectorAll('.option button')] as HTMLButtonElement[];
+    setTimeout(() => { buttons[0]?.click(); });
+    const ev = await oneEvent(el, 'apply-option');
+    expect((ev as CustomEvent<{ option: string }>).detail.option).toBe('retry_fresh');
+    buttons[1]?.click();
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    const input = root.querySelector('.note input') as HTMLInputElement;
+    input.value = 'try POSIX';
+    input.dispatchEvent(new Event('input'));
+    setTimeout(() => { (root.querySelector('.note') as HTMLFormElement).requestSubmit(); });
+    const ev2 = await oneEvent(el, 'apply-option');
+    expect((ev2 as CustomEvent<{ option: string; note: string }>).detail).toMatchObject({ option: 'retry_with_guidance', note: 'try POSIX' });
+  });
+
+  it('disables controls without scope and explains why', async () => {
+    const el = await fixture<EpicCard>(html`<epic-card .task=${epic} .allowed=${false} reason="no plan scope"></epic-card>`);
+    const root = el.shadowRoot as ShadowRoot;
+    expect((root.querySelector('footer button') as HTMLButtonElement).disabled).toBe(true);
+    expect(root.textContent).toContain('no plan scope');
+    const form = await fixture<PlanForm>(html`<plan-form .allowed=${false} reason="watch only"></plan-form>`);
+    expect((form.shadowRoot as ShadowRoot).textContent).toContain('watch only');
+    const item = await fixture<InboxItem>(html`<inbox-item .task=${incident} .allowed=${false} reason="no resolve"></inbox-item>`);
+    expect((item.shadowRoot as ShadowRoot).textContent).toContain('no resolve');
+  });
+
+  it('asks for confirmation before stopping an epic', async () => {
+    const el = await fixture<EpicCard>(html`<epic-card .task=${epic}></epic-card>`);
+    const root = el.shadowRoot as ShadowRoot;
+    (root.querySelector('footer button') as HTMLButtonElement).click();
+    await el.updateComplete;
+    const dialog = root.querySelector('dialog') as HTMLDialogElement;
+    expect(dialog.open).toBe(true);
+    setTimeout(() => { (root.querySelector('dialog form') as HTMLFormElement).requestSubmit(); });
+    const ev = await oneEvent(el, 'stop-epic');
+    expect((ev as CustomEvent<{ id: string }>).detail.id).toBe('ep-1');
   });
 });

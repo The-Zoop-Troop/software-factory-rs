@@ -3,7 +3,7 @@ import { Context, Effect, Layer, Schema } from 'effect';
 import type { ApiError } from './errors.js';
 import { Unauthorized, Forbidden, TaskNotFound } from './errors.js';
 import { decode, fetchJson, rejectIfError } from './interop.js';
-import { AgentCard, RigList, RpcReply, Task, TaskList, type RigName, type Task as TaskT } from './schema.js';
+import { AgentCard, RigList, RpcReply, Task, TaskList, Whoami, type AttentionOption, type RigName, type Task as TaskT } from './schema.js';
 
 export interface ConsoleApiShape {
   readonly rigs: () => Effect.Effect<ReadonlyArray<RigName>, ApiError>;
@@ -13,6 +13,8 @@ export interface ConsoleApiShape {
   readonly plan: (rig: RigName, text: string) => Effect.Effect<TaskT, ApiError>;
   readonly resolve: (rig: RigName, id: string, note: string) => Effect.Effect<TaskT, ApiError>;
   readonly stop: (rig: RigName, id: string) => Effect.Effect<TaskT, ApiError>;
+  readonly whoami: () => Effect.Effect<Whoami, ApiError>;
+  readonly applyOption: (rig: RigName, id: string, option: AttentionOption, note: string) => Effect.Effect<TaskT, ApiError>;
 }
 
 export class ConsoleApi extends Context.Tag('ConsoleApi')<ConsoleApi, ConsoleApiShape>() {}
@@ -73,6 +75,15 @@ export const ConsoleApiLive = (session: Session): Layer.Layer<ConsoleApi> =>
         message: { messageId: `m-${String(Date.now())}`, role: 'ROLE_USER', parts: [{ text: note }], taskId: id },
       }).pipe(Effect.flatMap(taskOf)),
     stop: (rig, id) => rpc(session, rig, 'CancelTask', { id }).pipe(Effect.flatMap(taskOf)),
+    whoami: () =>
+      fetchJson(`${session.baseUrl}/whoami`, { headers: { authorization: `Bearer ${session.token}` } }).pipe(
+        Effect.flatMap(rejectIfError),
+        Effect.flatMap((b) => decode(Whoami, b)),
+      ),
+    applyOption: (rig, id, option, note) =>
+      rpc(session, rig, 'SendMessage', {
+        message: { messageId: `m-${String(Date.now())}`, role: 'ROLE_USER', parts: [{ data: { option } }, { text: note }], taskId: id },
+      }).pipe(Effect.flatMap(taskOf)),
   });
 
 /** An in-memory console for tests and `pnpm dev` without a rig. */
@@ -80,6 +91,8 @@ export interface FakeWorld {
   readonly token: string;
   readonly rigs: ReadonlyArray<RigName>;
   tasks: Record<string, ReadonlyArray<TaskT>>;
+  readonly scopes?: ReadonlyArray<'watch' | 'plan' | 'resolve' | 'admin'>;
+  applied?: Array<{ id: string; option: AttentionOption; note: string }>;
 }
 
 export const ConsoleApiFake = (world: FakeWorld, token: string): Layer.Layer<ConsoleApi> => {
@@ -110,5 +123,11 @@ export const ConsoleApiFake = (world: FakeWorld, token: string): Layer.Layer<Con
       }),
     resolve: (rig, id) => auth(() => find(rig, id).pipe(Effect.map((t) => withState(t, 'TASK_STATE_COMPLETED')))),
     stop: (rig, id) => auth(() => find(rig, id).pipe(Effect.map((t) => withState(t, 'TASK_STATE_CANCELED')))),
+    whoami: () => auth(() => Effect.succeed({ client: 'fake', grants: world.rigs.map((rig) => ({ rig, scopes: world.scopes ?? ['admin'] })) })),
+    applyOption: (rig, id, option, note) =>
+      auth(() => {
+        world.applied = [...(world.applied ?? []), { id, option, note }];
+        return find(rig, id).pipe(Effect.map((t) => withState(t, option === 'stop_epic' ? 'TASK_STATE_CANCELED' : 'TASK_STATE_COMPLETED')));
+      }),
   });
 };

@@ -15,19 +15,21 @@ export class PlanForm extends LitElement {
   `];
 
   @property({ type: Boolean }) pending = false;
-  @property() pendingText = 'Planning…';
+  @property({ type: Boolean }) allowed = true;
+  @property() reason = '';
+  @property() pendingText = 'Queuing…';
   @state() private text = '';
 
   override render() {
     return html`<form class="surface" @submit=${this.submit}>
       <label>Plan — what should the factory build?
-        <textarea name="plan" required minlength="8" placeholder="Add a reverse function to lib.sh with a test and a README entry." .value=${this.text} @input=${(e: Event) => { this.text = (e.target as HTMLTextAreaElement).value; }} ?disabled=${this.pending}></textarea>
+        <textarea name="plan" required minlength="8" placeholder="Add a reverse function to lib.sh with a test and a README entry." .value=${this.text} @input=${(e: Event) => { this.text = (e.target as HTMLTextAreaElement).value; }} ?disabled=${this.pending || !this.allowed}></textarea>
       </label>
       <div class="row">
-        <span class="hint">The rig's planner turns this into an epic of verified tasks.</span>
+        <span class="hint">${this.allowed ? "The rig's planner turns this into an epic of verified tasks." : this.reason}</span>
         ${this.pending
           ? html`<span class="pending" aria-live="polite"><span class="spinner" aria-hidden="true"></span>${this.pendingText}</span>`
-          : html`<button type="submit" class="primary" ?disabled=${this.text.trim().length < 8}>Plan</button>`}
+          : html`<button type="submit" class="primary" ?disabled=${!this.allowed || this.text.trim().length < 8}>Plan</button>`}
       </div>
     </form>`;
   }

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Schema } from 'effect';
 import { refreshAll, refreshRig, resolveItem, stopEpic, submitPlan } from './actions.js';
 import { connectFake, connected, disconnect, run, withApi } from './core/runtime.js';
+import type { FakeWorld } from './core/api.js';
 import { RigName, Task } from './core/schema.js';
 import { reset as resetNotices, notices } from './state/notices.js';
 import { reset as resetRigs, rigs, tasksByRig } from './state/rigs.js';
@@ -42,5 +43,32 @@ describe('actions over the fake console', () => {
     disconnect();
     expect(await refreshRig(rig)).toBe(false);
     await expect(run(withApi((api) => api.rigs()))).rejects.toThrow('not connected');
+  });
+});
+
+describe('identity and options', () => {
+  it('loads whoami once and gates actions by scope', async () => {
+    const { identity, can, whyNot } = await import('./state/session.js');
+    connectFake({ token: 'ok', rigs: [rig], tasks: {}, scopes: ['watch'] }, 'ok');
+    expect(whyNot('toy', 'plan')).toContain('Checking');
+    await refreshAll();
+    expect(identity.get()?.client).toBe('fake');
+    expect(can('toy', 'watch')).toBe(true);
+    expect(can('toy', 'plan')).toBe(false);
+    expect(can('other', 'watch')).toBe(false);
+    expect(whyNot('toy', 'plan')).toContain('`plan`');
+    identity.set({ client: 'x', grants: [{ rig: 'toy', scopes: ['admin'] }] });
+    expect(can('toy', 'resolve')).toBe(true);
+  });
+
+  it('applies attention options with a pending marker', async () => {
+    const { applyOption, pending } = await import('./actions.js');
+    const world: FakeWorld = { token: 'ok', rigs: [rig], tasks: { toy: [incident] } };
+    connectFake(world, 'ok');
+    expect(await applyOption(rig, 'inc-1', 'retry_with_guidance', 'use sh')).toBe(true);
+    expect(pending.get().has('inc-1')).toBe(false);
+    expect(world.applied?.[0]).toEqual({ id: 'inc-1', option: 'retry_with_guidance', note: 'use sh' });
+    expect(notices.get().at(-1)?.title).toContain('retry with guidance');
+    expect(await applyOption(rig, 'zz', 'stop_epic', '')).toBe(false);
   });
 });
