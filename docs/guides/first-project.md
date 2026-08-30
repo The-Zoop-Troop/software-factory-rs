@@ -94,7 +94,58 @@ Notes from the run:
   person with the scopes they should have (`watch`, `plan`, `resolve`, `admin`) per rig.
 
 ## 3. Open the console
+
+Start the first rig and the shared console (the console mounts every registered rig's ledger,
+so start it after at least one rig has run once):
+
+```sh
+# from the factory repository
+docker compose -p factory-<rig> --env-file ~/.factory/<rig>/compose.env -f compose.yaml up -d
+docker compose -p factory-<rig> --env-file ~/.factory/<rig>/compose.env -f compose.yaml run --rm shell doctor
+factory rig console                     # http://127.0.0.1:7700
+```
+
+`doctor` must say the repository is on the feature branch, the runtime matches
+`.factory/runtime.toml`, and **only** the intended credential is present. Then open the console in
+a browser, paste your token, and you should see every registered rig on the overview — stopped
+rigs show "unavailable", the running one shows counts.
+
+Give the planner the context that lives outside the repository — the decisions table and the
+phase text from your plan — as **reference beads** on the rig; every worker session reads them:
+
+```sh
+docker compose -p factory-<rig> --env-file ~/.factory/<rig>/compose.env -f compose.yaml \
+  exec -T steward sh -c 'cd /work/rig && bd create "Plan: settled decisions" -t task -p 3 \
+  -l fac:kind=reference --no-inherit-labels --body-file - --json' < decisions.md
+```
+
 ## 4. Write and submit the epics
+
+One epic per phase per repository. The text is the whole contract the planner works from, so it
+carries: the goal in one paragraph, the repository facts it should rely on (file paths, existing
+types), an explicit **deliver** list, the **tests** that define done (name the cases), the docs to
+update, and constraints (language rules, what not to touch, what external systems are absent).
+Say which verify command every task must leave passing. A good size is 300–600 words; the
+planner splits it into 3–8 tasks with acceptance criteria and verify commands.
+
+Submit from the console (Plan field on the rig page) or from the API:
+
+```sh
+curl -s -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d "$(jq -cn --arg t "$(cat epic.md)" '{jsonrpc:"2.0",id:1,method:"SendMessage",
+        params:{message:{messageId:"m",role:"ROLE_USER",parts:[{text:$t}]},
+                configuration:{returnImmediately:true}}}')" \
+  http://127.0.0.1:7700/rigs/<rig>/a2a
+```
+
+The reply is the queued request (`TASK_STATE_SUBMITTED`); the rig's `planner` service picks it up
+within seconds and the request card shows its progress until the epic exists.
+
+**Phase gating across rigs** (until cross-rig dependencies exist): submit the next phase's epic
+only when the epic it depends on reads *done* on its rig page, and paste the landed contract (the
+API shapes, error types, env vars the upstream epic produced) into the next epic's text. Keep the
+order in your exec plan so anyone can see what is waiting on what.
+
 ## 5. Watch
 ## 6. Act on incidents
 ## 7. Review what landed
