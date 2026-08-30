@@ -20,6 +20,16 @@ pub struct HostRig {
     pub main: String,
     /// Host port the rig's console listens on (loopback).
     pub console_port: u16,
+    /// The registry root the rig's files live under.
+    #[cfg_attr(feature = "serde", serde(default = "default_root"))]
+    pub root: PathBuf,
+}
+
+fn default_root() -> PathBuf {
+    std::env::var_os("HOME").map_or_else(
+        || PathBuf::from(".factory"),
+        |h| PathBuf::from(h).join(".factory"),
+    )
 }
 
 impl HostRig {
@@ -34,18 +44,26 @@ impl HostRig {
         format!("{}_{which}", self.project())
     }
 
+    /// Where the rig's secrets/env live (`<root>/<rig>/rig.env`); absolute so compose finds it
+    /// regardless of the working directory.
+    #[must_use]
+    pub fn env_file(&self) -> PathBuf {
+        self.root.join(self.name.as_ref()).join("rig.env")
+    }
+
     /// `compose.env`: everything compose needs to bring this rig up from the shared file.
     #[must_use]
     pub fn compose_env(&self) -> String {
         format!(
-            "COMPOSE_PROJECT_NAME={}\nRIG_NAME={}\nRIG_IMAGE=factory-rig:{}\nRIG_HARNESS={}\nRIG_REPO_URL={}\nRIG_MAIN={}\nCONSOLE_PORT={}\n",
+            "COMPOSE_PROJECT_NAME={}\nRIG_NAME={}\nRIG_IMAGE=factory-rig:{}\nRIG_HARNESS={}\nRIG_REPO_URL={}\nRIG_MAIN={}\nCONSOLE_PORT={}\nRIG_ENV_FILE={}\n",
             self.project(),
             self.name,
             self.runtime,
             self.harness,
             self.repo_url,
             self.main,
-            self.console_port
+            self.console_port,
+            self.env_file().display()
         )
     }
 }
@@ -89,6 +107,7 @@ impl HostRegistry {
         runtime: String,
         harness: String,
         main: String,
+        root: PathBuf,
     ) -> Result<(Self, HostRig), RegistryError> {
         if self.get(&name).is_some() {
             return Err(RegistryError::Exists { name });
@@ -108,6 +127,7 @@ impl HostRegistry {
             harness,
             main,
             console_port,
+            root,
         };
         let mut rigs = self.rig.clone();
         rigs.push(rig.clone());
@@ -285,6 +305,7 @@ mod tests {
                 "rust".into(),
                 "claude".into(),
                 "main".into(),
+                PathBuf::from("/root"),
             )
             .expect("added")
     }
@@ -296,6 +317,11 @@ mod tests {
         assert_eq!(toy.project(), "factory-toy");
         assert_eq!(toy.volume("ledger"), "factory-toy_ledger");
         assert!(toy.compose_env().contains("RIG_IMAGE=factory-rig:rust\n"));
+        assert!(
+            toy.compose_env()
+                .contains("RIG_ENV_FILE=/root/toy/rig.env\n")
+        );
+        assert_eq!(toy.env_file(), PathBuf::from("/root/toy/rig.env"));
         let (reg2, api) = reg
             .add(
                 name("api"),
@@ -303,11 +329,19 @@ mod tests {
                 "node".into(),
                 "codex".into(),
                 "main".into(),
+                PathBuf::from("/root"),
             )
             .expect("added");
         assert_eq!(api.console_port, 7701);
         assert_eq!(
-            reg2.add(name("toy"), "u".into(), "r".into(), "h".into(), "m".into()),
+            reg2.add(
+                name("toy"),
+                "u".into(),
+                "r".into(),
+                "h".into(),
+                "m".into(),
+                PathBuf::from("/root")
+            ),
             Err(RegistryError::Exists { name: name("toy") })
         );
         let (reg3, removed) = reg2.remove(&name("toy")).expect("removed");
@@ -326,11 +360,19 @@ mod tests {
                     harness: "claude".into(),
                     main: "main".into(),
                     console_port: p,
+                    root: PathBuf::from("/root"),
                 })
                 .collect(),
         };
         assert!(matches!(
-            full.add(name("more"), "u".into(), "r".into(), "h".into(), "m".into()),
+            full.add(
+                name("more"),
+                "u".into(),
+                "r".into(),
+                "h".into(),
+                "m".into(),
+                PathBuf::from("/root")
+            ),
             Err(RegistryError::NoPort { .. })
         ));
     }

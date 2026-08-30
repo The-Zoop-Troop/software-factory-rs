@@ -6,8 +6,9 @@
 # with RIG_IMAGE (default: the rust runtime, which this repository itself needs).
 x-rig: &rig
   image: ${RIG_IMAGE:-factory-rig:rust}
+  # RIG_ENV_FILE: the rig's secrets/env (set by `factory rig create`; single-rig default below).
   env_file:
-    - path: docker/rig.env
+    - path: ${RIG_ENV_FILE:-docker/rig.env}
       required: false
   environment:
     HTTPS_PROXY: http://egress:8888
@@ -81,6 +82,7 @@ services:
       RUST_LOG: info
       RIG_HARNESS: opencode
     command: [work, --interval, "10"]
+    profiles: [opencode]
 
   # One-shot roles; run with `docker compose run --rm <name> ...`.
   # Serves the plan queue: plan_request beads left by the console become epics here, so the

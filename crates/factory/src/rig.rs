@@ -133,6 +133,7 @@ pub(crate) async fn create(
         runtime.to_owned(),
         harness.to_owned(),
         main.to_owned(),
+        layout.root.clone(),
     )?;
     let dir = layout.rig_dir(&name);
     std::fs::create_dir_all(&dir).map_err(io(&dir))?;
