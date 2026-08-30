@@ -4,16 +4,17 @@ ARG BASE=factory-rig:base
 FROM ${BASE}
 ARG NODE_VERSION=24.20.0
 ARG PNPM_VERSION=11.24.0
+# Node lives under /usr/local so a sandboxed shell with a reset PATH still finds it; only the
+# package caches live on the cache volume.
 ENV PNPM_HOME=/work/cache/pnpm COREPACK_HOME=/work/cache/corepack \
     npm_config_cache=/work/cache/npm \
-    PATH=/work/cache/pnpm:/home/factory/.local/node/bin:/home/factory/.local/bin:/usr/local/bin:/usr/bin:/bin
+    PATH=/work/cache/pnpm:/usr/local/bin:/usr/bin:/bin
 USER root
-RUN chown -R factory:factory /work/cache
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+      | tar -xJ --strip-components=1 -C /usr/local \
+    && corepack enable --install-directory /usr/local/bin \
+    && chown -R factory:factory /work/cache
 USER factory
-RUN mkdir -p /home/factory/.local/node \
-    && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
-      | tar -xJ --strip-components=1 -C /home/factory/.local/node \
-    && corepack enable --install-directory /home/factory/.local/bin \
-    && corepack prepare "pnpm@${PNPM_VERSION}" --activate \
-    && node --version && pnpm --version
+RUN corepack prepare "pnpm@${PNPM_VERSION}" --activate \
+    && node --version && npm --version && pnpm --version && test "$(command -v node)" = /usr/local/bin/node
 ENV RIG_RUNTIME=node

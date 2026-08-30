@@ -30,6 +30,16 @@ pub struct WorkerConfig {
     pub effort: Option<domain::Effort>,
 }
 
+/// The agent's `FACTORY_BLOCKED.md`, if it wrote one: its text, and the file is gone.
+fn take_blocked_note(worktree: &std::path::Path) -> Option<String> {
+    let path = worktree.join("FACTORY_BLOCKED.md");
+    let text = std::fs::read_to_string(&path).ok()?;
+    if let Err(e) = std::fs::remove_file(&path) {
+        tracing::warn!(error = %e, "could not remove FACTORY_BLOCKED.md");
+    }
+    Some(text.trim().to_owned())
+}
+
 /// The last `resume-from: <branch>` marker in the notes, if any (see `remote::service`).
 #[must_use]
 pub fn resume_branch(notes: Option<&str>) -> Option<BranchName> {
@@ -138,6 +148,10 @@ pub async fn work_once(
     });
     let outcome = run_with_heartbeats(store, log, repo, &worktree, clock, cfg, &id, session).await;
 
+    // The agent's blocked note is for the ledger, never for the repository: read it, then remove
+    // it before anything is committed.
+    let blocked = take_blocked_note(&worktree.path);
+
     // Whatever happened, tidy the worktree; the branch (and any commits) survive.
     let commit = repo
         .commit_all(&worktree, &format!("{}: {}", id, bead.title))
@@ -149,17 +163,19 @@ pub async fn work_once(
     let outcome = outcome?;
 
     let now = clock.now();
-    // A session that changed nothing has nothing to verify — whether it errored or merely talked.
-    // Give the task back (an attempt) and keep the model's reply so the incident is legible.
-    if head == from {
-        let why = if outcome.is_error {
-            "harness error"
-        } else {
-            "no changes made"
+    // A session that changed nothing has nothing to verify — whether it errored or merely talked —
+    // and a session that declared itself blocked must not be verified either. Give the task back
+    // (an attempt) and keep the reason so the incident is legible.
+    if head == from || blocked.is_some() {
+        let why = match (&blocked, outcome.is_error) {
+            (Some(_), _) => "blocked",
+            (None, true) => "harness error",
+            (None, false) => "no changes made",
         };
+        let reason = blocked.clone().unwrap_or_else(|| outcome.text.clone());
         let note = format!(
             "released: {why}: {}",
-            outcome.text.chars().take(600).collect::<String>()
+            reason.chars().take(600).collect::<String>()
         );
         apply_event(
             store,
@@ -177,7 +193,7 @@ pub async fn work_once(
             &id,
             EventKind::Released {
                 holder: cfg.agent.to_string(),
-                detail: outcome.text.chars().take(200).collect(),
+                detail: reason.chars().take(200).collect(),
             },
         ));
         return Ok(None);
@@ -385,7 +401,8 @@ Rules:
 - Before you stop, run the listed verification commands yourself from the repo root and make them pass.
 - Do not commit, push, or create branches; the factory commits your working tree when you exit.
 - If the task is impossible as written or you are missing information, write a short file named \
-FACTORY_BLOCKED.md at the repo root explaining exactly what is needed, then stop.
+FACTORY_BLOCKED.md at the repo root explaining exactly what is needed, then stop; the factory \
+reads it into the task's notes and removes it — it is never committed.
 - Do not read or modify anything under .factory/ or .beads/.\
 Environment: you are inside a sandbox with the repository, its toolchain and package \
 registries only — no docker, no cloud CLIs, no credentials, no external services; /tmp is not \

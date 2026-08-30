@@ -34,6 +34,7 @@ fn harness_text(text: &str) -> FakeHarness {
         }),
         requests: std::sync::Mutex::default(),
         yields: 0,
+        blocked: None,
     }
 }
 
@@ -114,6 +115,58 @@ async fn a_long_session_reports_worktree_drift_on_each_heartbeat() {
         })
         .count();
     assert!(progress >= 1, "a heartbeat sampled the worktree");
+}
+
+#[tokio::test]
+async fn a_blocked_session_is_released_with_its_reason_and_the_file_never_lands() {
+    let store = seeded().await;
+    let root = std::env::temp_dir().join(format!("factory-blocked-{}", std::process::id()));
+    let repo = FakeRepo {
+        commit_head: Some(sha('b')),
+        worktree_root: Some(root.clone()),
+        ..FakeRepo::default()
+    };
+    let harness = FakeHarness {
+        blocked: Some("Need the OAuth client id; none in the repo.".into()),
+        ..harness_text("stopping")
+    };
+    let log = MemorySink::default();
+    let report = work_once(
+        &store,
+        &repo,
+        &harness,
+        &FixedClock(Timestamp::from_unix_seconds(100)),
+        &log,
+        &cfg(),
+    )
+    .await
+    .unwrap();
+    assert!(report.is_none(), "nothing submitted");
+    let task = load_task(&store, &id("fac-e.1")).await.unwrap();
+    assert!(matches!(task.state, TaskState::Open));
+    let notes = store
+        .show(&id("fac-e.1"))
+        .await
+        .unwrap()
+        .notes
+        .unwrap_or_default();
+    assert!(
+        notes.contains("released: blocked: Need the OAuth client id"),
+        "{notes}"
+    );
+    assert!(
+        !root
+            .join("task__fac-e.1")
+            .join("FACTORY_BLOCKED.md")
+            .exists(),
+        "file consumed"
+    );
+    let kinds: Vec<_> = log.events().await.into_iter().map(|e| e.kind).collect();
+    assert!(
+        kinds
+            .iter()
+            .any(|k| matches!(k, EventKind::Released { detail, .. } if detail.contains("OAuth")))
+    );
 }
 
 #[tokio::test]

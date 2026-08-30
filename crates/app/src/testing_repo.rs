@@ -36,6 +36,8 @@ pub struct FakeRepo {
     /// The remote and local branches have diverged.
     pub remote_diverged: bool,
     pub syncs: std::sync::Mutex<Vec<(String, BranchName)>>,
+    /// When set, worktrees are real directories under this root (for tests that touch files).
+    pub worktree_root: Option<PathBuf>,
 }
 
 #[async_trait]
@@ -58,7 +60,14 @@ impl Repo for FakeRepo {
             });
         }
         let wt = Worktree {
-            path: PathBuf::from(format!("/fake/wt/{branch}")),
+            path: match &self.worktree_root {
+                Some(root) => {
+                    let p = root.join(branch.to_string().replace('/', "__"));
+                    let _ = std::fs::create_dir_all(&p);
+                    p
+                }
+                None => PathBuf::from(format!("/fake/wt/{branch}")),
+            },
             branch: branch.clone(),
             head: head.clone(),
         };

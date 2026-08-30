@@ -14,6 +14,8 @@ pub struct FakeHarness {
     pub requests: std::sync::Mutex<Vec<HarnessRequest>>,
     /// How many times the session yields before finishing (lets heartbeats fire in tests).
     pub yields: usize,
+    /// Write this as `FACTORY_BLOCKED.md` in the session's cwd (the agent declaring itself blocked).
+    pub blocked: Option<String>,
 }
 
 impl FakeHarness {
@@ -30,6 +32,7 @@ impl FakeHarness {
             }),
             requests: std::sync::Mutex::default(),
             yields: 0,
+            blocked: None,
         }
     }
 }
@@ -37,6 +40,9 @@ impl FakeHarness {
 #[async_trait]
 impl Harness for FakeHarness {
     async fn run(&self, req: HarnessRequest) -> Result<HarnessOutcome, HarnessError> {
+        if let Some(text) = &self.blocked {
+            let _ = std::fs::write(req.cwd.join("FACTORY_BLOCKED.md"), text);
+        }
         self.requests.lock().expect("test mutex").push(req);
         for _ in 0..self.yields {
             tokio::task::yield_now().await;
