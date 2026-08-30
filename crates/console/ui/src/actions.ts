@@ -63,12 +63,29 @@ export const refreshAll = (): Promise<boolean> => {
         for (const [name, why] of Object.entries(r.unavailable)) { markUnavailable(name, why); setTasks(name as RigName, []); }
       })),
       Effect.flatMap((r) => Effect.forEach(r.names.filter((n) => !(n in r.unavailable)), loadRigLenient, { concurrency: 4, discard: true })),
-      Effect.tap(() => Effect.sync(() => { connection.set('online'); lastError.set(null); })),
+      Effect.tap(() => Effect.sync(() => { connection.set('online'); lastError.set(null); lastRefreshAt.set(Date.now()); })),
     ),
   );
 };
 
-export const refreshRig = (rig: RigName): Promise<boolean> => attempt(loadRig(rig).pipe(Effect.asVoid));
+/** One in-flight ListTasks per rig; a request that arrives meanwhile runs once more after it. */
+const inFlight = new Map<string, { promise: Promise<boolean>; again: boolean }>();
+export const refreshRig = (rig: RigName): Promise<boolean> => {
+  const current = inFlight.get(rig);
+  if (current !== undefined) { current.again = true; return current.promise; }
+  const entry = { again: false, promise: Promise.resolve(false) };
+  entry.promise = attempt(loadRig(rig).pipe(Effect.asVoid)).then(async (ok) => {
+    inFlight.delete(rig);
+    return entry.again ? refreshRig(rig) : ok;
+  });
+  inFlight.set(rig, entry);
+  return entry.promise;
+};
+/** How many loads are running right now (tests). */
+export const inFlightCount = (): number => inFlight.size;
+
+/** When the last full refresh finished (ms since epoch), for the backstop timer. */
+export const lastRefreshAt = signal<number>(0);
 
 const historyOf = (rig: RigName) => historyByRig.get()[rig] ?? [];
 

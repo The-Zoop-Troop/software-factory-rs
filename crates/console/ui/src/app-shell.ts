@@ -1,9 +1,13 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { SignalWatcher } from '@lit-labs/signals';
-import { refreshAll } from './actions.js';
+import { lastRefreshAt, refreshAll } from './actions.js';
 import { startLive, stopLive } from './live.js';
-import { streamStatus } from './state/events.js';
+import { streamStatus, type StreamStatus } from './state/events.js';
+
+/** Poll every 15 s without a live stream, every 90 s with one. */
+export const backstopDue = (stream: StreamStatus, last: number, now: number): boolean =>
+  now - last >= (stream === 'live' ? 90_000 : 15_000);
 import { connect, disconnect } from './core/runtime.js';
 import { Router } from './router.js';
 import './components/attention-drawer.js';
@@ -57,7 +61,8 @@ export class AppShell extends SignalWatcher(LitElement) {
     void refreshAll();
     startLive(baseUrl.get(), tok);
     if (this.timer !== undefined) clearInterval(this.timer);
-    this.timer = window.setInterval(() => { void refreshAll(); }, 15_000);
+    // The stream drives refreshes; the timer is a backstop: 90 s while live, 15 s otherwise.
+    this.timer = window.setInterval(() => { if (backstopDue(streamStatus.get(), lastRefreshAt.get(), Date.now())) void refreshAll(); }, 15_000);
   }
 
   private stop(): void {

@@ -33,6 +33,12 @@ suite('events store', () => {
     expect(Number.isNaN(recordDate('t').getTime())).toBe(false);
   });
 
+  it('refreshes a rig only after state-changing events', async () => {
+    const { REFRESH_KINDS } = await import('../live.js');
+    expect(REFRESH_KINDS.has('claimed') && REFRESH_KINDS.has('integrated') && REFRESH_KINDS.has('remote')).toBe(true);
+    expect(REFRESH_KINDS.has('progress') || REFRESH_KINDS.has('sweep_done') || REFRESH_KINDS.has('verify_started')).toBe(false);
+  });
+
   it('shows progress in the feed and the epic page but never as a toast', () => {
     const f = frame('progress', { files: 3, insertions: 40, deletions: 2 });
     expect(describe(f)).toEqual({ title: 'ep-1.1 working: 3 files, +40/-2', tone: 'info', quiet: true });

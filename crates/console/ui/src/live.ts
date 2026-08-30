@@ -24,10 +24,13 @@ const scheduleRefresh = (rig: string): void => {
   );
 };
 
+/** Events after which the task list can differ. Progress samples and steward sweeps are not among them. */
+export const REFRESH_KINDS: ReadonlySet<string> = new Set(['claimed', 'submitted', 'released', 'verified', 'verify_blocked', 'integrated', 'escalated', 'lease_reaped', 'epic_closed', 'task_planned', 'merge_bead_repaired', 'remote']);
+
 export const onFrame = (frame: Parameters<typeof push>[0]): void => {
   push(frame);
   if (frame.replay) return;
-  scheduleRefresh(frame.rig);
+  if (REFRESH_KINDS.has(frame.record.kind)) scheduleRefresh(frame.rig);
   const line = describe(frame);
   if (line !== null && line.quiet !== true) notify(line.tone, line.title, frame.rig);
 };

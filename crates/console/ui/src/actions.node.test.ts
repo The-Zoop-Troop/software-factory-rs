@@ -14,6 +14,25 @@ const incident = Schema.decodeSync(Task)({ id: 'inc-1', contextId: 'ep-1', statu
 beforeEach(() => { resetRigs(); resetNotices(); resetSession(); disconnect(); });
 
 describe('actions over the fake console', () => {
+  it('coalesces concurrent refreshes of one rig into at most one in flight and one follow-up', async () => {
+    const { connectFake } = await import('./core/runtime.js');
+    const { inFlightCount } = await import('./actions.js');
+    connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [incident] } }, 'ok');
+    const a = refreshRig(rig); const b = refreshRig(rig); const c = refreshRig(rig);
+    expect(inFlightCount()).toBe(1);
+    expect(b).toBe(a);
+    expect(await Promise.all([a, b, c])).toEqual([true, true, true]);
+    expect(inFlightCount()).toBe(0);
+  });
+
+  it('polls every 15 s without a stream and every 90 s with one', async () => {
+    const { backstopDue } = await import('./app-shell.js');
+    expect(backstopDue('off', 0, 20_000)).toBe(true);
+    expect(backstopDue('live', 0, 20_000)).toBe(false);
+    expect(backstopDue('live', 0, 95_000)).toBe(true);
+    expect(backstopDue('reconnecting', 0, 16_000)).toBe(true);
+  });
+
   it('does not ask rigs the console marked unavailable, and marks them itself', async () => {
     const { connectFake } = await import('./core/runtime.js');
     const { unavailable, tasksByRig } = await import('./state/rigs.js');
