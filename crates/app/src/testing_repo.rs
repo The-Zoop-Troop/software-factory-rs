@@ -31,6 +31,11 @@ pub struct FakeRepo {
     pub summary: crate::ports::DiffSummary,
     pub commits: std::sync::Mutex<Vec<String>>,
     pub rollbacks: std::sync::Mutex<Vec<(BranchName, Sha, Sha)>>,
+    /// What the remote has for the integration branch: `None` = same as local.
+    pub remote_head: Option<Sha>,
+    /// The remote and local branches have diverged.
+    pub remote_diverged: bool,
+    pub syncs: std::sync::Mutex<Vec<(String, BranchName)>>,
 }
 
 #[async_trait]
@@ -119,6 +124,27 @@ impl Repo for FakeRepo {
             .expect("test mutex")
             .push((branch.clone(), from.clone(), to.clone()));
         Ok(())
+    }
+
+    async fn sync_branch(
+        &self,
+        remote: &str,
+        branch: &BranchName,
+    ) -> Result<crate::ports::RemoteSync, RepoError> {
+        if let Ok(mut s) = self.syncs.lock() {
+            s.push((remote.to_owned(), branch.clone()));
+        }
+        let local = self.head_of(branch).await?;
+        Ok(match (&self.remote_head, self.remote_diverged) {
+            (Some(remote), true) => crate::ports::RemoteSync::Diverged {
+                local,
+                remote: remote.clone(),
+            },
+            (Some(remote), false) if *remote != local => {
+                crate::ports::RemoteSync::FastForwarded { to: remote.clone() }
+            }
+            _ => crate::ports::RemoteSync::UpToDate,
+        })
     }
 
     async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError> {

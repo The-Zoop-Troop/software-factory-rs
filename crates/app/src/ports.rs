@@ -126,6 +126,17 @@ pub trait Clock: Send + Sync {
     async fn sleep(&self, d: Duration);
 }
 
+/// Where the local integration branch stands against the remote after a fetch.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RemoteSync {
+    /// Same commit, or local strictly ahead (a push will fast-forward the remote).
+    UpToDate,
+    /// Local was strictly behind and has been moved to the remote's commit.
+    FastForwarded { to: Sha },
+    /// Both sides have commits the other lacks; landing must not guess.
+    Diverged { local: Sha, remote: Sha },
+}
+
 /// What landed between two commits, as a downstream planner needs it: the files, the size,
 /// and the public surface that appeared (`pub fn`, `export`, exported Go names, routes, env vars).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -208,6 +219,15 @@ pub trait Repo: Send + Sync {
     /// # Errors
     /// `Rejected` if `branch` is no longer at `from` (someone else moved it; do not touch).
     async fn rollback(&self, branch: &BranchName, from: &Sha, to: &Sha) -> Result<(), RepoError>;
+
+    /// Fetch `branch` from `remote` and fast-forward the local branch when it is strictly behind,
+    /// so a landing rebases onto what the remote actually has (an operator's hand commit, another
+    /// rig's push). Never moves a diverged branch.
+    ///
+    /// # Errors
+    /// `Unavailable` if the remote cannot be reached; `RefNotFound` for an unknown branch.
+    async fn sync_branch(&self, remote: &str, branch: &BranchName)
+    -> Result<RemoteSync, RepoError>;
 
     /// Push `branch` to `remote`.
     ///

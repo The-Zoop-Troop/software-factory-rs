@@ -264,8 +264,8 @@ order:
    one most likely to drift from the code when two tasks conflict, so read it against the code.
 
 Anything you want changed goes back through the factory as a new plan slice ("review notes:
-…") rather than a hand edit on the branch — a hand commit is fine, but the next session
-rebases onto it blind. Then stop the rig (`factory rig stop <rig>` — roles down, ledger up, so the
+…") rather than a hand edit on the branch — a hand commit is fine (the Integrator fetches and
+fast-forwards before every landing), but the next session rebases onto it blind. Then stop the rig (`factory rig stop <rig>` — roles down, ledger up, so the
 console still shows its history; `factory rig start <rig>` later); the ledger
 and repo volumes survive) and gate the next phase.
 

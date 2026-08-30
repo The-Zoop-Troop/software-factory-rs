@@ -116,6 +116,13 @@ pub enum LandRejection {
         onto: BranchName,
         paths: Vec<std::path::PathBuf>,
     },
+    /// The local integration branch and the remote each have commits the other lacks; the
+    /// operator reconciles (nothing is force-pushed or guessed).
+    Diverged {
+        branch: BranchName,
+        local: domain::Sha,
+        remote: domain::Sha,
+    },
     CheckFailed {
         command: VerifyCommand,
         exit_code: Option<i32>,
@@ -127,6 +134,14 @@ pub enum LandRejection {
 impl std::fmt::Display for LandRejection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Diverged {
+                branch,
+                local,
+                remote,
+            } => write!(
+                f,
+                "integration branch `{branch}` diverged from the remote (local {local}, remote {remote}); reconcile by hand — nothing was pushed"
+            ),
             Self::Conflict { onto, paths } => {
                 write!(f, "rebase onto {onto} conflicted in {paths:?}")
             }
@@ -252,6 +267,24 @@ async fn land(
     cfg: &IntegrateConfig,
     worktree: &crate::ports::Worktree,
 ) -> Result<domain::Sha, LandError> {
+    // Land onto what the remote has: a hand commit or another rig's push must be rebased over,
+    // not rejected three times a poll. A diverged branch is the operator's call.
+    if let Some(remote) = &cfg.remote {
+        match repo.sync_branch(remote, &cfg.main).await {
+            Ok(crate::ports::RemoteSync::UpToDate) => {}
+            Ok(crate::ports::RemoteSync::FastForwarded { to }) => {
+                tracing::info!(branch = %cfg.main, %to, "integration branch fast-forwarded from the remote");
+            }
+            Ok(crate::ports::RemoteSync::Diverged { local, remote }) => {
+                return Err(LandError::Rejected(LandRejection::Diverged {
+                    branch: cfg.main.clone(),
+                    local,
+                    remote,
+                }));
+            }
+            Err(e) => return Err(LandError::Infra(e)),
+        }
+    }
     let new_head = match repo.rebase(worktree, &cfg.main).await {
         Ok(sha) => sha,
         Err(RepoError::Conflict { paths }) => {

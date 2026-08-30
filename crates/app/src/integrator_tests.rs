@@ -283,3 +283,65 @@ async fn stale_merge_bead_is_closed() {
     assert!(store.list_active(BeadKind::Merge).await.unwrap().is_empty());
     assert!(repo.added.lock().unwrap().is_empty());
 }
+
+#[tokio::test]
+async fn a_remote_ahead_is_fast_forwarded_before_landing_and_divergence_is_rejected() {
+    let store = store_mergeable(Attempts::new(3)).await;
+    let repo = FakeRepo {
+        rebased_to: std::collections::BTreeMap::from([(sha('b'), sha('c'))]),
+        remote_head: Some(sha('e')),
+        ..FakeRepo::default()
+    };
+    let runner = FakeRunner::default();
+    let log = MemorySink::default();
+    let report = integrate_once(
+        &store,
+        &repo,
+        &runner,
+        &FixedClock(Timestamp::from_unix_seconds(9)),
+        &log,
+        &cfg(&[], Some("origin")),
+        "i",
+    )
+    .await
+    .unwrap();
+    assert_eq!(report.landed, 1);
+    let syncs = repo.syncs.lock().unwrap().clone();
+    assert_eq!(syncs.len(), 1, "fetched from the remote before rebasing");
+    assert_eq!(syncs[0].0, "origin");
+
+    let store = store_mergeable(Attempts::new(3)).await;
+    let repo = FakeRepo {
+        remote_head: Some(sha('e')),
+        remote_diverged: true,
+        ..FakeRepo::default()
+    };
+    let report = integrate_once(
+        &store,
+        &repo,
+        &runner,
+        &FixedClock(Timestamp::from_unix_seconds(9)),
+        &log,
+        &cfg(&[], Some("origin")),
+        "i",
+    )
+    .await
+    .unwrap();
+    assert_eq!((report.landed, report.failed), (0, 1));
+    assert!(
+        repo.pushes.lock().unwrap().is_empty(),
+        "nothing pushed over a diverged branch"
+    );
+    let task = load_task(&store, &id("fac-t")).await.unwrap();
+    assert!(
+        matches!(task.state, TaskState::Open),
+        "task reopened with the reason"
+    );
+    let notes = store
+        .show(&id("fac-t"))
+        .await
+        .unwrap()
+        .notes
+        .unwrap_or_default();
+    assert!(notes.contains("diverged"), "{notes}");
+}

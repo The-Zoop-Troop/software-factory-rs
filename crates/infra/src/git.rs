@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use app::domain::{BranchName, Sha};
-use app::{DiffStat, DiffSummary, GitOp, Repo, RepoError, Worktree};
+use app::{DiffStat, DiffSummary, GitOp, RemoteSync, Repo, RepoError, Worktree};
 use async_trait::async_trait;
 use tokio::process::Command;
 
@@ -32,6 +32,16 @@ impl GitCli {
     /// `Unavailable` if git can't start; `Rejected` (or `RefNotFound`) on non-zero exit.
     pub async fn git(&self, op: GitOp, args: &[&str]) -> Result<String, RepoError> {
         Self::git_in(op, &self.repo, args).await
+    }
+
+    /// `a` is an ancestor of (or equal to) `b`.
+    async fn is_ancestor(&self, a: &Sha, b: &Sha) -> bool {
+        self.git(
+            GitOp::FastForward,
+            &["merge-base", "--is-ancestor", a.as_ref(), b.as_ref()],
+        )
+        .await
+        .is_ok()
     }
 
     /// Run `git` in an arbitrary directory (e.g. a worktree).
@@ -274,6 +284,40 @@ impl Repo for GitCli {
         )
         .await?;
         Ok(parse_numstat(&numstat, &untracked))
+    }
+
+    async fn sync_branch(
+        &self,
+        remote: &str,
+        branch: &BranchName,
+    ) -> Result<RemoteSync, RepoError> {
+        self.git(GitOp::Push, &["fetch", "--quiet", remote, branch.as_ref()])
+            .await?;
+        let local = self.rev_parse(&format!("refs/heads/{branch}")).await?;
+        let remote_head = self.rev_parse("FETCH_HEAD").await?;
+        if local == remote_head {
+            return Ok(RemoteSync::UpToDate);
+        }
+        if self.is_ancestor(&local, &remote_head).await {
+            self.git(
+                GitOp::FastForward,
+                &[
+                    "update-ref",
+                    &format!("refs/heads/{branch}"),
+                    remote_head.as_ref(),
+                    local.as_ref(),
+                ],
+            )
+            .await?;
+            return Ok(RemoteSync::FastForwarded { to: remote_head });
+        }
+        if self.is_ancestor(&remote_head, &local).await {
+            return Ok(RemoteSync::UpToDate);
+        }
+        Ok(RemoteSync::Diverged {
+            local,
+            remote: remote_head,
+        })
     }
 
     async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError> {
