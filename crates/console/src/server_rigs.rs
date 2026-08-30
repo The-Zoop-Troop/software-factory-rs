@@ -4,7 +4,7 @@ use super::*;
 
 /// How long `/rigs` waits for one rig's overview before listing it as slow. Embedded `bd`
 /// calls take seconds under contention; the page must not wait on the slowest ledger.
-const OVERVIEW_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
+const OVERVIEW_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
 /// Visible rigs with counts (epics, working, attention, done); a rig that cannot be read
 /// right now is listed with `error` instead of counts. Rigs are read concurrently.
