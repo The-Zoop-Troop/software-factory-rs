@@ -5,8 +5,6 @@
     reason = "tests: json! literals; one scenario per endpoint"
 )]
 
-use std::collections::BTreeMap;
-use std::sync::Arc;
 
 use app::BeadStore as _;
 use axum::body::Body;
