@@ -15,4 +15,6 @@ RUN mkdir -p /home/factory/.local/go \
     && curl -fsSL "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_VERSION}/golangci-lint-${GOLANGCI_VERSION}-linux-amd64.tar.gz" \
       | tar -xz --strip-components=1 -C /home/factory/.local/bin "golangci-lint-${GOLANGCI_VERSION}-linux-amd64/golangci-lint" \
     && go version && golangci-lint --version
+# /tmp is noexec in the rig; `go test` must build its test binaries somewhere executable.
+ENV GOTMPDIR=/work/cache/go-tmp
 ENV RIG_RUNTIME=go

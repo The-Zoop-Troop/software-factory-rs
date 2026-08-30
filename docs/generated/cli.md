@@ -138,6 +138,11 @@ Options:
           
           [env: RIG_EFFORT=]
 
+      --task-tokens <TASK_TOKENS>
+          Token budget per task the Planner writes onto new tasks (default 400000)
+          
+          [env: RIG_TASK_TOKENS=]
+
       --max-budget-usd <MAX_BUDGET_USD>
           Spend cap for the planner run, USD (claude only)
           

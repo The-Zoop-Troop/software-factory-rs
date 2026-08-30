@@ -81,7 +81,7 @@ async fn codex_text_structured_failure() {
         .unwrap();
     assert_eq!(
         (o.text.as_str(), o.tokens.get(), o.turns.get(), o.is_error),
-        ("pong", 125, 1, false)
+        ("pong", 85, 1, false)
     );
     let o = h
         .run(req("structured", ToolPolicy::Full, true))

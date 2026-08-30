@@ -87,6 +87,9 @@ harness_args() {  # $1 = role (planner|worker)
 }
 harness_args worker
 
+# Runtime scratch dirs on the cache volume (tmp is noexec).
+[ -n "${GOTMPDIR:-}" ] && mkdir -p "$GOTMPDIR" 2>/dev/null
+
 role=${1:-shell}; shift || true
 case "$role" in
   steward)   exec stewardd --workdir "$RIG_DIR" --events .factory/events.jsonl "$@" ;;

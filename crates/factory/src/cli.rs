@@ -126,6 +126,9 @@ pub(crate) enum Command {
         /// Thinking effort: low | medium | high | max (harness default when omitted).
         #[arg(long, env = "RIG_EFFORT")]
         effort: Option<String>,
+        /// Token budget per task the Planner writes onto new tasks (default 400000).
+        #[arg(long, env = "RIG_TASK_TOKENS")]
+        task_tokens: Option<u64>,
         /// Spend cap for the planner run, USD (claude only).
         #[arg(long, default_value_t = 2.0)]
         max_budget_usd: f64,
@@ -379,16 +382,20 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             harness,
             model,
             effort,
+            task_tokens,
             max_budget_usd,
             queue,
             interval,
             events,
         } => {
             let effort = effort.map(|e| e.parse::<domain::Effort>()).transpose()?;
-            let defaults = PlanDefaults {
+            let mut defaults = PlanDefaults {
                 effort,
                 ..PlanDefaults::default()
             };
+            if let Some(t) = task_tokens {
+                defaults.budget.tokens = domain::Tokens::new(t);
+            }
             if queue {
                 let harness = build_harness(harness, model, max_budget_usd)?;
                 let git = GitCli::new(&repo, repo.join(".factory-worktrees"));

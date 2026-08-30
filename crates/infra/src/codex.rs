@@ -146,8 +146,9 @@ fn fold(events: &str, last_message: Option<String>, schema_requested: bool) -> H
             Ok(Event::ItemCompleted { .. } | Event::Other) | Err(_) => {}
             Ok(Event::TurnCompleted { usage }) => {
                 turns += 1;
-                tokens += usage.input_tokens
-                    + usage.cached_input_tokens
+                // `input_tokens` includes the cached prefix on every turn; a long session would
+                // otherwise report millions of "used" tokens. Count what was actually processed.
+                tokens += usage.input_tokens.saturating_sub(usage.cached_input_tokens)
                     + usage.cache_write_input_tokens
                     + usage.output_tokens
                     + usage.reasoning_output_tokens;
@@ -320,7 +321,8 @@ mod tests {
     fn folds_message_and_usage() {
         let o = fold(EVENTS, None, false);
         assert_eq!(o.text, "pong");
-        assert_eq!(o.tokens.get(), 12938 + 9984 + 5);
+        // cached prefix excluded: (12938 - 9984) uncached input + 5 output
+        assert_eq!(o.tokens.get(), 12938 - 9984 + 5);
         assert_eq!(o.turns.get(), 1);
         assert!(!o.is_error);
     }
