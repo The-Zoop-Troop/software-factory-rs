@@ -10,8 +10,8 @@ use domain::{
 use super::a2a::{A2aState, Message, Part, epic_progress, skills};
 use super::remote_fixtures_tests::{clock, id, meta, seeded, who};
 use super::service::{
-    RemoteError, Sent, cancel_task, events_after, get_task, list_tasks, list_tasks_with_vanished,
-    send_message, spend,
+    RemoteError, Sent, cancel_task, enqueue_plan, events_after, get_task, list_tasks,
+    list_tasks_with_vanished, send_message, spend,
 };
 use super::{Rig, SubmitError};
 use crate::testing::remote::{FakePlanner, FakeRegistry, FakeTail, rig};
@@ -336,6 +336,67 @@ async fn closed_epics_reappear_for_watchers_that_saw_them() {
     assert_eq!(tasks[0].status.state, A2aState::Completed);
     assert!(matches!(
         list_tasks_with_vanished(&rig, &clock(), &who(&[Scope::Plan]), &seen).await,
+        Err(RemoteError::Forbidden(_))
+    ));
+}
+
+#[tokio::test]
+async fn plans_can_be_queued_and_watched_as_tasks() {
+    let (rig, store, sink, _) = seeded().await;
+    let task = enqueue_plan(
+        &rig,
+        &clock(),
+        &who(&[Scope::Plan, Scope::Watch]),
+        "build\nmore",
+    )
+    .await
+    .expect("queued");
+    assert_eq!(task.status.state, A2aState::Submitted);
+    assert_eq!(task.metadata["factory"]["kind"], "plan_request");
+    assert!(
+        sink.events().await.iter().any(
+            |e| matches!(&e.kind, EventKind::Remote { action, .. } if action == "plan-queued")
+        )
+    );
+    let listed = list_tasks(&rig, &clock(), &who(&[Scope::Watch]))
+        .await
+        .expect("ok");
+    assert!(
+        listed
+            .iter()
+            .any(|t| t.id == task.id && t.status.state == A2aState::Submitted)
+    );
+    let req = id(&task.id);
+    store.note(&req, "epic ep-1").await.expect("note");
+    store.close(&req, "epic ep-1").await.expect("closed");
+    let done = get_task(&rig, &clock(), &who(&[Scope::Watch]), &task.id)
+        .await
+        .expect("ok");
+    assert_eq!(done.status.state, A2aState::Completed);
+    assert_eq!(done.metadata["factory"]["epic"], "ep-1");
+    assert_eq!(done.context_id, "ep-1");
+    let failed = enqueue_plan(&rig, &clock(), &who(&[Scope::Admin]), "again")
+        .await
+        .expect("queued");
+    let fid = id(&failed.id);
+    store.note(&fid, "failed: no model").await.expect("note");
+    store.close(&fid, "failed").await.expect("closed");
+    let f = get_task(&rig, &clock(), &who(&[Scope::Watch]), &failed.id)
+        .await
+        .expect("ok");
+    assert_eq!(f.status.state, A2aState::Failed);
+    assert!(
+        f.status
+            .message
+            .as_ref()
+            .is_some_and(|m| m.text().contains("no model"))
+    );
+    assert_eq!(
+        enqueue_plan(&rig, &clock(), &who(&[Scope::Admin]), " ").await,
+        Err(RemoteError::EmptyMessage)
+    );
+    assert!(matches!(
+        enqueue_plan(&rig, &clock(), &who(&[Scope::Watch]), "x").await,
         Err(RemoteError::Forbidden(_))
     ));
 }

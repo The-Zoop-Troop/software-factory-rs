@@ -3,7 +3,7 @@
 
 use domain::{BeadId, BeadKind, Forbidden, Principal, RigBudgetExceeded, RigSpend, Scope, Tokens};
 
-use super::a2a::{A2aState, CANCELED_LABEL, Task, epic_task, inbox_task};
+use super::a2a::{A2aState, CANCELED_LABEL, Task, epic_task, inbox_task, request_task};
 use super::attention::{AttentionOption, incident_task_id};
 use super::{Rig, SubmitError, TailError};
 use crate::bead::{Bead, BeadStatus};
@@ -103,6 +103,9 @@ pub async fn list_tasks(
         let task = incident_task_bead(rig, &item).await?;
         out.push(inbox_task(&item, task.as_ref(), &now));
     }
+    for req in rig.store.list_active(BeadKind::PlanRequest).await? {
+        out.push(request_task(&req, &now));
+    }
     Ok(out)
 }
 
@@ -161,14 +164,10 @@ pub async fn get_task(
             let task = incident_task_bead(rig, &bead).await?;
             Ok(inbox_task(&bead, task.as_ref(), &now))
         }
-        Some(
-            BeadKind::Task
-            | BeadKind::Verify
-            | BeadKind::Merge
-            | BeadKind::Reference
-            | BeadKind::PlanRequest,
-        )
-        | None => Err(RemoteError::TaskNotFound { id: id.to_owned() }),
+        Some(BeadKind::PlanRequest) => Ok(request_task(&bead, &now)),
+        Some(BeadKind::Task | BeadKind::Verify | BeadKind::Merge | BeadKind::Reference) | None => {
+            Err(RemoteError::TaskNotFound { id: id.to_owned() })
+        }
     }
 }
 
@@ -194,6 +193,41 @@ pub enum Sent {
         task: Task,
         reopened: Option<BeadId>,
     },
+}
+
+/// `SendMessage` with `returnImmediately`: queue the plan and answer with the request as a
+/// `SUBMITTED` task the client can watch (`GetTask` / the event stream). The rig's planner
+/// closes the request with the epic id; `list_tasks_with_vanished` surfaces the outcome.
+///
+/// # Errors
+/// Scope, budget, ledger failures; `EmptyMessage`.
+pub async fn enqueue_plan(
+    rig: &Rig,
+    clock: &dyn Clock,
+    who: &Principal,
+    text: &str,
+) -> Result<Task, RemoteError> {
+    if text.trim().is_empty() {
+        return Err(RemoteError::EmptyMessage);
+    }
+    authorize(rig, clock, who, Scope::Plan, "SendMessage")?;
+    rig.budget
+        .admit(spend(rig).await?)
+        .inspect_err(|e| audit(rig, clock, who, "plan-refused", None, e.to_string()))?;
+    let request = rig
+        .store
+        .create(crate::plan_queue::plan_request(text, who.client.as_ref()))
+        .await?;
+    audit(
+        rig,
+        clock,
+        who,
+        "plan-queued",
+        Some(request.clone()),
+        first_line(text),
+    );
+    let bead = rig.store.show(&request).await?;
+    Ok(request_task(&bead, &clock.now().to_string()))
 }
 
 /// `SendMessage`: without `taskId` the text is a plan (needs `plan`, subject to the rig

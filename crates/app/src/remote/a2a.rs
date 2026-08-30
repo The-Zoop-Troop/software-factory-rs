@@ -298,6 +298,47 @@ pub fn inbox_task(bead: &Bead, task: Option<&Bead>, now: &str) -> Task {
     }
 }
 
+/// A queued plan request as an A2A task: `SUBMITTED` while the rig's planner has not
+/// answered, then `COMPLETED` (with `metadata.factory.epic`) or `FAILED` (with the reason).
+#[must_use]
+pub fn request_task(bead: &Bead, now: &str) -> Task {
+    let outcome = crate::plan_queue::plan_outcome(bead);
+    let (state, epic, failure) = match &outcome {
+        None => (A2aState::Submitted, None, None),
+        Some(Ok(epic)) => (A2aState::Completed, Some(epic.to_string()), None),
+        Some(Err(e)) => (A2aState::Failed, None, Some(e.to_string())),
+    };
+    let progress = bead
+        .notes
+        .as_deref()
+        .and_then(|n| n.lines().last())
+        .unwrap_or("queued for the rig's planner")
+        .to_owned();
+    Task {
+        id: bead.id.to_string(),
+        context_id: epic.clone().unwrap_or_else(|| bead.id.to_string()),
+        status: TaskStatus {
+            state,
+            message: Some(Message {
+                message_id: format!("{}-progress", bead.id),
+                role: "ROLE_AGENT".to_owned(),
+                parts: vec![Part::Text(failure.clone().unwrap_or(progress))],
+                task_id: Some(bead.id.to_string()),
+                context_id: None,
+            }),
+            timestamp: now.to_owned(),
+        },
+        metadata: serde_json::json!({
+            "factory": {
+                "kind": "plan_request",
+                "title": bead.title,
+                "epic": epic,
+                "failure": failure,
+            }
+        }),
+    }
+}
+
 /// A skill on the Agent Card.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(

@@ -5,7 +5,6 @@
     reason = "tests: json! literals; one scenario per endpoint"
 )]
 
-
 use app::BeadStore as _;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
@@ -14,7 +13,7 @@ use http_body_util::BodyExt as _;
 use serde_json::{Value, json};
 use tower::ServiceExt as _;
 
-use crate::server::router;
+use crate::server::{AppState, router};
 use crate::server_tests::{call, get, id, open_meta, state};
 
 #[tokio::test]
@@ -258,5 +257,100 @@ async fn whoami_rig_counts_and_attention_options() {
     assert_eq!(
         store.show(&id("ep-1")).await.unwrap().status,
         app::BeadStatus::Closed
+    );
+}
+
+async fn first_frames(
+    s: &AppState,
+    path: &str,
+    token: &str,
+    max: usize,
+) -> (StatusCode, Vec<String>) {
+    let resp = router(s.clone())
+        .oneshot(
+            Request::get(path)
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::empty())
+                .expect("req"),
+        )
+        .await
+        .expect("resp");
+    let status = resp.status();
+    let mut body = resp.into_body();
+    let mut out = Vec::new();
+    while out.len() < max {
+        let Some(Ok(frame)) = body.frame().await else {
+            break;
+        };
+        if let Some(data) = frame.data_ref() {
+            out.extend(
+                String::from_utf8_lossy(data)
+                    .lines()
+                    .filter(|l| l.starts_with("data:"))
+                    .map(|l| l.trim_start_matches("data:").trim().to_owned()),
+            );
+        }
+    }
+    (status, out)
+}
+
+#[tokio::test]
+async fn rig_and_fan_in_event_streams() {
+    let (s, _, tail) = state().await;
+    tail.push("worker", Some(id("ep-1.1")), "claimed");
+    tail.push("verifier", Some(id("ep-1.1")), "verified");
+    assert_eq!(
+        get(&s, "/rigs/toy/events", None).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        get(&s, "/rigs/nope/events", Some("watcher")).await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(&s, "/rigs/toy/events", Some("stranger")).await.0,
+        StatusCode::FORBIDDEN
+    );
+    let (st, frames) = first_frames(&s, "/rigs/toy/events?cursor=0", "watcher", 2).await;
+    assert_eq!(st, StatusCode::OK);
+    let first: Value = serde_json::from_str(&frames[0]).unwrap();
+    assert_eq!(first["rig"], "toy");
+    assert_eq!(first["record"]["kind"], "claimed");
+    assert_eq!(first["cursor"], 2);
+    // Fan-in over every visible rig, from a cursor.
+    tail.push("integrator", Some(id("ep-1.1")), "integrated");
+    let (st, frames) = first_frames(&s, "/events?cursor=2", "watcher", 1).await;
+    assert_eq!(st, StatusCode::OK);
+    let f: Value = serde_json::from_str(&frames[0]).unwrap();
+    assert_eq!(f["record"]["kind"], "integrated");
+    assert_eq!(get(&s, "/events", None).await.0, StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn return_immediately_queues_a_plan_request() {
+    let (s, store, _) = state().await;
+    let msg = json!({"message": {"messageId": "m", "role": "ROLE_USER", "parts": [{"text": "build it later"}]}, "configuration": {"returnImmediately": true}});
+    let (st, body) = call(&s, Some("admin"), "SendMessage", msg).await;
+    assert_eq!(st, StatusCode::OK, "{body}");
+    assert_eq!(
+        body["result"]["task"]["status"]["state"],
+        "TASK_STATE_SUBMITTED"
+    );
+    assert_eq!(
+        body["result"]["task"]["metadata"]["factory"]["kind"],
+        "plan_request"
+    );
+    let reqs = store
+        .ready(app::domain::BeadKind::PlanRequest)
+        .await
+        .unwrap();
+    assert_eq!(reqs.len(), 1);
+    let (_, listed) = call(&s, Some("watcher"), "ListTasks", Value::Null).await;
+    assert!(
+        listed["result"]["tasks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["metadata"]["factory"]["kind"] == "plan_request")
     );
 }

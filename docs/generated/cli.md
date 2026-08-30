@@ -144,6 +144,11 @@ Options:
       --interval <INTERVAL>
           With --queue: keep polling every N seconds (one sweep when omitted)
 
+      --events <EVENTS>
+          With --queue: event log path (JSONL, appended) for planner progress
+          
+          [default: .factory/events.jsonl]
+
   -h, --help
           Print help (see a summary with '-h')
 ```

@@ -7,8 +7,9 @@ use std::path::Path;
 use domain::{BeadId, BeadKind, BranchName, PlanDefaults, Priority, Title};
 
 use crate::bead::{Bead, BeadStatus, NewBead};
+use crate::events::{EventKind, FactoryEvent};
 use crate::planner::{PlanReport, PlannerError, plan};
-use crate::ports::{BeadStore, Harness, Repo, StoreError};
+use crate::ports::{BeadStore, Clock, EventSink, Harness, Repo, StoreError};
 use crate::remote::SubmitError;
 
 const EPIC_PREFIX: &str = "epic ";
@@ -57,6 +58,19 @@ pub fn plan_outcome(bead: &Bead) -> Option<Result<BeadId, SubmitError>> {
     })
 }
 
+/// Where a sweep reports what it is doing.
+#[derive(Clone, Copy)]
+pub struct Progress<'a> {
+    pub sink: &'a dyn EventSink,
+    pub clock: &'a dyn Clock,
+}
+
+impl core::fmt::Debug for Progress<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("Progress")
+    }
+}
+
 /// What one queue sweep did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QueuedOutcome {
@@ -78,10 +92,30 @@ pub async fn plan_queued_once(
     repo_path: &Path,
     main: &BranchName,
     defaults: PlanDefaults,
+    progress: Progress<'_>,
 ) -> Result<Option<QueuedOutcome>, StoreError> {
+    let Progress { sink, clock } = progress;
     let Some(request) = store.ready(BeadKind::PlanRequest).await?.into_iter().next() else {
         return Ok(None);
     };
+    let record = |action: &str, detail: String| {
+        sink.record(&FactoryEvent {
+            at: clock.now(),
+            actor: "planner".to_owned(),
+            bead: Some(request.id.clone()),
+            kind: EventKind::Remote {
+                action: action.to_owned(),
+                detail,
+            },
+        });
+    };
+    store
+        .note(
+            &request.id,
+            "planning: the rig's planner is reading the repository",
+        )
+        .await?;
+    record("plan_started", request.title.clone());
     let result = plan(
         store,
         harness,
@@ -96,6 +130,13 @@ pub async fn plan_queued_once(
         Ok(report) => format!("{EPIC_PREFIX}{}", report.epic),
         Err(e) => format!("{FAILED_PREFIX}{e}"),
     };
+    match &result {
+        Ok(report) => record(
+            "planned",
+            format!("{} ({} tasks)", report.epic, report.tasks.len()),
+        ),
+        Err(e) => record("plan_failed", e.to_string()),
+    }
     store.note(&request.id, &line).await?;
     store.close(&request.id, &line).await?;
     Ok(Some(QueuedOutcome {
@@ -150,6 +191,8 @@ mod tests {
         let harness = FakeHarness::structured(serde_json::json!({}));
         let repo = FakeRepo::default();
         let main = BranchName::try_new("main").expect("branch");
+        let sink = crate::testing::MemorySink::default();
+        let clock = crate::testing::FixedClock(domain::Timestamp::from_unix_seconds(0));
         let out = plan_queued_once(
             &store,
             &harness,
@@ -157,6 +200,10 @@ mod tests {
             Path::new("."),
             &main,
             PlanDefaults::default(),
+            Progress {
+                sink: &sink,
+                clock: &clock,
+            },
         )
         .await;
         assert_eq!(out, Ok(None));
@@ -172,6 +219,8 @@ mod tests {
         let harness = FakeHarness::structured(serde_json::json!({"not": "a plan"}));
         let repo = FakeRepo::default();
         let main = BranchName::try_new("main").expect("branch");
+        let sink = crate::testing::MemorySink::default();
+        let clock = crate::testing::FixedClock(domain::Timestamp::from_unix_seconds(0));
         let out = plan_queued_once(
             &store,
             &harness,
@@ -179,6 +228,10 @@ mod tests {
             Path::new("."),
             &main,
             PlanDefaults::default(),
+            Progress {
+                sink: &sink,
+                clock: &clock,
+            },
         )
         .await
         .expect("ok")

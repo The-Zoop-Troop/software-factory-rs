@@ -67,6 +67,7 @@ fn commands_map_or_are_refused() {
         max_budget_usd: 1.0,
         queue: false,
         interval: None,
+        events: "e".into(),
     };
     assert_eq!(
         remote_command(plan(None, Some("x".into()))),

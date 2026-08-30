@@ -132,6 +132,9 @@ pub(crate) enum Command {
         /// With --queue: keep polling every N seconds (one sweep when omitted).
         #[arg(long)]
         interval: Option<u64>,
+        /// With --queue: event log path (JSONL, appended) for planner progress.
+        #[arg(long, default_value = ".factory/events.jsonl")]
+        events: PathBuf,
     },
     /// Run a Worker: claim ready tasks and hand each to a fresh Claude Code session.
     Work {
@@ -364,12 +367,17 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             max_budget_usd,
             queue,
             interval,
+            events,
         } => {
             if queue {
                 let harness = build_harness(harness, model, max_budget_usd)?;
                 let git = GitCli::new(&repo, repo.join(".factory-worktrees"));
                 let store = BdCli::new(&cli.workdir).with_actor("planner");
                 let main = BranchName::try_new(main)?;
+                if let Some(dir) = events.parent() {
+                    std::fs::create_dir_all(dir)?;
+                }
+                let log = JsonlSink::open(&events)?;
                 loop {
                     let out = app::plan_queued_once(
                         &store,
@@ -378,6 +386,10 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
                         &repo,
                         &main,
                         PlanDefaults::default(),
+                        app::Progress {
+                            sink: &log,
+                            clock: &SystemClock,
+                        },
                     )
                     .await?;
                     if let Some(o) = out {

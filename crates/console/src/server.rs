@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use app::remote::a2a::{A2aState, AgentSkill, skills};
 use app::{Authenticator, Clock, Rig, RigRegistry};
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
@@ -42,6 +42,8 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/.well-known/agent-card.json", get(root_card))
         .route("/rigs", get(list_rigs))
         .route("/whoami", get(whoami))
+        .route("/events", get(all_events))
+        .route("/rigs/{rig}/events", get(rig_events))
         .route("/rigs/{rig}/.well-known/agent-card.json", get(rig_card))
         .route("/rigs/{rig}/a2a", post(a2a))
         .merge(crate::ui::routes())
@@ -425,4 +427,126 @@ fn updates(
         }
     })
     .flat_map(futures::stream::iter)
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
+pub(crate) struct EventsQuery {
+    /// Byte cursor into the rig's log; omit to start from now (only new events).
+    pub cursor: Option<u64>,
+}
+
+fn event_frame(rig: &RigName, cursor: u64, record: &app::EventRecord) -> Event {
+    Event::default().event("factory").data(
+        obj([
+            ("rig", rig.to_string().into()),
+            ("cursor", cursor.into()),
+            ("record", val(record)),
+        ])
+        .to_string(),
+    )
+}
+
+/// One rig's event log as SSE (`event: factory`, data `{rig, cursor, record}`), forever.
+/// Without `cursor` the stream starts at the current end of the log.
+async fn rig_events(
+    State(s): State<AppState>,
+    Path(rig): Path<String>,
+    Query(q): Query<EventsQuery>,
+    headers: HeaderMap,
+) -> Response {
+    let who = match principal(&s, &headers) {
+        Ok(p) => p,
+        Err(r) => return *r,
+    };
+    let Some(rig) = RigName::try_new(&rig).ok().and_then(|n| s.registry.rig(&n)) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(obj([("error", "no such rig".into())])),
+        )
+            .into_response();
+    };
+    if let Err(e) = domain::require(&who, &rig.name, domain::Scope::Watch) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(obj([("error", e.to_string().into())])),
+        )
+            .into_response();
+    }
+    let start = match q.cursor {
+        Some(c) => c,
+        None => rig
+            .events
+            .read_from(u64::MAX)
+            .await
+            .map_or(0, |(_, end)| end),
+    };
+    Sse::new(rig_stream(s, rig, who, start))
+        .keep_alive(KeepAlive::default())
+        .into_response()
+}
+
+fn rig_stream(
+    s: AppState,
+    rig: Rig,
+    who: Principal,
+    start: u64,
+) -> impl Stream<Item = Result<Event, std::convert::Infallible>> {
+    futures::stream::unfold(start, move |cursor| {
+        let (s, rig, who) = (s.clone(), rig.clone(), who.clone());
+        async move {
+            let (records, next) =
+                match app::events_after(&rig, s.clock.as_ref(), &who, cursor, None).await {
+                    Ok(r) => r,
+                    Err(e) => {
+                        let ev = Event::default().event("error").data(e.to_string());
+                        return Some((vec![Ok(ev)], cursor));
+                    }
+                };
+            let events: Vec<Result<Event, std::convert::Infallible>> = records
+                .iter()
+                .map(|r| Ok(event_frame(&rig.name, next, r)))
+                .collect();
+            if events.is_empty() {
+                s.clock
+                    .sleep(domain::Duration::from_seconds(s.poll.as_secs()))
+                    .await;
+            }
+            Some((events, next))
+        }
+    })
+    .flat_map(futures::stream::iter)
+}
+
+/// Every visible rig's new events, merged into one SSE stream (`cursor` applies to all rigs;
+/// omit it to start from now).
+async fn all_events(
+    State(s): State<AppState>,
+    Query(q): Query<EventsQuery>,
+    headers: HeaderMap,
+) -> Response {
+    let who = match principal(&s, &headers) {
+        Ok(p) => p,
+        Err(r) => return *r,
+    };
+    let mut streams = Vec::new();
+    for name in s.registry.names() {
+        if !who.allows(&name, domain::Scope::Watch) {
+            continue;
+        }
+        let Some(rig) = s.registry.rig(&name) else {
+            continue;
+        };
+        let start = match q.cursor {
+            Some(c) => c,
+            None => rig
+                .events
+                .read_from(u64::MAX)
+                .await
+                .map_or(0, |(_, end)| end),
+        };
+        streams.push(rig_stream(s.clone(), rig, who.clone(), start).boxed());
+    }
+    Sse::new(futures::stream::select_all(streams))
+        .keep_alive(KeepAlive::default())
+        .into_response()
 }

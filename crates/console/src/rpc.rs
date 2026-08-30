@@ -67,6 +67,8 @@ pub(crate) enum Call {
         task_id: Option<String>,
         text: String,
         option: Option<AttentionOption>,
+        /// A2A `configuration.returnImmediately`: queue the plan and return the request.
+        return_immediately: bool,
     },
     GetTask {
         id: String,
@@ -85,6 +87,15 @@ pub(crate) enum Call {
 #[derive(Debug, serde::Deserialize)]
 struct SendParams {
     message: Message,
+    #[serde(default)]
+    configuration: SendConfig,
+}
+
+#[derive(Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SendConfig {
+    #[serde(default)]
+    return_immediately: bool,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -123,6 +134,7 @@ pub(crate) fn decode(req: &Request) -> Result<Call, RpcError> {
                 .transpose()?;
             Ok(Call::SendMessage {
                 option,
+                return_immediately: p.configuration.return_immediately,
                 task_id: p.message.task_id,
                 text: p
                     .message
@@ -192,9 +204,13 @@ pub(crate) async fn execute(
             task_id,
             text,
             option,
+            return_immediately,
         } => {
             let sent = match (option, task_id.as_deref()) {
                 (Some(opt), Some(id)) => app::apply_option(rig, clock, who, id, opt, &text).await?,
+                (None, None) if return_immediately => {
+                    Sent::Planned(app::enqueue_plan(rig, clock, who, &text).await?)
+                }
                 (_, id) => app::send_message(rig, clock, who, id, &text).await?,
             };
             match sent {
@@ -278,9 +294,22 @@ mod tests {
             Ok(Call::SendMessage {
                 task_id: Some("t-1".into()),
                 text: "a\nb".into(),
-                option: None
+                option: None,
+                return_immediately: false
             })
         );
+        let queued = req(
+            "SendMessage",
+            json!({"message": {"messageId": "m", "role": "ROLE_USER", "parts": [{"text": "plan"}]}, "configuration": {"returnImmediately": true}}),
+        );
+        assert!(matches!(
+            decode(&queued),
+            Ok(Call::SendMessage {
+                return_immediately: true,
+                task_id: None,
+                ..
+            })
+        ));
         let with_option = req(
             "SendMessage",
             json!({"message": {"messageId": "m", "role": "ROLE_USER", "parts": [{"data": {"option": "retry_with_guidance"}}, {"text": "use sh"}], "taskId": "inc-1"}}),
@@ -290,7 +319,8 @@ mod tests {
             Ok(Call::SendMessage {
                 task_id: Some("inc-1".into()),
                 text: "use sh".into(),
-                option: Some(AttentionOption::RetryWithGuidance)
+                option: Some(AttentionOption::RetryWithGuidance),
+                return_immediately: false
             })
         );
         let bad_option = req(

@@ -25,7 +25,7 @@ serde_json.workspace = true
 async-trait.workspace = true
 thiserror.workspace = true
 futures.workspace = true
-axum = { version = "0.8", features = ["json", "tokio", "http1"], default-features = false }
+axum = { version = "0.8", features = ["json", "tokio", "http1", "query"], default-features = false }
 tokio-stream = "0.1"
 toml = "0.8"
 sha2 = "0.10"
