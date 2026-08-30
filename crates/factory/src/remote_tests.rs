@@ -70,10 +70,14 @@ fn commands_map_or_are_refused() {
         queue: false,
         interval: None,
         events: "e".into(),
+        after: vec![],
     };
     assert_eq!(
         remote_command(plan(None, Some("x".into()))),
-        Ok(RemoteCommand::Plan { text: "x".into() })
+        Ok(RemoteCommand::Plan {
+            text: "x".into(),
+            needs: vec![]
+        })
     );
     assert_eq!(
         remote_command(plan(None, None)),
@@ -122,9 +126,15 @@ async fn execute_renders_each_command() {
     assert!(inbox.starts_with("resolved q-1"));
     assert!(inbox.contains("q-1  [question]"));
     assert_eq!(
-        execute(&api, RemoteCommand::Plan { text: "go".into() })
-            .await
-            .unwrap(),
+        execute(
+            &api,
+            RemoteCommand::Plan {
+                text: "go".into(),
+                needs: vec![]
+            }
+        )
+        .await
+        .unwrap(),
         "planned: epic ep-1 (working)\n"
     );
     assert_eq!(
@@ -302,4 +312,39 @@ async fn bot_answers_allowed_chats_and_pushes_changes() {
     });
     let s6 = step(&api, &sending_fails, &[7], BotState::default(), 1).await;
     assert_eq!(s6.offset, 2);
+}
+
+#[test]
+fn plan_after_parses_cross_rig_needs_and_rejects_junk() {
+    let plan = |after: Vec<String>| Command::Plan {
+        repo: "r".into(),
+        main: "main".into(),
+        file: None,
+        text: Some("portal".into()),
+        harness: crate::cli::HarnessKind::Claude,
+        model: None,
+        effort: None,
+        task_tokens: None,
+        max_budget_usd: 1.0,
+        queue: false,
+        interval: None,
+        events: "e".into(),
+        after,
+    };
+    let parsed = remote_command(plan(vec!["backend:be-1".into()])).ok();
+    let needs = match parsed {
+        Some(RemoteCommand::Plan { needs, .. }) => needs,
+        _ => Vec::new(),
+    };
+    assert_eq!(
+        needs
+            .iter()
+            .map(|n| format!("{}:{}", n.rig, n.epic))
+            .collect::<Vec<_>>(),
+        ["backend:be-1"]
+    );
+    assert!(matches!(
+        remote_command(plan(vec!["nocolon".into()])),
+        Err(RemoteUnsupported::BadNeed { .. })
+    ));
 }

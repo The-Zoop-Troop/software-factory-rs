@@ -192,6 +192,36 @@ impl A2aApi for A2aHttp {
         task_from(self.call("GetTask", obj([("id", id.into())])).await?)
     }
 
+    async fn send_plan(
+        &self,
+        text: &str,
+        needs: &[domain::CrossRigNeed],
+    ) -> Result<Task, ClientError> {
+        let mut metadata = serde_json::Map::new();
+        metadata.insert("needs".to_owned(), val(&needs));
+        let message = Message {
+            message_id: format!("m-{}", text.len()),
+            role: "ROLE_USER".to_owned(),
+            parts: vec![Part::Text(text.to_owned())],
+            task_id: None,
+            context_id: None,
+            metadata: Some(metadata),
+        };
+        let r = self
+            .call(
+                "SendMessage",
+                obj([
+                    ("message", val(&message)),
+                    (
+                        "configuration",
+                        obj([("returnImmediately", Value::Bool(true))]),
+                    ),
+                ]),
+            )
+            .await?;
+        task_from(r.get("task").cloned().unwrap_or(r))
+    }
+
     async fn send(&self, text: &str, task_id: Option<&str>) -> Result<Task, ClientError> {
         let message = Message {
             message_id: format!("m-{}", text.len()),

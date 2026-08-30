@@ -41,6 +41,9 @@ export const FactoryMeta = Schema.Struct({
   incidents: Schema.optionalWith(Schema.Number, { default: () => 0 }),
   epic: Schema.optional(Schema.NullOr(Schema.String)),
   failure: Schema.optional(Schema.NullOr(Schema.String)),
+  /** Plan requests: `rig/epic` needs on other rigs; `waiting` while any is still open. */
+  needs: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] }),
+  waiting: Schema.optionalWith(Schema.Boolean, { default: () => false }),
   children: Schema.optionalWith(Schema.Array(Schema.Struct({
     id: Schema.String,
     title: Schema.String,

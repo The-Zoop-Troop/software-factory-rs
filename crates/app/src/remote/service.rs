@@ -110,6 +110,10 @@ pub async fn list_tasks(
     for req in rig.store.list_active(BeadKind::PlanRequest).await? {
         out.push(request_task(&req, &now));
     }
+    // Requests waiting on other rigs are deferred, not active; they still belong on the page.
+    for req in rig.store.list_deferred(BeadKind::PlanRequest).await? {
+        out.push(request_task(&req, &now));
+    }
     Ok(out)
 }
 

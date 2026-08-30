@@ -143,10 +143,11 @@ curl -s -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
 The reply is the queued request (`TASK_STATE_SUBMITTED`); the rig's `planner` service picks it up
 within seconds and the request card shows its progress until the epic exists.
 
-**Phase gating across rigs** (until cross-rig dependencies exist): submit the next phase's epic
-only when the epic it depends on reads *done* on its rig page, and paste the landed contract (the
-API shapes, error types, env vars the upstream epic produced) into the next epic's text. Keep the
-order in your exec plan so anyone can see what is waiting on what.
+**Phase gating across rigs**: pick the upstream epics in the plan form's **After** field (or
+`factory --rig … plan --after backend:be-1`). The request stays *waiting* on the rig page until
+every one of them closes; the console then appends their **contracts** — what actually landed:
+commit range, files, public surface, tasks — to the request and the rig's planner takes it. No
+hand-pasting; keep the order in your exec plan so anyone can see what waits on what.
 
 ## 5. Watch
 

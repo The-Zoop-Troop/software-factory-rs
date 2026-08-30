@@ -29,7 +29,9 @@ export class RequestCard extends LitElement {
         <div><h3 id="r-${this.task.id}">${f.title}</h3><span class="id">${this.task.id}</span></div>
         <state-badge .state=${state}></state-badge>
       </header>
-      ${state === 'TASK_STATE_SUBMITTED'
+      ${state === 'TASK_STATE_SUBMITTED' && f.waiting
+        ? html`<p class="progress waiting">after ${f.needs.join(', ')} — waiting for them to land</p>`
+        : state === 'TASK_STATE_SUBMITTED'
         ? html`<p class="progress" aria-live="polite"><span class="spinner" aria-hidden="true"></span>${line === '' ? 'queued for the planner' : line}</p>`
         : state === 'TASK_STATE_FAILED'
           ? html`<p class="failed">${line}</p>`

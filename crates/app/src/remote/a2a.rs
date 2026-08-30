@@ -316,12 +316,22 @@ pub fn request_task(bead: &Bead, now: &str) -> Task {
         Some(Ok(epic)) => (A2aState::Completed, Some(epic.to_string()), None),
         Some(Err(e)) => (A2aState::Failed, None, Some(e.to_string())),
     };
-    let progress = bead
-        .notes
-        .as_deref()
-        .and_then(|n| n.lines().last())
-        .unwrap_or("queued for the rig's planner")
-        .to_owned();
+    let needs: Vec<String> = bead
+        .cross_needs
+        .iter()
+        .flatten()
+        .map(|n| format!("{}/{}", n.rig, n.epic))
+        .collect();
+    let waiting = bead.status == crate::bead::BeadStatus::Deferred && !needs.is_empty();
+    let progress = if waiting {
+        format!("waiting for {}", needs.join(", "))
+    } else {
+        bead.notes
+            .as_deref()
+            .and_then(|n| n.lines().last())
+            .unwrap_or("queued for the rig's planner")
+            .to_owned()
+    };
     Task {
         id: bead.id.to_string(),
         context_id: epic.clone().unwrap_or_else(|| bead.id.to_string()),
@@ -343,6 +353,8 @@ pub fn request_task(bead: &Bead, now: &str) -> Task {
                 "title": bead.title,
                 "epic": epic,
                 "failure": failure,
+                "needs": needs,
+                "waiting": waiting,
             }
         }),
     }

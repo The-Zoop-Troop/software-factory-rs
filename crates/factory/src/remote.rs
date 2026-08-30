@@ -1,5 +1,6 @@
 //! `factory --rig <url>`: the same commands, executed against a console over A2A.
 
+use app::domain;
 use app::remote::chat::{ChatCommand, handle, render_inbox, render_tasks};
 use app::{A2aApi, ClientError};
 
@@ -17,6 +18,7 @@ pub(crate) enum RemoteCommand {
     },
     Plan {
         text: String,
+        needs: Vec<domain::CrossRigNeed>,
     },
     Stop {
         epic: String,
@@ -44,6 +46,8 @@ pub(crate) enum RemoteUnsupported {
     NoPlanText,
     #[error("cannot read plan file: {detail}")]
     PlanFile { detail: String },
+    #[error("--after wants `rig:epic`, got `{given}`")]
+    BadNeed { given: String },
 }
 
 /// Map a CLI command to its remote form.
@@ -70,7 +74,9 @@ pub(crate) fn remote_command(cmd: Command) -> Result<RemoteCommand, RemoteUnsupp
             poll,
             api_base,
         }),
-        Command::Plan { file, text, .. } => {
+        Command::Plan {
+            file, text, after, ..
+        } => {
             let text = match (file, text) {
                 (Some(f), _) => {
                     std::fs::read_to_string(f).map_err(|e| RemoteUnsupported::PlanFile {
@@ -80,7 +86,11 @@ pub(crate) fn remote_command(cmd: Command) -> Result<RemoteCommand, RemoteUnsupp
                 (None, Some(t)) => t,
                 (None, None) => return Err(RemoteUnsupported::NoPlanText),
             };
-            Ok(RemoteCommand::Plan { text })
+            let needs = after
+                .iter()
+                .map(|s| parse_need(s))
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(RemoteCommand::Plan { text, needs })
         }
         Command::Version => Err(RemoteUnsupported::LocalOnly { name: "version" }),
         Command::Bead { .. } => Err(RemoteUnsupported::LocalOnly { name: "bead" }),
@@ -112,7 +122,7 @@ pub(crate) async fn execute(api: &dyn A2aApi, cmd: RemoteCommand) -> Result<Stri
             });
             Ok(out)
         }
-        RemoteCommand::Plan { text } => handle(api, ChatCommand::Plan { text }).await,
+        RemoteCommand::Plan { text, needs } => handle(api, ChatCommand::Plan { text, needs }).await,
         RemoteCommand::Stop { epic } => handle(api, ChatCommand::Stop { id: epic }).await,
         RemoteCommand::Metrics { epic, json, csv } => {
             let body = api.metrics(epic.as_deref()).await?;
@@ -165,4 +175,16 @@ pub(crate) async fn run_remote(api: &infra::A2aHttp, cmd: Command) -> anyhow::Re
             Ok(())
         }
     }
+}
+
+/// `rig:epic` → a cross-rig need.
+fn parse_need(s: &str) -> Result<domain::CrossRigNeed, RemoteUnsupported> {
+    let bad = || RemoteUnsupported::BadNeed {
+        given: s.to_owned(),
+    };
+    let (rig, epic) = s.split_once(':').ok_or_else(bad)?;
+    Ok(domain::CrossRigNeed {
+        rig: domain::RigName::try_new(rig).map_err(|_| bad())?,
+        epic: domain::BeadId::try_new(epic).map_err(|_| bad())?,
+    })
 }

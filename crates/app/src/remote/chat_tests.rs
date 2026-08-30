@@ -50,7 +50,8 @@ fn parses_commands() {
     assert_eq!(
         parse_command("/plan build it now"),
         Ok(ChatCommand::Plan {
-            text: "build it now".into()
+            text: "build it now".into(),
+            needs: vec![],
         })
     );
     assert_eq!(parse_command("/Watch@factory_bot"), Ok(ChatCommand::Watch));
@@ -105,6 +106,7 @@ fn parses_commands() {
     );
 }
 
+#[allow(clippy::too_many_lines, reason = "one chat session end to end")]
 #[tokio::test]
 async fn handles_every_command_against_the_api() {
     let api = FakeApi::with_tasks(vec![
@@ -130,9 +132,15 @@ async fn handles_every_command_against_the_api() {
             .contains("inc-1")
     );
     assert_eq!(
-        handle(&api, ChatCommand::Plan { text: "go".into() })
-            .await
-            .unwrap(),
+        handle(
+            &api,
+            ChatCommand::Plan {
+                text: "go".into(),
+                needs: vec![]
+            }
+        )
+        .await
+        .unwrap(),
         "planned: epic ep-1 (working)\n"
     );
     assert_eq!(
@@ -161,7 +169,14 @@ async fn handles_every_command_against_the_api() {
         "inbox empty\n"
     );
     assert!(matches!(
-        handle(&empty, ChatCommand::Plan { text: "x".into() }).await,
+        handle(
+            &empty,
+            ChatCommand::Plan {
+                text: "x".into(),
+                needs: vec![]
+            }
+        )
+        .await,
         Err(ClientError::Decode { .. })
     ));
     assert!(matches!(

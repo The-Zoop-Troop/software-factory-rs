@@ -43,6 +43,15 @@ pub trait A2aApi: Send + Sync {
     /// # Errors
     /// `Refused`, `Transport`, or `Decode`.
     async fn send(&self, text: &str, task_id: Option<&str>) -> Result<Task, ClientError>;
+    /// A plan that waits for epics on other rigs (`message.metadata.needs`).
+    ///
+    /// # Errors
+    /// As `send`.
+    async fn send_plan(
+        &self,
+        text: &str,
+        needs: &[domain::CrossRigNeed],
+    ) -> Result<Task, ClientError>;
     /// The rig's throughput report (`GET /rigs/<rig>/metrics?epic=`), as the console renders it.
     ///
     /// # Errors
@@ -137,11 +146,20 @@ pub fn render_inbox(tasks: &[Task]) -> String {
 /// Commands a chat client understands.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChatCommand {
-    Plan { text: String },
+    Plan {
+        text: String,
+        /// Epics on other rigs this plan waits for.
+        needs: Vec<domain::CrossRigNeed>,
+    },
     Watch,
     Inbox,
-    Resolve { id: String, note: String },
-    Stop { id: String },
+    Resolve {
+        id: String,
+        note: String,
+    },
+    Stop {
+        id: String,
+    },
     Help,
 }
 
@@ -176,6 +194,7 @@ pub fn parse_command(line: &str) -> Result<ChatCommand, ChatParseError> {
     match name.as_str() {
         "plan" if !args.is_empty() => Ok(ChatCommand::Plan {
             text: args.to_owned(),
+            needs: vec![],
         }),
         "plan" => Err(need("the plan text")),
         "watch" | "status" => Ok(ChatCommand::Watch),
@@ -214,8 +233,12 @@ pub async fn handle(api: &dyn A2aApi, cmd: ChatCommand) -> Result<String, Client
                 inbox
             })
         }
-        ChatCommand::Plan { text } => {
-            let t = api.send(&text, None).await?;
+        ChatCommand::Plan { text, needs } => {
+            let t = if needs.is_empty() {
+                api.send(&text, None).await?
+            } else {
+                api.send_plan(&text, &needs).await?
+            };
             Ok(format!(
                 "planned: epic {} ({})\n",
                 t.id,

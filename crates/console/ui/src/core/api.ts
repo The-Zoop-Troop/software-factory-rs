@@ -16,7 +16,8 @@ export interface ConsoleApiShape {
   readonly card: (rig: RigName) => Effect.Effect<AgentCard, ApiError>;
   readonly tasks: (rig: RigName) => Effect.Effect<ReadonlyArray<TaskT>, ApiError>;
   readonly task: (rig: RigName, id: string) => Effect.Effect<TaskT, ApiError>;
-  readonly plan: (rig: RigName, text: string) => Effect.Effect<TaskT, ApiError>;
+  /** `needs`: `{rig, epic}` pairs on other rigs the plan waits for (deferred until they close). */
+  readonly plan: (rig: RigName, text: string, needs?: ReadonlyArray<{ readonly rig: string; readonly epic: string }>) => Effect.Effect<TaskT, ApiError>;
   readonly resolve: (rig: RigName, id: string, note: string) => Effect.Effect<TaskT, ApiError>;
   readonly stop: (rig: RigName, id: string) => Effect.Effect<TaskT, ApiError>;
   readonly whoami: () => Effect.Effect<Whoami, ApiError>;
@@ -101,9 +102,9 @@ export const ConsoleApiLive = (session: Session): Layer.Layer<ConsoleApi> =>
       ),
     // Non-blocking: the console returns the queued request as a SUBMITTED task; the event
     // stream and refreshes carry it to COMPLETED (epic created) or FAILED.
-    plan: (rig, text) =>
+    plan: (rig, text, needs = []) =>
       rpc(session, rig, 'SendMessage', {
-        message: { messageId: `m-${String(Date.now())}`, role: 'ROLE_USER', parts: [{ text }] },
+        message: { messageId: `m-${String(Date.now())}`, role: 'ROLE_USER', parts: [{ text }], ...(needs.length > 0 ? { metadata: { needs } } : {}) },
         configuration: { returnImmediately: true },
       }).pipe(Effect.flatMap(taskOf)),
     resolve: (rig, id, note) =>
@@ -137,6 +138,8 @@ export interface FakeWorld {
   metrics?: Record<string, EpicMetrics>;
   /** Rigs the console reports as unable to answer, with the reason. */
   unavailable?: Record<string, string>;
+  /** Needs passed to `plan`, per call. */
+  plannedNeeds?: Array<ReadonlyArray<{ readonly rig: string; readonly epic: string }>>;
 }
 
 export const ConsoleApiFake = (world: FakeWorld, token: string): Layer.Layer<ConsoleApi> => {
@@ -153,14 +156,15 @@ export const ConsoleApiFake = (world: FakeWorld, token: string): Layer.Layer<Con
       Effect.succeed({ name: `factory rig ${rig}`, version: 'fake', skills: [{ id: 'plan', name: 'Plan' }] }),
     tasks: (rig) => auth(() => Effect.succeed(world.tasks[rig] ?? [])),
     task: (rig, id) => auth(() => find(rig, id)),
-    plan: (rig, text) =>
+    plan: (rig, text, needs = []) =>
       auth(() => {
+        world.plannedNeeds = [...(world.plannedNeeds ?? []), [...needs]];
         const id = `${rig}-${String((world.tasks[rig] ?? []).length + 1)}` as TaskT['id'];
         const task: TaskT = {
           id,
           contextId: id,
           status: { state: 'TASK_STATE_SUBMITTED', timestamp: 'now' },
-          metadata: { factory: { kind: 'plan_request', title: text.split('\n')[0] ?? text, tasks: 0, closed: 0, working: 0, incidents: 0, children: [] } },
+          metadata: { factory: { kind: 'plan_request', title: text.split('\n')[0] ?? text, tasks: 0, closed: 0, working: 0, incidents: 0, children: [], needs: needs.map((n) => `${n.rig}/${n.epic}`), waiting: needs.length > 0 } },
         };
         world.tasks = { ...world.tasks, [rig]: [...(world.tasks[rig] ?? []), task] };
         return Effect.succeed(task);

@@ -104,9 +104,9 @@ export const loadEpicHistory = (rig: RigName, id: string): Promise<boolean> =>
     ], { discard: true }),
   );
 
-export const submitPlan = (rig: RigName, text: string): Promise<boolean> =>
+export const submitPlan = (rig: RigName, text: string, needs: ReadonlyArray<{ readonly rig: string; readonly epic: string }> = []): Promise<boolean> =>
   attempt(
-    withApi((api) => api.plan(rig, text)).pipe(
+    withApi((api) => api.plan(rig, text, needs)).pipe(
       Effect.tap((task) => Effect.sync(() => { notify('info', `Plan queued as ${task.id}`, 'The rig\'s planner is on it; the card updates when the epic exists.'); })),
       Effect.flatMap(() => loadRig(rig)),
     ),

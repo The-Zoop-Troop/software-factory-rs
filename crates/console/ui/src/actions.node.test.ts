@@ -14,6 +14,17 @@ const incident = Schema.decodeSync(Task)({ id: 'inc-1', contextId: 'ep-1', statu
 beforeEach(() => { resetRigs(); resetNotices(); resetSession(); disconnect(); });
 
 describe('actions over the fake console', () => {
+  it('submits a plan with cross-rig needs', async () => {
+    const { connectFake } = await import('./core/runtime.js');
+    const world = { token: 'ok', rigs: [rig], tasks: { toy: [] as never[] } };
+    connectFake(world, 'ok');
+    expect(await submitPlan(rig, 'Portal after the backend', [{ rig: 'backend', epic: 'be-1' }])).toBe(true);
+    expect((world as { plannedNeeds?: unknown[] }).plannedNeeds).toEqual([[{ rig: 'backend', epic: 'be-1' }]]);
+    const queued = tasksByRig.get()['toy']?.[0];
+    expect(queued?.metadata.factory.needs).toEqual(['backend/be-1']);
+    expect(queued?.metadata.factory.waiting).toBe(true);
+  });
+
   it('coalesces concurrent refreshes of one rig into at most one in flight and one follow-up', async () => {
     const { connectFake } = await import('./core/runtime.js');
     const { inFlightCount } = await import('./actions.js');

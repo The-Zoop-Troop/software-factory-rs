@@ -69,6 +69,12 @@ export const attentionItems = computed<ReadonlyArray<{ readonly rig: string; rea
 );
 
 /** A task by id on a rig, if loaded. */
+/** Open epics on every rig, as `{rig, epic, title}` — what a plan can wait for. */
+export const openEpicsAcrossRigs = computed<ReadonlyArray<{ readonly rig: string; readonly epic: string; readonly title: string }>>(() =>
+  Object.entries(tasksByRig.get()).flatMap(([rig, ts]) =>
+    ts.filter((t) => isEpic(t) && !isTerminal(t)).map((t) => ({ rig, epic: t.id, title: t.metadata.factory.title }))),
+);
+
 /** Closed epics per rig, loaded on demand (the Completed section, closed epic pages). */
 export const historyByRig = signal<Readonly<Record<string, ReadonlyArray<Task>>>>({});
 export const setHistory = (rig: RigName, tasks: ReadonlyArray<Task>): void => {

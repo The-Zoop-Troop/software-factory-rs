@@ -43,19 +43,15 @@ pub(crate) struct Cli {
 pub(crate) enum Command {
     /// Print build/version information.
     Version,
-    /// Throughput report: stage timings, critical path, concurrency (from the event log, or
-    /// from a console with --rig).
+    /// Throughput report: stage timings, critical path, concurrency (log file, or --rig).
     Metrics {
-        /// One epic (default: every epic in the log).
         #[arg(long)]
         epic: Option<String>,
-        /// The event log to read (local mode).
         #[arg(long, default_value = ".factory/events.jsonl")]
         events: PathBuf,
-        /// JSON instead of the table.
         #[arg(long, conflicts_with = "csv")]
         json: bool,
-        /// One CSV row per stage per epic.
+        /// One CSV row per stage per epic (--json: pretty JSON).
         #[arg(long)]
         csv: bool,
     },
@@ -133,6 +129,9 @@ pub(crate) enum Command {
         /// The plan, inline.
         #[arg(long)]
         text: Option<String>,
+        /// `rig:epic` this plan waits for (with --rig only).
+        #[arg(long = "after")]
+        after: Vec<String>,
         /// LLM harness behind the Planner.
         #[arg(long, value_enum, default_value_t = HarnessKind::Claude)]
         harness: HarnessKind,
@@ -412,6 +411,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             queue,
             interval,
             events,
+            after: _,
         } => {
             let effort = effort.map(|e| e.parse::<domain::Effort>()).transpose()?;
             let mut defaults = PlanDefaults {

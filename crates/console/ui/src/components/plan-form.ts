@@ -19,12 +19,20 @@ export class PlanForm extends LitElement {
   @property() reason = '';
   @property() pendingText = 'Queuing…';
   @state() private text = '';
+  @state() private waitsFor: ReadonlyArray<string> = [];
+  /** `rig/epic` choices the plan may wait for (other rigs' open epics). */
+  @property({ attribute: false }) choices: ReadonlyArray<{ readonly rig: string; readonly epic: string; readonly title: string }> = [];
 
   override render() {
     return html`<form class="surface" @submit=${this.submit}>
       <label>Plan — what should the factory build?
         <textarea name="plan" required minlength="8" placeholder="Add a reverse function to lib.sh with a test and a README entry." .value=${this.text} @input=${(e: Event) => { this.text = (e.target as HTMLTextAreaElement).value; }} ?disabled=${this.pending || !this.allowed}></textarea>
       </label>
+      ${this.choices.length === 0 ? '' : html`<label class="after">After (the plan waits, then sees their contracts)
+        <select multiple name="after" size="3" ?disabled=${this.pending || !this.allowed} @change=${(e: Event) => { this.waitsFor = Array.from((e.target as HTMLSelectElement).selectedOptions, (o) => o.value); }}>
+          ${this.choices.map((c) => html`<option value="${c.rig}/${c.epic}">${c.rig} / ${c.epic} — ${c.title}</option>`)}
+        </select>
+      </label>`}
       <div class="row">
         <span class="hint">${this.allowed ? "The rig's planner turns this into an epic of verified tasks." : this.reason}</span>
         ${this.pending
@@ -38,11 +46,13 @@ export class PlanForm extends LitElement {
     e.preventDefault();
     const text = this.text.trim();
     if (text.length < 8) return;
-    this.dispatchEvent(new CustomEvent('submit-plan', { detail: { text }, bubbles: true, composed: true }));
+    const needs = this.waitsFor.map((v) => { const [rig = '', epic = ''] = v.split('/'); return { rig, epic }; });
+    this.dispatchEvent(new CustomEvent('submit-plan', { detail: { text, needs }, bubbles: true, composed: true }));
   };
 
   clear(): void {
     this.text = '';
+    this.waitsFor = [];
   }
 }
 

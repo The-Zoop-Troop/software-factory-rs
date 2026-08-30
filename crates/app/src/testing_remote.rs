@@ -133,6 +133,8 @@ pub fn rig(
 pub struct FakeApi {
     pub tasks: Mutex<Vec<Task>>,
     pub sent: Mutex<Vec<(String, Option<String>)>>,
+    /// Needs passed to `send_plan`, per call.
+    pub planned_needs: Mutex<Vec<Vec<domain::CrossRigNeed>>>,
     pub canceled: Mutex<Vec<String>>,
     pub fail: Option<ClientError>,
 }
@@ -175,6 +177,16 @@ impl A2aApi for FakeApi {
     async fn list_tasks(&self) -> Result<Vec<Task>, ClientError> {
         self.check()?;
         Ok(self.tasks.lock().map(|t| t.clone()).unwrap_or_default())
+    }
+    async fn send_plan(
+        &self,
+        text: &str,
+        needs: &[domain::CrossRigNeed],
+    ) -> Result<Task, ClientError> {
+        if let Ok(mut n) = self.planned_needs.lock() {
+            n.push(needs.to_vec());
+        }
+        self.send(text, None).await
     }
     async fn get_task(&self, id: &str) -> Result<Task, ClientError> {
         self.check()?;

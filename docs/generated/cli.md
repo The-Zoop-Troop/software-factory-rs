@@ -13,7 +13,7 @@ Usage: factory [OPTIONS] <COMMAND>
 
 Commands:
   version    Print build/version information
-  metrics    Throughput report: stage timings, critical path, concurrency (from the event log, or from a console with --rig)
+  metrics    Throughput report: stage timings, critical path, concurrency (log file, or --rig)
   bead       Inspect beads through the factory's typed view
   doctor     Check that this host or rig can run the factory (tools, ledger, repo, credentials)
   watch      Summarize the ledger: tasks per epic by state, incidents, questions
@@ -120,6 +120,9 @@ Options:
 
       --text <TEXT>
           The plan, inline
+
+      --after <AFTER>
+          `rig:epic` this plan waits for (with --rig only)
 
       --harness <HARNESS>
           LLM harness behind the Planner

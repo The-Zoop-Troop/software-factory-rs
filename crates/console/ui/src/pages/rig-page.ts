@@ -6,7 +6,7 @@ import { applyOption, loadHistory, pending, resolveItem, refreshRig, stopEpic, s
 import type { AttentionOption } from '../core/schema.js';
 import { can, whyNot } from '../state/session.js';
 import type { RigName } from '../core/schema.js';
-import { currentRig, historyByRig, isEpic, isRequest, needsHuman, tasksByRig } from '../state/rigs.js';
+import { currentRig, historyByRig, isEpic, isRequest, needsHuman, openEpicsAcrossRigs, tasksByRig } from '../state/rigs.js';
 import { controls } from '../styles/shared.js';
 import '../components/epic-card.js';
 import '../components/state-badge.js';
@@ -65,7 +65,7 @@ export class RigPage extends SignalWatcher(LitElement) {
     const done = (historyByRig.get()[this.rig] ?? []).filter(isEpic);
     return html`
       <header><a href="/">Rigs</a><span class="muted">/</span><h1 style="--vt: rig-${this.rig}">${this.rig}</h1></header>
-      <plan-form ?pending=${this.planning} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @submit-plan=${this.onPlan}></plan-form>
+      <plan-form ?pending=${this.planning} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} .choices=${openEpicsAcrossRigs.get().filter((c) => c.rig !== this.rig)} @submit-plan=${this.onPlan}></plan-form>
       ${inbox.length === 0 ? '' : html`<section aria-labelledby="inbox-h">
         <h2 id="inbox-h">Needs you <span class="count">${inbox.length}</span></h2>
         <div class="grid">${repeat(inbox, (t) => t.id, (t) => html`<inbox-item .task=${t} ?pending=${pending.get().has(t.id) || this.resolving === t.id} .allowed=${can(this.rig, 'resolve')} .reason=${whyNot(this.rig, 'resolve')} @resolve-item=${this.onResolve} @apply-option=${this.onOption}></inbox-item>`)}</div>
@@ -104,9 +104,9 @@ export class RigPage extends SignalWatcher(LitElement) {
       </section>`;
   }
 
-  private readonly onPlan = async (e: CustomEvent<{ text: string }>): Promise<void> => {
+  private readonly onPlan = async (e: CustomEvent<{ text: string; needs?: ReadonlyArray<{ readonly rig: string; readonly epic: string }> }>): Promise<void> => {
     this.planning = true;
-    const ok = await submitPlan(this.rig as RigName, e.detail.text);
+    const ok = await submitPlan(this.rig as RigName, e.detail.text, e.detail.needs ?? []);
     this.planning = false;
     if (ok) this.form?.clear();
   };
