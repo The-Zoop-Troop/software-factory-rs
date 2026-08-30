@@ -10,3 +10,7 @@
 crates/**/target
 !docker/entrypoint.sh
 !docker/console/tokens.toml.example
+crates/console/ui/node_modules
+crates/console/ui/dist
+crates/console/ui/coverage
+crates/console/ui/test-results

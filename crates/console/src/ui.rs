@@ -17,7 +17,7 @@ const PAGE: &str = include_str!("../static/console.html");
 
 pub(crate) fn routes() -> Router<AppState> {
     Router::new()
-        .route("/", get(page))
+        .route("/a2ui", get(page))
         .route("/rigs/{rig}/ui", get(surface))
         .route("/rigs/{rig}/ui/action", post(action))
 }

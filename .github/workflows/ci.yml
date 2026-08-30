@@ -25,6 +25,22 @@ jobs:
       - run: cargo xtask lint-taste
       - run: cargo xtask gen-docs --check
       - run: cargo xtask lint-fp
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: true }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm, cache-dependency-path: crates/console/ui/pnpm-lock.yaml }
+      - name: Playwright browsers
+        run: cd crates/console/ui && pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium
+      - name: Frontend gate (typecheck, lint, unit+coverage, build, bundle budget, e2e over console --fake)
+        run: cargo xtask ui-check --e2e
+
   rig:
     runs-on: ubuntu-latest
     steps:

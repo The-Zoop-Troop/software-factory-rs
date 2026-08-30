@@ -44,6 +44,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/rigs/{rig}/.well-known/agent-card.json", get(rig_card))
         .route("/rigs/{rig}/a2a", post(a2a))
         .merge(crate::ui::routes())
+        .merge(crate::webapp::routes())
         .with_state(state)
 }
 

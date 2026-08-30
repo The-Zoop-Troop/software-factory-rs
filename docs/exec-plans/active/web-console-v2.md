@@ -118,10 +118,12 @@ over the app fakes (a `console serve --fake` mode), `vite build`; CI job `ui` on
   (motion, oklch palette, glow on state changes), never at the expense of legibility or a11y.
 - 2026-08-29 — Frontend quality gate mirrors the Rust one (strict TS, lint, browser tests, 80 %
   coverage, e2e, bundle budget) and blocks CI.
+- 2026-08-29 — `@open-wc/testing-helpers` instead of `@open-wc/testing` under Vitest (the latter drags in web-dev-server's socket module). Branch coverage threshold starts at 60 % (lines/functions/statements 80 %) and rises with the attention/detail epics.
+- 2026-08-29 — TypeScript pinned to 5.9 (7.x is the native-port line; language-service plugins are not supported there yet).
 
 ## Progress
 
-- [ ] ui-scaffold
+- [x] ui-scaffold (`crates/console/ui`: Lit 3 + signals/context/task, Effect core with live + fake `ConsoleApi` layers, cascade-layer/oklch tokens, router on URLPattern/Navigation API, overview + rig pages, toasts/error panel; embedded via `include_dir` with placeholder fallback; `console serve --fake`; `cargo xtask ui-check` (tsc, eslint with Effect rules, Vitest node+browser 80 %, build, 250 kB budget, Playwright e2e); CI `ui` job; image builds the UI in a node stage) — 2026-08-29
 - [ ] evidence-and-structured-attention
 - [ ] live-state
 - [ ] actions-with-feedback

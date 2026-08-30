@@ -16,6 +16,7 @@ mod gendocs;
 mod quality;
 mod skills;
 mod taste;
+mod ui;
 
 use std::process::ExitCode;
 
@@ -31,6 +32,8 @@ fn main() -> ExitCode {
         }
         "lint-fp" => fp::lint(&root),
         "skills" => skills::check(&root),
+        "ui-build" => ui::build(&root),
+        "ui-check" => ui::check(&root, std::env::args().nth(2).as_deref() == Some("--e2e")),
         "quality" => quality::run(&root, std::env::args().nth(2).as_deref() == Some("--check")),
         _ => Err(anyhow::anyhow!(
             "usage: cargo xtask <lint-docs|lint-taste|coverage|gen-docs [--check]|quality [--check]|lint-fp|skills --check>"

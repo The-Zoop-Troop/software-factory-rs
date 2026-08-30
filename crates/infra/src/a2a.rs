@@ -3,7 +3,20 @@
 use app::remote::a2a::{Message, Part, Task};
 use app::{A2aApi, ClientError};
 use async_trait::async_trait;
-use serde_json::Value;
+use serde_json::{Map, Value};
+
+fn obj<const N: usize>(pairs: [(&str, Value); N]) -> Value {
+    Value::Object(
+        pairs
+            .into_iter()
+            .map(|(k, v)| (k.to_owned(), v))
+            .collect::<Map<_, _>>(),
+    )
+}
+
+fn val<T: serde::Serialize>(t: &T) -> Value {
+    serde_json::to_value(t).unwrap_or(Value::Null)
+}
 
 /// One rig's endpoint (`https://host/rigs/<name>`) plus the bearer token.
 #[derive(Clone)]
@@ -81,8 +94,12 @@ impl A2aHttp {
     }
 
     async fn call(&self, method: &str, params: Value) -> Result<Value, ClientError> {
-        let body =
-            serde_json::json!({ "jsonrpc": "2.0", "id": 1, "method": method, "params": params });
+        let body = obj([
+            ("jsonrpc", "2.0".into()),
+            ("id", 1.into()),
+            ("method", method.into()),
+            ("params", params),
+        ]);
         let resp = self
             .client
             .post(&self.endpoint)
@@ -152,10 +169,7 @@ impl A2aApi for A2aHttp {
     }
 
     async fn get_task(&self, id: &str) -> Result<Task, ClientError> {
-        task_from(
-            self.call("GetTask", serde_json::json!({ "id": id }))
-                .await?,
-        )
+        task_from(self.call("GetTask", obj([("id", id.into())])).await?)
     }
 
     async fn send(&self, text: &str, task_id: Option<&str>) -> Result<Task, ClientError> {
@@ -167,15 +181,12 @@ impl A2aApi for A2aHttp {
             context_id: None,
         };
         let r = self
-            .call("SendMessage", serde_json::json!({ "message": message }))
+            .call("SendMessage", obj([("message", val(&message))]))
             .await?;
         task_from(r.get("task").cloned().unwrap_or(r))
     }
 
     async fn cancel(&self, id: &str) -> Result<Task, ClientError> {
-        task_from(
-            self.call("CancelTask", serde_json::json!({ "id": id }))
-                .await?,
-        )
+        task_from(self.call("CancelTask", obj([("id", id.into())])).await?)
     }
 }

@@ -45,3 +45,10 @@ docker/rig.env.*
 # Console client tokens (hashed, but still per-deployment)
 docker/console/tokens.toml
 docker/console/rigs.toml
+
+# web console build artefacts
+crates/console/ui/node_modules/
+crates/console/ui/dist/
+crates/console/ui/coverage/
+crates/console/ui/test-results/
+crates/console/ui/playwright-report/

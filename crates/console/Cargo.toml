@@ -30,9 +30,16 @@ tokio-stream = "0.1"
 toml = "0.8"
 sha2 = "0.10"
 reqwest.workspace = true
+include_dir = "0.7"
+mime_guess = "2"
+
+[features]
+# `console serve --fake`: an in-memory rig for UI development and end-to-end tests.
+fake = ["app/testing"]
 
 [dev-dependencies]
 app = { workspace = true, features = ["testing"] }
+# nothing else; the `fake` feature reuses the same app fakes
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 

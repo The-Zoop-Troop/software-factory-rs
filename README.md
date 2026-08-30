@@ -143,6 +143,8 @@ cargo xtask lint-docs                             # every doc reachable from AGE
 cargo xtask gen-docs [--check]                    # regenerate docs/generated from code
 cargo xtask coverage                              # llvm-cov, fails under 85%
 cargo xtask quality [--check]                     # doc freshness (30 days) + measured quality block
+cargo xtask ui-check [--e2e]                      # web console gate: tsc, eslint, vitest (browser), build, bundle budget, playwright
+cargo xtask ui-build                              # build crates/console/ui/dist for embedding in the console binary
 cargo mutants -p domain                           # mutation testing on the pure core (≥90% expected)
 cargo test -p infra -- --ignored                  # live harness probes (need local claude/opencode/codex auth)
 ```

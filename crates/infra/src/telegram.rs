@@ -1,6 +1,16 @@
 //! Telegram Bot API, long polling only (no inbound port). Just the two calls a bot needs.
 
 use app::ClientError;
+use serde_json::{Map, Value};
+
+fn obj<const N: usize>(pairs: [(&str, Value); N]) -> Value {
+    Value::Object(
+        pairs
+            .into_iter()
+            .map(|(k, v)| (k.to_owned(), v))
+            .collect::<Map<_, _>>(),
+    )
+}
 
 /// One incoming text message.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,7 +118,11 @@ impl TelegramApi {
         let updates: Vec<Update> = self
             .post(
                 "getUpdates",
-                &serde_json::json!({ "offset": offset, "timeout": timeout_secs, "allowed_updates": ["message"] }),
+                &obj([
+                    ("offset", offset.into()),
+                    ("timeout", timeout_secs.into()),
+                    ("allowed_updates", Value::Array(vec!["message".into()])),
+                ]),
             )
             .await?;
         Ok(updates
@@ -130,7 +144,7 @@ impl TelegramApi {
         let _: serde_json::Value = self
             .post(
                 "sendMessage",
-                &serde_json::json!({ "chat_id": chat_id, "text": text }),
+                &obj([("chat_id", chat_id.into()), ("text", text.into())]),
             )
             .await?;
         Ok(())

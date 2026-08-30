@@ -21,11 +21,14 @@ mod adapters;
 mod alerts;
 mod auth;
 mod config;
+#[cfg(feature = "fake")]
+mod fake;
 mod rpc;
 mod server;
 #[cfg(test)]
 mod server_tests;
 mod ui;
+mod webapp;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -65,6 +68,10 @@ enum Command {
         /// Seconds between alert sweeps.
         #[arg(long, default_value_t = 30)]
         alert_interval: u64,
+        /// Serve an in-memory rig `toy` with token `fake` (UI development and e2e tests).
+        #[cfg(feature = "fake")]
+        #[arg(long)]
+        fake: bool,
     },
     /// Print the sha256 of a token read from stdin, for the token file.
     HashToken,
@@ -102,17 +109,44 @@ async fn main() -> anyhow::Result<()> {
             public_url,
             alert_url,
             alert_interval,
+            #[cfg(feature = "fake")]
+            fake,
         } => {
-            let rigs = config::load_registry(&registry)?;
-            let auth = auth::TokenAuth::new(config::load_tokens(&tokens)?);
-            let registry = adapters::FileRegistry::build(&rigs)?;
+            #[cfg(feature = "fake")]
+            let (auth, registry): (
+                Arc<dyn app::Authenticator>,
+                Arc<dyn app::RigRegistry>,
+            ) = if fake {
+                let (a, r) = fake::world().await?;
+                (Arc::new(a), Arc::new(r))
+            } else {
+                let rigs = config::load_registry(&registry)?;
+                let auth = auth::TokenAuth::new(config::load_tokens(&tokens)?);
+                (
+                    Arc::new(auth),
+                    Arc::new(adapters::FileRegistry::build(&rigs)?),
+                )
+            };
+            #[cfg(not(feature = "fake"))]
+            let (auth, registry): (
+                Arc<dyn app::Authenticator>,
+                Arc<dyn app::RigRegistry>,
+            ) = {
+                let rigs = config::load_registry(&registry)?;
+                let auth = auth::TokenAuth::new(config::load_tokens(&tokens)?);
+                (
+                    Arc::new(auth),
+                    Arc::new(adapters::FileRegistry::build(&rigs)?),
+                )
+            };
             let state = server::AppState {
-                auth: Arc::new(auth),
-                registry: Arc::new(registry),
+                auth,
+                registry,
                 clock: Arc::new(infra::SystemClock),
                 public_url,
                 poll: std::time::Duration::from_secs(1),
             };
+            tracing::info!(ui = webapp::built(), "web console embedded");
             if let Some(url) = alert_url {
                 tokio::spawn(alerts::run(
                     state.registry.clone(),
@@ -122,7 +156,7 @@ async fn main() -> anyhow::Result<()> {
                 ));
             }
             let listener = tokio::net::TcpListener::bind(&listen).await?;
-            tracing::info!(%listen, rigs = rigs.len(), "console listening");
+            tracing::info!(%listen, rigs = state.registry.names().len(), "console listening");
             axum::serve(listener, server::router(state))
                 .with_graceful_shutdown(async {
                     let _ = tokio::signal::ctrl_c().await;

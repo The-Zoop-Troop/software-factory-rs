@@ -11,12 +11,22 @@ ARG GH_VERSION=2.98.0
 ARG JUST_VERSION=1.58.0
 ARG YQ_VERSION=4.53.6
 
+# --- build the web console (this stage never ships) ---
+FROM node:24-slim AS ui
+WORKDIR /ui
+RUN corepack enable
+COPY crates/console/ui/package.json crates/console/ui/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY crates/console/ui ./
+RUN pnpm build
+
 # --- build the factory binaries (this stage never ships) ---
 FROM rust:${RUST_VERSION}-slim-bookworm AS build
 WORKDIR /src
 COPY Cargo.toml Cargo.lock rust-toolchain.toml clippy.toml rustfmt.toml ./
 COPY crates ./crates
 COPY docker/console/tokens.toml.example ./docker/console/
+COPY --from=ui /ui/dist ./crates/console/ui/dist
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \
     cargo build --release --locked -p factory -p stewardd -p console \
