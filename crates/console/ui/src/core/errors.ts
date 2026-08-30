@@ -27,6 +27,7 @@ export const fromRpc = (status: number, code: number, message: string): ApiError
   if (code === -32001) return new TaskNotFound({ id: message.replace(/^.*`([^`]+)`.*$/, '$1') });
   if (code === -32002) return new Terminal({ id: message.replace(/^.*`([^`]+)`.*$/, '$1') });
   if (code === -32041) return new Budget({ detail: message });
+  if (/ledger unavailable|no beads database/i.test(message)) return new Unreachable({ detail: 'rig not started (no ledger yet)' });
   if (code === -32603 && /planner|plan/i.test(message)) return new PlannerFailed({ detail: message });
   return new Unreachable({ detail: message });
 };

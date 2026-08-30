@@ -15,7 +15,7 @@ describe('rig summaries', () => {
   it('count epics, working, attention and done per rig', () => {
     rigs.set([rig]);
     setTasks(rig, [task('e1', 'epic', 'TASK_STATE_WORKING'), task('e2', 'epic', 'TASK_STATE_COMPLETED'), task('i1', 'incident', 'TASK_STATE_INPUT_REQUIRED')]);
-    expect(summaries.get()).toEqual([{ rig: 'toy', epics: 2, working: 1, attention: 1, done: 1 }]);
+    expect(summaries.get()).toEqual([{ rig: 'toy', epics: 2, working: 1, attention: 1, done: 1, unavailable: null }]);
     expect(attentionCount.get()).toBe(1);
   });
 });

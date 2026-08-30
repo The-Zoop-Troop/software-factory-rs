@@ -5,6 +5,12 @@ import type { RigName, Task } from '../core/schema.js';
 export const rigs = signal<ReadonlyArray<RigName>>([]);
 export const tasksByRig = signal<Readonly<Record<string, ReadonlyArray<Task>>>>({});
 export const currentRig = signal<RigName | null>(null);
+/** Rigs whose ledger could not be read on the last refresh (stopped, or not started yet). */
+export const unavailable = signal<Readonly<Record<string, string>>>({});
+export const markUnavailable = (rig: string, why: string | null): void => {
+  const entries = Object.entries(unavailable.get()).filter(([k]) => k !== rig);
+  unavailable.set(Object.fromEntries(why === null ? entries : [...entries, [rig, why]]));
+};
 
 export const isEpic = (t: Task): boolean => t.metadata.factory.kind === 'epic';
 export const isRequest = (t: Task): boolean => t.metadata.factory.kind === 'plan_request';
@@ -21,6 +27,7 @@ export interface RigSummary {
   readonly working: number;
   readonly attention: number;
   readonly done: number;
+  readonly unavailable: string | null;
 }
 
 export const summaries = computed<ReadonlyArray<RigSummary>>(() =>
@@ -33,6 +40,7 @@ export const summaries = computed<ReadonlyArray<RigSummary>>(() =>
       working: epics.filter((t) => t.status.state === 'TASK_STATE_WORKING').length,
       attention: tasks.filter(needsHuman).length,
       done: epics.filter(isTerminal).length,
+      unavailable: unavailable.get()[rig] ?? null,
     };
   }),
 );
@@ -46,6 +54,7 @@ export const setTasks = (rig: RigName, tasks: ReadonlyArray<Task>): void => {
 };
 
 export const reset = (): void => {
+  unavailable.set({});
   rigs.set([]);
   tasksByRig.set({});
   currentRig.set(null);

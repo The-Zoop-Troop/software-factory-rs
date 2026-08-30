@@ -6,7 +6,7 @@ import type { AttentionOption, RigName } from './core/schema.js';
 import { ConsoleApi } from './core/api.js';
 import { run, withApi } from './core/runtime.js';
 import { notify } from './state/notices.js';
-import { rigs, setTasks } from './state/rigs.js';
+import { markUnavailable, rigs, setTasks } from './state/rigs.js';
 import { connection, identity, lastError } from './state/session.js';
 import { signal } from '@lit-labs/signals';
 
@@ -31,7 +31,18 @@ const report = (err: ApiError): Effect.Effect<boolean> =>
 const attempt = <A>(effect: Effect.Effect<A, ApiError, ConsoleApi>): Promise<boolean> =>
   run(effect.pipe(Effect.as(true as const), Effect.catchAll(report))).catch(() => false);
 
-const loadRig = (rig: RigName) => withApi((api) => api.tasks(rig)).pipe(Effect.tap((ts) => Effect.sync(() => { setTasks(rig, ts); })));
+const loadRig = (rig: RigName) =>
+  withApi((api) => api.tasks(rig)).pipe(Effect.tap((ts) => Effect.sync(() => { setTasks(rig, ts); markUnavailable(rig, null); })));
+
+/** A rig that cannot be read (stopped, no ledger yet) is marked, not fatal to the overview. */
+const loadRigLenient = (rig: RigName) =>
+  loadRig(rig).pipe(
+    Effect.catchTags({
+      Unreachable: (e) => Effect.sync(() => { markUnavailable(rig, e.detail); setTasks(rig, []); }),
+      Malformed: (e) => Effect.sync(() => { markUnavailable(rig, e.detail); setTasks(rig, []); }),
+    }),
+    Effect.asVoid,
+  );
 
 /** Who the token is, loaded once per session. */
 const loadIdentity = (): Effect.Effect<void, ApiError, ConsoleApi> =>
@@ -46,7 +57,7 @@ export const refreshAll = (): Promise<boolean> => {
     loadIdentity().pipe(
       Effect.flatMap(() => withApi((api) => api.rigs())),
       Effect.tap((names) => Effect.sync(() => { rigs.set(names); })),
-      Effect.flatMap((names) => Effect.forEach(names, loadRig, { concurrency: 4, discard: true })),
+      Effect.flatMap((names) => Effect.forEach(names, loadRigLenient, { concurrency: 4, discard: true })),
       Effect.tap(() => Effect.sync(() => { connection.set('online'); lastError.set(null); })),
     ),
   );

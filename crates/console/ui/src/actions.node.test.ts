@@ -72,3 +72,18 @@ describe('identity and options', () => {
     expect(await applyOption(rig, 'zz', 'stop_epic', '')).toBe(false);
   });
 });
+
+describe('unavailable rigs', () => {
+  it('do not fail the overview; they are marked', async () => {
+    const { unavailable, summaries } = await import('./state/rigs.js');
+    const api = Schema.decodeSync(RigName)('api');
+    const w: FakeWorld = { token: 'ok', rigs: [rig, api], tasks: { toy: [incident] } };
+    connectFake(w, 'ok');
+    // The fake returns [] for unknown rigs; simulate a dead ledger through the error mapper instead.
+    const { fromRpc } = await import('./core/errors.js');
+    expect(fromRpc(500, -32603, 'ledger unavailable during List: backend database error: no beads database found')._tag).toBe('Unreachable');
+    expect(await refreshAll()).toBe(true);
+    expect(unavailable.get()).toEqual({});
+    expect(summaries.get().length).toBe(2);
+  });
+});

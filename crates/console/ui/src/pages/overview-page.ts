@@ -28,7 +28,7 @@ export class OverviewPage extends SignalWatcher(LitElement) {
             <a class="surface" href="/rigs/${r.rig}" style="--vt: rig-${r.rig}">
               <span class="name">${r.rig}</span>
               <span class="stats">
-                <span class="badge info">${r.epics} epic${r.epics === 1 ? '' : 's'}</span>
+                ${r.unavailable !== null ? html`<span class="badge danger" title=${r.unavailable}>unavailable</span>` : html`<span class="badge info">${r.epics} epic${r.epics === 1 ? '' : 's'}</span>`}
                 ${r.working > 0 ? html`<span class="badge working">${r.working} working</span>` : ''}
                 ${r.attention > 0 ? html`<span class="badge warn">${r.attention} need you</span>` : ''}
                 ${r.done > 0 ? html`<span class="badge ok">${r.done} done</span>` : ''}
