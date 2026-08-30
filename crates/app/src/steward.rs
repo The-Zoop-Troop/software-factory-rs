@@ -259,15 +259,21 @@ async fn write_contract(
 
 /// Close an epic when it has children and every one is closed. Returns the child count.
 async fn sweep_epic(store: &dyn BeadStore, epic: &Bead) -> Result<Option<usize>, StewardError> {
-    let children: Vec<_> = store
-        .children(&epic.id)
-        .await?
-        .into_iter()
-        // Reference beads are context; they must never hold an epic open.
-        .filter(|c| !matches!(c.kind, Some(BeadKind::Reference | BeadKind::Contract)))
-        .collect();
+    let all = store.children(&epic.id).await?;
+    let is_context = |c: &Bead| matches!(c.kind, Some(BeadKind::Reference | BeadKind::Contract));
+    let children: Vec<_> = all.iter().filter(|c| !is_context(c)).collect();
     if children.is_empty() || children.iter().any(|c| c.status != BeadStatus::Closed) {
         return Ok(None);
+    }
+    // Context beads never hold an epic open — but the ledger refuses to close an epic with any
+    // open child, so close the ones a hand or an older planner left open first.
+    for c in all
+        .iter()
+        .filter(|c| is_context(c) && c.status != BeadStatus::Closed)
+    {
+        store
+            .close(&c.id, "context bead, closed with its epic")
+            .await?;
     }
     store
         .close(&epic.id, "all children closed (steward)")
@@ -281,6 +287,58 @@ fn event(at: Timestamp, actor: &str, bead: Option<BeadId>, kind: EventKind) -> F
         actor: actor.to_owned(),
         bead,
         kind,
+    }
+}
+
+#[cfg(test)]
+mod context_children_tests {
+    use super::*;
+    use crate::testing::{FakeStore, FixedClock, MemorySink};
+    use domain::Timestamp;
+
+    fn id(s: &str) -> BeadId {
+        BeadId::try_new(s).expect("id")
+    }
+
+    #[tokio::test]
+    async fn an_open_reference_child_is_closed_with_its_epic_not_left_to_block_it() {
+        let store = FakeStore::default();
+        store.seed_epic(id("e-1"), &[("t", true)]).await;
+        // A reference created by hand stays open (the planner's are created closed).
+        store
+            .create(crate::bead::NewBead {
+                title: domain::Title::derived("reference: runtime facts"),
+                description: "pin playwright".into(),
+                kind: BeadKind::Reference,
+                priority: domain::Priority::LOW,
+                parent: Some(id("e-1")),
+                needs: vec![],
+                acceptance: None,
+                meta: None,
+                deferred: false,
+            })
+            .await
+            .expect("reference");
+        let log = MemorySink::default();
+        let report = sweep(
+            &store,
+            &FixedClock(Timestamp::from_unix_seconds(1)),
+            &log,
+            "s",
+            None,
+        )
+        .await
+        .expect("sweep");
+        assert_eq!(report.epics_closed, 1);
+        let children = store.children(&id("e-1")).await.expect("children");
+        assert!(
+            children.iter().all(|c| c.status == BeadStatus::Closed),
+            "{children:?}"
+        );
+        assert_eq!(
+            store.show(&id("e-1")).await.expect("epic").status,
+            BeadStatus::Closed
+        );
     }
 }
 
