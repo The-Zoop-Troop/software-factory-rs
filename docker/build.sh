@@ -25,6 +25,10 @@ build_runtime() {
   [ "${parent:-base}" = base ] || build_runtime "$parent"
   echo "==> runtime $rt (from ${parent:-base})"
   docker build -q -f "docker/runtimes/$rt/Dockerfile" --build-arg BASE="factory-rig:${parent:-base}" -t "factory-rig:$rt" docker/runtimes >/dev/null
+  # Smoke: every runtime image must still carry the harness CLIs and the ledger tools; a PATH
+  # change that drops them fails here, not in a rig's first plan.
+  docker run --rm --entrypoint sh "factory-rig:$rt" -c 'for b in bd git dolt codex claude opencode; do command -v "$b" >/dev/null 2>&1 || { echo "smoke: $b missing from PATH ($PATH)"; exit 1; }; done' \
+    || { echo "runtime image factory-rig:$rt failed its smoke check"; exit 1; }
 }
 if [ "$RUNTIME" != base ]; then
   build_runtime "$RUNTIME"
