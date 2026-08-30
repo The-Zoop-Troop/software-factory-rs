@@ -252,6 +252,11 @@ from the repository root of the task's branch (e.g. `cargo test -p auth`, `npm t
 - Verify commands are executed one per line by POSIX `/bin/sh` (dash), not bash, from the repo \
 root: source files with an explicit path (`. ./lib.sh` — never `source`, never `. lib.sh`, which \
 searches PATH), no `[[ ]]`, no arrays, no `set -o pipefail`. Each must exit 0 on success.
+- Verify commands run inside the factory's sandbox: the repository, its language toolchain and \
+package registries, and (when provided) `DATABASE_URL` for a throwaway database. There is NO \
+docker, no docker compose, no cloud CLIs, no credentials, no external services, and `/tmp` is \
+not executable. Scripts that build images or call services cannot be verify commands; check \
+their inputs instead (file exists, YAML parses, unit tests pass).
 - `acceptance` lists the human-readable criteria the verify commands check.
 - Use `needs` to express hard ordering only (B cannot start until A is merged). Independent tasks \
 must not be chained; they will run in parallel.

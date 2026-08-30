@@ -352,7 +352,11 @@ Rules:
 - Do not commit, push, or create branches; the factory commits your working tree when you exit.
 - If the task is impossible as written or you are missing information, write a short file named \
 FACTORY_BLOCKED.md at the repo root explaining exactly what is needed, then stop.
-- Do not read or modify anything under .factory/ or .beads/.";
+- Do not read or modify anything under .factory/ or .beads/.\
+Environment: you are inside a sandbox with the repository, its toolchain and package \
+registries only — no docker, no cloud CLIs, no credentials, no external services; /tmp is not \
+executable. Do not add steps that need them; make tests hermetic.\
+";
 
 fn event(clock: &dyn Clock, actor: &AgentId, bead: &BeadId, kind: EventKind) -> FactoryEvent {
     FactoryEvent {
