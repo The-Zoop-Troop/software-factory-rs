@@ -20,6 +20,7 @@ pub mod errors;
 pub mod events;
 pub mod integrator;
 pub mod mcp;
+pub mod metrics;
 pub mod plan_queue;
 pub mod planner;
 pub mod ports;
