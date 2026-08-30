@@ -95,7 +95,7 @@ services:
       HTTP_PROXY: http://egress:8888
       NO_PROXY: localhost,127.0.0.1,egress
       RUST_LOG: info
-      RIG_HARNESS: ${PLANNER_HARNESS:-claude}   # e.g. PLANNER_HARNESS=opencode to plan with OpenCode
+      RIG_HARNESS: ${PLANNER_HARNESS:-${RIG_HARNESS:-claude}}   # PLANNER_HARNESS overrides the rig harness for planning only
 
   # Remote control (docs/exec-plans/completed/remote-control.md). Only the console is reachable
   # from outside the rig network, on the loopback port below; put TLS in front for real use.
