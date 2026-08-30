@@ -89,6 +89,8 @@ pub enum AttentionOption {
     Replan,
     /// A question: record the answer and close it.
     Answer,
+    /// Environment incident: reopen and continue from the task's existing branch.
+    ResumeBranch,
 }
 
 impl AttentionOption {
@@ -100,6 +102,7 @@ impl AttentionOption {
             Self::StopEpic => "stop_epic",
             Self::Replan => "replan",
             Self::Answer => "answer",
+            Self::ResumeBranch => "resume_branch",
         }
     }
 
@@ -112,6 +115,7 @@ impl AttentionOption {
             "stop_epic" => Ok(Self::StopEpic),
             "replan" => Ok(Self::Replan),
             "answer" => Ok(Self::Answer),
+            "resume_branch" => Ok(Self::ResumeBranch),
             other => Err(UnknownOption(other.to_owned())), // fp-allow: option ids arrive as free text
         }
     }
@@ -177,6 +181,9 @@ fn reason_of(task: Option<&Bead>, description: &str) -> Reason {
                 ("merge_conflict", "The branch no longer merges")
             }
             IncidentReason::Manual { .. } => ("manual", "Escalated by hand"),
+            IncidentReason::Environment { .. } => {
+                ("environment", "The rig could not run the checks")
+            }
         },
         Some(
             TaskState::Open
@@ -210,7 +217,37 @@ pub fn attention_for(item: &Bead, task: Option<&Bead>) -> Attention {
     let is_incident = item.kind == Some(BeadKind::Incident);
     let meta = task.and_then(|t| t.meta.as_ref());
     let notes = task.and_then(|t| t.notes.as_deref()).unwrap_or_default();
-    let options = if is_incident {
+    let environment = matches!(
+        task.and_then(|t| t.meta.as_ref()).map(|m| &m.state),
+        Some(TaskState::Incident {
+            reason: IncidentReason::Environment { .. }
+        })
+    );
+    let options = if is_incident && environment {
+        vec![
+            spec(
+                AttentionOption::ResumeBranch,
+                "Resume from the branch",
+                "The code was fine; the rig was not. Fix the rig, then continue from the task's existing branch.",
+                false,
+                false,
+            ),
+            spec(
+                AttentionOption::RetryFresh,
+                "Retry from scratch",
+                "Reopen the task with fresh attempts and budget on a new branch.",
+                false,
+                false,
+            ),
+            spec(
+                AttentionOption::StopEpic,
+                "Stop the epic",
+                "Cancel every open task under this epic.",
+                false,
+                true,
+            ),
+        ]
+    } else if is_incident {
         vec![
             spec(
                 AttentionOption::RetryFresh,

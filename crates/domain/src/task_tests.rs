@@ -544,3 +544,45 @@ fn incident_reasons_explain_themselves() {
     };
     assert!(budget.to_string().contains("budget exhausted"));
 }
+
+#[test]
+fn a_blocked_verification_is_an_environment_incident_without_an_attempt() {
+    let t = fresh()
+        .apply(claim(0))
+        .expect("claim")
+        .task
+        .apply(submit(10))
+        .expect("submit")
+        .task;
+    let before = t.usage.attempts;
+    let tr = t
+        .apply(Event::VerifyBlocked {
+            note: "verify command exited 127 (not executable / not found)\nverify FAILED".into(),
+        })
+        .expect("legal");
+    assert_eq!(tr.task.usage.attempts, before);
+    assert!(matches!(
+        tr.task.state,
+        TaskState::Incident {
+            reason: IncidentReason::Environment { .. }
+        }
+    ));
+    assert!(matches!(
+        tr.effects.first(),
+        Some(Effect::AppendNote { .. })
+    ));
+    assert!(matches!(
+        tr.effects.get(1),
+        Some(Effect::OpenIncidentBead { .. })
+    ));
+    assert!(
+        IncidentReason::Environment { detail: "x".into() }
+            .to_string()
+            .contains("environment problem")
+    );
+    assert!(
+        fresh()
+            .apply(Event::VerifyBlocked { note: "n".into() })
+            .is_err()
+    );
+}

@@ -287,6 +287,9 @@ pub async fn send_message(
     }
 }
 
+/// Note prefix the Worker looks for to continue from an existing branch.
+pub const RESUME_MARKER: &str = "resume-from: ";
+
 /// An attention option, applied. `note` is required by `RetryWithGuidance`, `Replan`, `Answer`.
 ///
 /// # Errors
@@ -304,6 +307,8 @@ pub async fn apply_option(
         option,
         AttentionOption::RetryWithGuidance | AttentionOption::Replan | AttentionOption::Answer
     );
+    // `ResumeBranch` reopens like a retry but tells the next session to start from the task's
+    // own branch (the Worker reads the marker from the notes).
     if needs_note && note.trim().is_empty() {
         return Err(RemoteError::EmptyMessage);
     }
@@ -331,6 +336,19 @@ pub async fn apply_option(
     };
     match option {
         AttentionOption::RetryFresh | AttentionOption::Answer => {
+            send_message(rig, clock, who, Some(item_id), &text).await
+        }
+        AttentionOption::ResumeBranch => {
+            authorize(rig, clock, who, Scope::Resolve, "SendMessage")?;
+            if let Some(t) = &task {
+                let branch =
+                    domain::BranchName::for_task(&t.id).map_err(|_| RemoteError::TaskNotFound {
+                        id: t.id.to_string(),
+                    })?;
+                rig.store
+                    .note(&t.id, &format!("{RESUME_MARKER}{branch}"))
+                    .await?;
+            }
             send_message(rig, clock, who, Some(item_id), &text).await
         }
         AttentionOption::RetryWithGuidance => {

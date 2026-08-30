@@ -30,6 +30,16 @@ pub struct WorkerConfig {
     pub effort: Option<domain::Effort>,
 }
 
+/// The last `resume-from: <branch>` marker in the notes, if any (see `remote::service`).
+#[must_use]
+pub fn resume_branch(notes: Option<&str>) -> Option<BranchName> {
+    notes?
+        .lines()
+        .rev()
+        .find_map(|l| l.strip_prefix("resume-from: "))
+        .and_then(|b| BranchName::try_new(b.trim()).ok())
+}
+
 /// What one session did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorkReport {
@@ -100,7 +110,9 @@ pub async fn work_once(
         op: crate::ports::GitOp::WorktreeAdd,
         detail: e.to_string(),
     })?;
-    let from = repo.head_of(&cfg.main).await?;
+    // An operator may ask to continue from the task's existing branch (environment incidents).
+    let base = resume_branch(bead.notes.as_deref()).unwrap_or_else(|| cfg.main.clone());
+    let from = repo.head_of(&base).await?;
     let worktree = repo.branch_worktree(&branch, &from).await?;
 
     let remaining = remaining_wall_clock(&tr.task);

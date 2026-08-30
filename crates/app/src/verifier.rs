@@ -48,7 +48,20 @@ pub async fn verify_once(
             continue;
         };
         match verify_one(store, repo, runner, &meta).await {
-            Ok(Some(passed)) => {
+            Ok(Outcome::Blocked { reason: detail }) => {
+                report.failed += 1;
+                log.record(&FactoryEvent {
+                    at: clock.now(),
+                    actor: actor.to_owned(),
+                    bead: Some(meta.task.clone()),
+                    kind: EventKind::VerifyBlocked {
+                        verify_bead: bead.id.clone(),
+                        detail,
+                    },
+                });
+            }
+            Ok(outcome @ (Outcome::Passed | Outcome::Failed)) => {
+                let passed = outcome == Outcome::Passed;
                 if passed {
                     report.passed += 1;
                 } else {
@@ -64,7 +77,7 @@ pub async fn verify_once(
                     },
                 });
             }
-            Ok(None) => report.skipped += 1,
+            Ok(Outcome::NotAwaiting) => report.skipped += 1,
             Err(e) => {
                 report.errors += 1;
                 log.record(&FactoryEvent {
@@ -81,16 +94,27 @@ pub async fn verify_once(
     Ok(report)
 }
 
-/// `Some(true)` pass, `Some(false)` fail, `None` if the task wasn't awaiting verification.
+/// What one verify run concluded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Outcome {
+    Passed,
+    Failed,
+    /// The rig could not run the checks; the task is an incident and no attempt was charged.
+    Blocked {
+        reason: String,
+    },
+    NotAwaiting,
+}
+
 async fn verify_one(
     store: &dyn BeadStore,
     repo: &dyn Repo,
     runner: &dyn Runner,
     meta: &VerifyMeta,
-) -> Result<Option<bool>, TransitionError> {
+) -> Result<Outcome, TransitionError> {
     let task = load_task(store, &meta.task).await?;
     let TaskState::InVerify { branch, head } = &task.state else {
-        return Ok(None);
+        return Ok(Outcome::NotAwaiting);
     };
     let worktree = repo.worktree_add(branch, head).await?;
     let result = run_all(runner, &worktree.path, meta).await;
@@ -98,13 +122,19 @@ async fn verify_one(
     repo.worktree_remove(worktree).await?;
 
     let (passed, note) = summarize(&meta.commands, &result);
-    let event = if passed {
-        Event::VerifyPassed
-    } else {
-        Event::VerifyFailed { note }
+    let blocked = environmental(&result);
+    let (event, outcome) = match (blocked, passed) {
+        (_, true) => (Event::VerifyPassed, Outcome::Passed),
+        (Some(detail), false) => (
+            Event::VerifyBlocked {
+                note: format!("{detail}\n{note}"),
+            },
+            Outcome::Blocked { reason: detail },
+        ),
+        (None, false) => (Event::VerifyFailed { note }, Outcome::Failed),
     };
     apply_event(store, &meta.task, event).await?;
-    Ok(Some(passed))
+    Ok(outcome)
 }
 
 /// Run commands in order; stop at the first failure. `Err` means the command couldn't spawn.
@@ -123,6 +153,46 @@ async fn run_all(
         }
     }
     results
+}
+
+/// Signatures of a rig that cannot run the checks, as opposed to checks that fail.
+const ENVIRONMENT_SIGNATURES: [&str; 9] = [
+    "permission denied",
+    "no space left on device",
+    "read-only file system",
+    "cannot execute binary file",
+    "command not found",
+    "could not resolve host",
+    "connection refused",
+    "network is unreachable",
+    "temporary failure in name resolution",
+];
+
+/// Pure: was the first failure environmental? Exit 126/127 (not executable / not found) or a
+/// known signature in the output. Returns the one-line reason to put on the incident.
+#[must_use]
+pub fn environmental(results: &[Result<RunOutput, crate::ports::RunError>]) -> Option<String> {
+    let first_failure = results
+        .iter()
+        .find(|r| !matches!(r, Ok(o) if o.succeeded()))?;
+    match first_failure {
+        Err(e) => Some(format!("verify command could not run: {e}")),
+        Ok(o) => {
+            let text = format!("{}\n{}", o.stdout, o.stderr).to_ascii_lowercase();
+            let by_code = matches!(o.exit_code, Some(126 | 127)).then(|| {
+                format!(
+                    "verify command exited {} (not executable / not found)",
+                    o.exit_code.unwrap_or(0)
+                )
+            });
+            by_code.or_else(|| {
+                ENVIRONMENT_SIGNATURES
+                    .iter()
+                    .find(|sig| text.contains(*sig))
+                    .map(|sig| format!("verify output contains `{sig}`"))
+            })
+        }
+    }
 }
 
 /// Pure: decide pass/fail and build the note that goes on the task bead.
@@ -368,5 +438,59 @@ mod tests {
     fn tail_respects_char_boundaries() {
         let s = "é".repeat(NOTE_TAIL);
         assert!(tail(&s).chars().all(|c| c == 'é'));
+    }
+}
+
+#[cfg(test)]
+mod environment_tests {
+    use super::*;
+    use crate::testing::FakeRunner;
+
+    #[allow(clippy::unnecessary_wraps, reason = "the classifier takes results")]
+    fn out(code: i32, stderr: &str) -> Result<RunOutput, crate::ports::RunError> {
+        Ok(RunOutput {
+            exit_code: Some(code),
+            ..FakeRunner::fail(code, stderr)
+        })
+    }
+
+    #[test]
+    fn classifies_environment_failures_and_leaves_real_failures_alone() {
+        assert!(environmental(&[Ok(FakeRunner::ok("fine"))]).is_none());
+        assert!(environmental(&[out(1, "assertion failed: expected 2 got 3")]).is_none());
+        assert!(
+            environmental(&[out(127, "sh: docker: not found")])
+                .unwrap()
+                .contains("127")
+        );
+        assert!(environmental(&[out(126, "")]).unwrap().contains("126"));
+        assert!(
+            environmental(&[out(1, "fork/exec /tmp/go-build/x.test: Permission denied")])
+                .unwrap()
+                .contains("permission denied")
+        );
+        assert!(
+            environmental(&[out(2, "write /work: no space left on device")])
+                .unwrap()
+                .contains("no space")
+        );
+        assert!(
+            environmental(&[
+                Ok(FakeRunner::ok("ok")),
+                out(1, "curl: (6) Could not resolve host: example.com")
+            ])
+            .unwrap()
+            .contains("could not resolve")
+        );
+        let spawn = crate::ports::RunError {
+            command: "sh".into(),
+            cause: crate::Unavailable::NotInstalled,
+            detail: "no such file".into(),
+        };
+        assert!(
+            environmental(&[Err(spawn)])
+                .unwrap()
+                .contains("could not run")
+        );
     }
 }

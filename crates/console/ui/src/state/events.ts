@@ -32,6 +32,7 @@ export const describe = (f: EventFrame): { readonly title: string; readonly tone
     case 'verified': return r['passed'] === true ? { title: `${bead} verified`, tone: 'success' } : { title: `${bead} failed verification`, tone: 'warning' };
     case 'integrated': return r['landed'] ? { title: `${bead} landed on main`, tone: 'success' } : { title: `${bead} could not be integrated`, tone: 'warning' };
     case 'escalated': return { title: `${bead} needs you`, tone: 'danger' };
+    case 'verify_blocked': return { title: `${bead}: the rig could not run its checks (${str(r['detail'])})`, tone: 'danger' };
     case 'lease_reaped': return { title: `${bead} lease expired; reopened`, tone: 'warning' };
     case 'epic_closed': return { title: `${bead} epic complete`, tone: 'success' };
     case 'remote': {

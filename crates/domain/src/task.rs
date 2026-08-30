@@ -60,6 +60,11 @@ pub enum IncidentReason {
     Manual {
         detail: String,
     },
+    /// The rig could not run verification (no space, permission denied, missing tool,
+    /// network). Not the task's fault: attempts are not charged and the branch is kept.
+    Environment {
+        detail: String,
+    },
 }
 
 impl fmt::Display for IncidentReason {
@@ -83,6 +88,12 @@ impl fmt::Display for IncidentReason {
                  it on top of the current main; if the work is now redundant, stop the epic instead."
             ),
             Self::Manual { detail } => write!(f, "escalated by hand: {detail}"),
+            Self::Environment { detail } => write!(
+                f,
+                "the rig could not run the verification ({detail}). This is an environment \
+                 problem, not the task's: fix the rig (image, volume, network), then resume from \
+                 the task's branch or retry."
+            ),
         }
     }
 }
@@ -118,6 +129,10 @@ pub enum Event {
         note: String,
     },
     VerifyPassed,
+    /// Verification could not run for environmental reasons; attempts are not charged.
+    VerifyBlocked {
+        note: String,
+    },
     VerifyFailed {
         note: String,
     },
@@ -254,6 +269,7 @@ impl Event {
             Self::Release { .. } => "release",
             Self::VerifyPassed => "verify_passed",
             Self::VerifyFailed { .. } => "verify_failed",
+            Self::VerifyBlocked { .. } => "verify_blocked",
             Self::Merged { .. } => "merged",
             Self::MergeFailed { .. } => "merge_failed",
             Self::Escalate { .. } => "escalate",
@@ -393,6 +409,13 @@ impl Task {
                     head,
                 }],
             }),
+            (TaskState::InVerify { .. }, Event::VerifyBlocked { note }) => {
+                let mut tr = self.escalate(IncidentReason::Environment {
+                    detail: note.lines().next().unwrap_or_default().to_owned(),
+                });
+                tr.effects.insert(0, Effect::AppendNote { task: id, note });
+                Ok(tr)
+            }
             (TaskState::InVerify { .. }, Event::VerifyFailed { note }) => {
                 let usage = self.usage.add_attempt();
                 let t = Task { usage, ..self };
@@ -485,6 +508,7 @@ impl Task {
                 | Event::Release { .. }
                 | Event::VerifyPassed
                 | Event::VerifyFailed { .. }
+                | Event::VerifyBlocked { .. }
                 | Event::Merged { .. }
                 | Event::MergeFailed { .. }),
             )
@@ -493,6 +517,7 @@ impl Task {
                 event @ (Event::Claim { .. }
                 | Event::VerifyPassed
                 | Event::VerifyFailed { .. }
+                | Event::VerifyBlocked { .. }
                 | Event::Merged { .. }
                 | Event::MergeFailed { .. }),
             )
@@ -514,7 +539,8 @@ impl Task {
                 | Event::LeaseExpired { .. }
                 | Event::Release { .. }
                 | Event::VerifyPassed
-                | Event::VerifyFailed { .. }),
+                | Event::VerifyFailed { .. }
+                | Event::VerifyBlocked { .. }),
             )
             | (
                 state @ (TaskState::Closed { .. } | TaskState::Incident { .. }),
@@ -525,6 +551,7 @@ impl Task {
                 | Event::Release { .. }
                 | Event::VerifyPassed
                 | Event::VerifyFailed { .. }
+                | Event::VerifyBlocked { .. }
                 | Event::Merged { .. }
                 | Event::MergeFailed { .. }
                 | Event::Escalate { .. }),

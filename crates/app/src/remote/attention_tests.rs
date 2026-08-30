@@ -331,3 +331,87 @@ async fn options_do_what_they_say() {
         Err(RemoteError::TaskNotFound { .. })
     ));
 }
+
+#[test]
+fn environment_incidents_offer_resume_first() {
+    let mut inc = plain_bead(id("inc-1"), Some(BeadKind::Incident));
+    inc.title = "incident on ep-1.3".into();
+    let mut task = plain_bead(id("ep-1.3"), Some(BeadKind::Task));
+    task.meta = Some(meta(
+        TaskState::Incident {
+            reason: IncidentReason::Environment {
+                detail: "exit 127".into(),
+            },
+        },
+        10,
+    ));
+    let a = attention_for(&inc, Some(&task));
+    assert_eq!(a.reason.kind, "environment");
+    assert_eq!(a.options[0].id, AttentionOption::ResumeBranch);
+    assert_eq!(
+        AttentionOption::parse("resume_branch"),
+        Ok(AttentionOption::ResumeBranch)
+    );
+    assert_eq!(a.options.len(), 3);
+}
+
+#[tokio::test]
+async fn resume_branch_marks_the_task_and_reopens_it() {
+    let (rig, store, _, _) = seeded().await;
+    store
+        .seed_task(
+            id("ep-1.3"),
+            meta(
+                TaskState::Incident {
+                    reason: IncidentReason::Environment {
+                        detail: "noexec".into(),
+                    },
+                },
+                10,
+            ),
+        )
+        .await;
+    store.set_parent(&id("ep-1.3"), &id("ep-1")).await;
+    let inc = store
+        .create(NewBead {
+            title: domain::Title::try_new("incident on ep-1.3").expect("t"),
+            description: "env".into(),
+            kind: BeadKind::Incident,
+            priority: domain::Priority::CRITICAL,
+            parent: Some(id("ep-1")),
+            needs: vec![],
+            acceptance: None,
+            meta: None,
+        })
+        .await
+        .expect("created");
+    let sent = apply_option(
+        &rig,
+        &clock(),
+        &who(&[Scope::Admin]),
+        inc.as_ref(),
+        AttentionOption::ResumeBranch,
+        "",
+    )
+    .await
+    .expect("ok");
+    assert!(matches!(
+        sent,
+        Sent::Resolved {
+            reopened: Some(_),
+            ..
+        }
+    ));
+    let task = store.show(&id("ep-1.3")).await.expect("task");
+    assert!(
+        task.notes
+            .as_deref()
+            .is_some_and(|n| n.contains("resume-from: task/ep-1.3"))
+    );
+    assert_eq!(
+        crate::worker::resume_branch(task.notes.as_deref()).map(|b| b.to_string()),
+        Some("task/ep-1.3".to_owned())
+    );
+    assert!(crate::worker::resume_branch(Some("nothing here")).is_none());
+    assert!(matches!(task.meta.map(|m| m.state), Some(TaskState::Open)));
+}

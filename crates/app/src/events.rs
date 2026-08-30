@@ -27,6 +27,8 @@ pub enum EventKind {
     Released { holder: String, detail: String },
     /// Verifier ran a verify bead against a task.
     Verified { passed: bool, verify_bead: BeadId },
+    /// Verifier could not run the checks (environment); the task is an incident, no attempt charged.
+    VerifyBlocked { verify_bead: BeadId, detail: String },
     /// Integrator landed (or failed to land) a branch on main.
     Integrated {
         merge_bead: BeadId,
