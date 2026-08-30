@@ -14,6 +14,7 @@ Beads (`bd`, Dolt-backed) is used unmodified. The factory adds conventions:
   on one lock, cost 3–16 s per call (2026-08-30 measurement; server mode: 45–200 ms). The
   `ledger` role in `docker/entrypoint.sh` flips the ledger's metadata to server mode and
   creates the user idempotently, so an existing embedded ledger migrates on first start.
+- **Contracts**: when the Steward closes an epic it writes a `fac:kind=contract` child (closed): the landed commit range, files, added public surface, the tasks with their landed shas, and the plan/reference text — what a downstream planner reads instead of the request (`docs/exec-plans/active/cross-rig-dependencies.md`).
 - **Dependencies**: `needs` = `blocks` edges added with `bd dep add <dependent> <blocker>` after creation (`--deps blocks:` means the opposite). Beads with `needs` are created `--defer`red and un-deferred once edges exist. Verify beads need their task so `bd ready` hides them.
 - **Reference** beads (Planner context) are created closed; the Steward ignores them for epic closure.
 - **Ready** = `bd ready --label fac:kind=task`; the Worker additionally requires task state `open`.

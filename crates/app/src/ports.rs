@@ -98,6 +98,17 @@ pub trait Clock: Send + Sync {
     async fn sleep(&self, d: Duration);
 }
 
+/// What landed between two commits, as a downstream planner needs it: the files, the size,
+/// and the public surface that appeared (`pub fn`, `export`, exported Go names, routes, env vars).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct DiffSummary {
+    pub files: Vec<String>,
+    pub insertions: u32,
+    pub deletions: u32,
+    /// Added lines that declare public surface, trimmed, in diff order (capped).
+    pub added_surface: Vec<String>,
+}
+
 /// What a worktree currently differs by from its branch head — the Worker's progress signal.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DiffStat {
@@ -175,6 +186,12 @@ pub trait Repo: Send + Sync {
     /// # Errors
     /// `Rejected` if the remote refuses; `Unavailable` if unreachable.
     async fn push(&self, remote: &str, branch: &BranchName) -> Result<(), RepoError>;
+
+    /// Summarise `base..head` for a contract artifact.
+    ///
+    /// # Errors
+    /// `RefNotFound` for unknown commits; `Unavailable` if git cannot run.
+    async fn diff_summary(&self, base: &Sha, head: &Sha) -> Result<DiffSummary, RepoError>;
 
     /// How far `worktree` has drifted from its head (uncommitted work, untracked files included).
     /// Read while a session runs so operators can see it working.

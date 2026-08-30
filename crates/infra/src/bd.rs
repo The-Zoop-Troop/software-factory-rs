@@ -445,6 +445,7 @@ const fn bd_type(kind: BeadKind) -> &'static str {
         | BeadKind::Verify
         | BeadKind::Merge
         | BeadKind::Reference
+        | BeadKind::Contract
         | BeadKind::PlanRequest => "task",
         BeadKind::Question => "decision",
         BeadKind::Incident => "bug",

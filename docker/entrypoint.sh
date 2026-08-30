@@ -115,7 +115,7 @@ harness_args worker
 
 role=${1:-shell}; shift || true
 case "$role" in
-  steward)   exec stewardd --workdir "$RIG_DIR" --events .factory/events.jsonl "$@" ;;
+  steward)   exec stewardd --workdir "$RIG_DIR" --events .factory/events.jsonl --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" "$@" ;;
   verify)    exec factory --workdir "$RIG_DIR" verify    --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl "$@" ;;
   integrate)
     # RIG_REMOTE (e.g. origin) makes the Integrator push RIG_MAIN after each landing; unset = local only.

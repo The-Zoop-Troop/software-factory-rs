@@ -24,6 +24,9 @@ pub enum BeadKind {
     Reference,
     /// A plan submitted remotely, waiting for the rig's Planner to turn it into an epic.
     PlanRequest,
+    /// What an epic landed: commit range, changed public surface, plan text. Written by the
+    /// Steward when the epic closes; read by downstream planners (other rigs included).
+    Contract,
 }
 
 impl BeadKind {
@@ -41,6 +44,7 @@ impl BeadKind {
             Self::Incident => "incident",
             Self::Reference => "reference",
             Self::PlanRequest => "plan_request",
+            Self::Contract => "contract",
         }
     }
 
@@ -82,6 +86,7 @@ impl FromStr for BeadKind {
             "incident" => Ok(Self::Incident),
             "reference" => Ok(Self::Reference),
             "plan_request" => Ok(Self::PlanRequest),
+            "contract" => Ok(Self::Contract),
             other => Err(UnknownKind(other.to_owned())),
         }
     }
@@ -108,6 +113,7 @@ mod tests {
             BeadKind::Incident,
             BeadKind::Reference,
             BeadKind::PlanRequest,
+            BeadKind::Contract,
         ] {
             let label = k.label();
             assert_eq!(BeadKind::from_labels([label.as_str(), "other"]), Some(k));

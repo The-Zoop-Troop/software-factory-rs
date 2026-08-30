@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use app::domain::{BranchName, Sha};
-use app::{DiffStat, GitOp, Repo, RepoError, Worktree};
+use app::{DiffStat, DiffSummary, GitOp, Repo, RepoError, Worktree};
 use async_trait::async_trait;
 use tokio::process::Command;
 
@@ -249,6 +249,17 @@ impl Repo for GitCli {
         Ok(())
     }
 
+    async fn diff_summary(&self, base: &Sha, head: &Sha) -> Result<DiffSummary, RepoError> {
+        let range = format!("{base}..{head}");
+        let numstat = self
+            .git(GitOp::Status, &["diff", "--numstat", &range])
+            .await?;
+        let patch = self
+            .git(GitOp::Status, &["diff", "--unified=0", &range])
+            .await?;
+        Ok(summarise(&numstat, &patch))
+    }
+
     async fn diff_stat(&self, worktree: &Worktree) -> Result<DiffStat, RepoError> {
         let numstat = Self::git_in(
             GitOp::Status,
@@ -381,6 +392,61 @@ impl Repo for GitCli {
     }
 }
 
+/// Public surface a downstream planner cares about, across the runtimes the rigs ship.
+const SURFACE_MARKERS: [&str; 14] = [
+    "pub fn ",
+    "pub async fn ",
+    "pub struct ",
+    "pub enum ",
+    "pub trait ",
+    "pub type ",
+    "pub const ",
+    "export ",
+    "func ",
+    "type ",
+    "def ",
+    "class ",
+    ".route(",
+    "Route::",
+];
+const ENV_MARKERS: [&str; 4] = ["env::var(", "process.env.", "os.Getenv(", "os.environ"];
+const SURFACE_CAP: usize = 200;
+
+fn go_exported(l: &str) -> bool {
+    l.split_whitespace()
+        .nth(1)
+        .and_then(|w| w.trim_start_matches('(').chars().next())
+        .is_some_and(char::is_uppercase)
+}
+
+/// Files and size from `--numstat`; added public surface from a `--unified=0` patch.
+fn summarise(numstat: &str, patch: &str) -> DiffSummary {
+    let stat = parse_numstat(numstat, "");
+    let files = numstat
+        .lines()
+        .filter_map(|l| l.split('\t').nth(2))
+        .map(str::to_owned)
+        .collect();
+    let added_surface = patch
+        .lines()
+        .filter(|l| l.starts_with('+') && !l.starts_with("+++"))
+        .map(|l| l.get(1..).unwrap_or("").trim())
+        .filter(|l| {
+            let go_decl = l.starts_with("func ") || l.starts_with("type ");
+            (SURFACE_MARKERS.iter().any(|m| l.starts_with(m)) && (!go_decl || go_exported(l)))
+                || ENV_MARKERS.iter().any(|m| l.contains(m))
+        })
+        .map(|l| l.chars().take(160).collect::<String>())
+        .take(SURFACE_CAP)
+        .collect();
+    DiffSummary {
+        files,
+        insertions: stat.insertions,
+        deletions: stat.deletions,
+        added_surface,
+    }
+}
+
 /// Sum `git diff --numstat` lines; binary files show `-` and count as a file with no lines.
 /// Untracked paths are one file each.
 fn parse_numstat(numstat: &str, untracked: &str) -> DiffStat {
@@ -403,6 +469,24 @@ fn parse_numstat(numstat: &str, untracked: &str) -> DiffStat {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn summary_lists_files_and_added_public_surface_only() {
+        let numstat = "3\t1\tsrc/lib.rs\n2\t0\tapi/routes.ts\n";
+        let patch = "+++ b/src/lib.rs\n+pub fn balance() {}\n+fn private() {}\n+    let k = std::env::var(\"DATABASE_URL\");\n+++ b/api/routes.ts\n+export const listModels = () => {};\n+const hidden = 1;\n+func lower() {}\n+func Exported() {}\n";
+        let s = summarise(numstat, patch);
+        assert_eq!(s.files, vec!["src/lib.rs", "api/routes.ts"]);
+        assert_eq!((s.insertions, s.deletions), (5, 1));
+        assert_eq!(
+            s.added_surface,
+            vec![
+                "pub fn balance() {}",
+                "let k = std::env::var(\"DATABASE_URL\");",
+                "export const listModels = () => {};",
+                "func Exported() {}"
+            ]
+        );
+    }
 
     #[test]
     fn numstat_sums_lines_and_counts_untracked_files() {

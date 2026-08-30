@@ -119,6 +119,7 @@ fn bead_schema() -> anyhow::Result<String> {
             "incident",
             "reference",
             "plan_request",
+            "contract",
         ]
         .iter()
         .map(|k| format!("`{}{k}`", domain::BeadKind::LABEL_PREFIX))

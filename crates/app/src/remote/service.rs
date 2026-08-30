@@ -185,9 +185,14 @@ pub async fn get_task(
             Ok(inbox_task(&bead, task.as_ref(), &now))
         }
         Some(BeadKind::PlanRequest) => Ok(request_task(&bead, &now)),
-        Some(BeadKind::Task | BeadKind::Verify | BeadKind::Merge | BeadKind::Reference) | None => {
-            Err(RemoteError::TaskNotFound { id: id.to_owned() })
-        }
+        Some(
+            BeadKind::Task
+            | BeadKind::Verify
+            | BeadKind::Merge
+            | BeadKind::Reference
+            | BeadKind::Contract,
+        )
+        | None => Err(RemoteError::TaskNotFound { id: id.to_owned() }),
     }
 }
 

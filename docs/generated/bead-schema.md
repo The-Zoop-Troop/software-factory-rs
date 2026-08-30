@@ -52,4 +52,4 @@ Source: `crates/domain/src/meta.rs`. Each block is the JSON stored under the nam
 }
 ```
 
-Kind labels: `fac:kind=epic`, `fac:kind=task`, `fac:kind=verify`, `fac:kind=merge`, `fac:kind=question`, `fac:kind=incident`, `fac:kind=reference`, `fac:kind=plan_request`
+Kind labels: `fac:kind=epic`, `fac:kind=task`, `fac:kind=verify`, `fac:kind=merge`, `fac:kind=question`, `fac:kind=incident`, `fac:kind=reference`, `fac:kind=plan_request`, `fac:kind=contract`

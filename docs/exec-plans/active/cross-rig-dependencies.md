@@ -1,6 +1,6 @@
 # Exec plan: cross-rig dependencies
 
-- **Status:** planned (not started) · **Owner:** human steers, agents execute · **Started:** 2026-08-30
+- **Status:** active · **Owner:** human steers, agents execute · **Started:** 2026-08-30
 - **Beads epic:** `fac-e8o`
 - **Depends on:** `docs/exec-plans/completed/remote-control.md` (console, rig registry), `docs/exec-plans/completed/web-console-v2.md`
 
@@ -51,12 +51,18 @@ parent sweep needs every other epic's final commit.
 
 ## Decision log
 
+- 2026-08-30 — the summariser is a language-agnostic filter over added lines (`pub fn`,
+  `export`, exported Go names, `def`/`class`, route registrations, env-var reads), capped at 200
+  lines, rather than per-runtime parsers: cheap, good enough for a planner, and honest about
+  what it is. Contract beads are children of the epic, closed on creation, ignored by
+  `bd ready` and by the epic-close rule.
+
 - 2026-08-30 — Planned after a hand-gated multi-rig run showed the gap; contracts are extracted
   by the factory rather than written by workers so they cannot drift from what landed.
 
 ## Progress
 
-- [ ] contract artifacts
+- [x] contract artifacts — `fac-e8o.1`: `contract` bead per closed epic (range, files, added public surface across Rust/TS/Go/Python + routes + env vars, tasks with landed shas, plan + reference text); `stewardd --repo --main`; event `contract_written` (2026-08-30)
 - [ ] cross-rig needs + deferred plan requests
 - [ ] submission (A2A + UI)
 - [ ] failure semantics

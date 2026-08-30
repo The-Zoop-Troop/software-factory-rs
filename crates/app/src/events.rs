@@ -58,6 +58,8 @@ pub enum EventKind {
     MergeBeadRepaired,
     /// Steward closed an epic whose children are all closed.
     EpicClosed { children: usize },
+    /// Steward wrote the epic's contract bead (what landed, for downstream planners).
+    ContractWritten { epic: BeadId, contract: BeadId },
     /// A sweep finished.
     SweepDone {
         reaped: usize,

@@ -406,6 +406,8 @@ pub struct FakeRepo {
     pub commit_head: Option<Sha>,
     /// What `diff_stat` reports while a session runs.
     pub drift: crate::ports::DiffStat,
+    /// What `diff_summary` reports for a contract.
+    pub summary: crate::ports::DiffSummary,
     pub commits: std::sync::Mutex<Vec<String>>,
     pub rollbacks: std::sync::Mutex<Vec<(BranchName, Sha, Sha)>>,
 }
@@ -414,6 +416,13 @@ pub struct FakeRepo {
 impl Repo for FakeRepo {
     async fn diff_stat(&self, _worktree: &Worktree) -> Result<crate::ports::DiffStat, RepoError> {
         Ok(self.drift)
+    }
+    async fn diff_summary(
+        &self,
+        _base: &Sha,
+        _head: &Sha,
+    ) -> Result<crate::ports::DiffSummary, RepoError> {
+        Ok(self.summary.clone())
     }
 
     async fn worktree_add(&self, branch: &BranchName, head: &Sha) -> Result<Worktree, RepoError> {

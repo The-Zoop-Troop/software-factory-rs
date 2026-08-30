@@ -17,8 +17,10 @@ mod run;
 use std::path::PathBuf;
 
 use clap::Parser;
+use infra::app::domain::BranchName;
 use infra::app::domain::Duration;
-use infra::{BdCli, JsonlSink, SystemClock};
+use infra::app::steward_contract::ContractSource;
+use infra::{BdCli, GitCli, JsonlSink, SystemClock};
 use tokio_util::sync::CancellationToken;
 
 #[derive(Debug, Parser)]
@@ -36,6 +38,12 @@ struct Cli {
     /// Run a single sweep and exit.
     #[arg(long)]
     once: bool,
+    /// The rig's repository: when present, a closing epic gets a contract bead (what landed).
+    #[arg(long)]
+    repo: Option<PathBuf>,
+    /// Integration branch the contract's head is read from.
+    #[arg(long, default_value = "main")]
+    main: String,
 }
 
 #[tokio::main]
@@ -50,6 +58,16 @@ async fn main() -> anyhow::Result<()> {
     let clock = SystemClock;
     let log = JsonlSink::open(&cli.events)?;
 
+    let main = BranchName::try_new(&cli.main)?;
+    let git = cli
+        .repo
+        .as_ref()
+        .filter(|p| p.join(".git").exists())
+        .map(|p| GitCli::new(p, p.join(".factory/worktrees")));
+    let contracts = git
+        .as_ref()
+        .map(|repo| ContractSource { repo, main: &main });
+
     let token = CancellationToken::new();
     tokio::spawn(shutdown_signal(token.clone()));
     let stop = async move { token.cancelled().await };
@@ -57,6 +75,7 @@ async fn main() -> anyhow::Result<()> {
         &store,
         &clock,
         &log,
+        contracts,
         Duration::from_seconds(cli.interval),
         cli.once,
         stop,

@@ -37,6 +37,7 @@ pub async fn sweep(
     clock: &dyn Clock,
     log: &dyn EventSink,
     actor: &str,
+    contracts: Option<crate::steward_contract::ContractSource<'_>>,
 ) -> Result<SweepReport, StewardError> {
     let now = clock.now();
     let mut report = SweepReport::default();
@@ -88,6 +89,31 @@ pub async fn sweep(
                     Some(epic.id.clone()),
                     EventKind::EpicClosed { children },
                 ));
+                if let Some(source) = contracts {
+                    match write_contract(store, source, &epic).await {
+                        Ok(Some(contract)) => log.record(&event(
+                            now,
+                            actor,
+                            Some(epic.id.clone()),
+                            EventKind::ContractWritten {
+                                epic: epic.id.clone(),
+                                contract,
+                            },
+                        )),
+                        Ok(None) => {}
+                        Err(e) => {
+                            report.errors += 1;
+                            log.record(&event(
+                                now,
+                                actor,
+                                Some(epic.id.clone()),
+                                EventKind::Error {
+                                    detail: format!("contract: {e}"),
+                                },
+                            ));
+                        }
+                    }
+                }
             }
             Ok(None) => {}
             Err(e) => {
@@ -221,6 +247,16 @@ async fn sweep_task(
     Ok(Some(outcome))
 }
 
+/// The epic's contract, from the children it just closed with.
+async fn write_contract(
+    store: &dyn BeadStore,
+    source: crate::steward_contract::ContractSource<'_>,
+    epic: &Bead,
+) -> Result<Option<BeadId>, crate::steward_contract::ContractError> {
+    let children = store.children(&epic.id).await?;
+    crate::steward_contract::write(store, source, epic, &children).await
+}
+
 /// Close an epic when it has children and every one is closed. Returns the child count.
 async fn sweep_epic(store: &dyn BeadStore, epic: &Bead) -> Result<Option<usize>, StewardError> {
     let children: Vec<_> = store
@@ -228,7 +264,7 @@ async fn sweep_epic(store: &dyn BeadStore, epic: &Bead) -> Result<Option<usize>,
         .await?
         .into_iter()
         // Reference beads are context; they must never hold an epic open.
-        .filter(|c| c.kind != Some(BeadKind::Reference))
+        .filter(|c| !matches!(c.kind, Some(BeadKind::Reference | BeadKind::Contract)))
         .collect();
     if children.is_empty() || children.iter().any(|c| c.status != BeadStatus::Closed) {
         return Ok(None);
@@ -295,6 +331,7 @@ mod tests {
             &FixedClock(Timestamp::from_unix_seconds(100)),
             &log,
             "steward",
+            None,
         )
         .await
         .unwrap();
@@ -341,6 +378,7 @@ mod tests {
             &FixedClock(Timestamp::from_unix_seconds(100)),
             &log,
             "steward",
+            None,
         )
         .await
         .unwrap();
@@ -377,6 +415,7 @@ mod tests {
             &FixedClock(Timestamp::from_unix_seconds(0)),
             &log,
             "steward",
+            None,
         )
         .await
         .unwrap();
@@ -390,6 +429,7 @@ mod tests {
             &FixedClock(Timestamp::from_unix_seconds(1)),
             &log,
             "steward",
+            None,
         )
         .await
         .unwrap();
@@ -413,6 +453,7 @@ mod tests {
             &FixedClock(Timestamp::from_unix_seconds(0)),
             &log,
             "steward",
+            None,
         )
         .await
         .unwrap();

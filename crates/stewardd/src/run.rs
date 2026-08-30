@@ -3,6 +3,7 @@
 use std::future::Future;
 
 use infra::app::domain::Duration;
+use infra::app::steward_contract::ContractSource;
 use infra::app::{BeadStore, Clock, EventSink, SweepReport, sweep};
 
 /// Sweep repeatedly until `stop` resolves or, if `once`, after a single sweep.
@@ -11,6 +12,7 @@ pub(crate) async fn steward_loop<S>(
     store: &dyn BeadStore,
     clock: &dyn Clock,
     log: &dyn EventSink,
+    contracts: Option<ContractSource<'_>>,
     interval: Duration,
     once: bool,
     stop: S,
@@ -21,7 +23,7 @@ where
     let mut stop = std::pin::pin!(stop);
     let mut sweeps = 0u32;
     loop {
-        match sweep(store, clock, log, "stewardd").await {
+        match sweep(store, clock, log, "stewardd", contracts).await {
             Ok(report) => log_report(report),
             Err(e) => tracing::error!(error = %e, "sweep failed"),
         }
@@ -82,6 +84,7 @@ mod tests {
             &store,
             &FixedClock(Timestamp::from_unix_seconds(100)),
             &log,
+            None,
             Duration::from_seconds(1),
             true,
             std::future::pending(),
@@ -107,7 +110,15 @@ mod tests {
         let stop = async move {
             let _ = rx.await;
         };
-        let handle = steward_loop(&store, &clock, &log, Duration::from_seconds(1), false, stop);
+        let handle = steward_loop(
+            &store,
+            &clock,
+            &log,
+            None,
+            Duration::from_seconds(1),
+            false,
+            stop,
+        );
         tx.send(()).unwrap();
         let n = handle.await;
         assert!(n >= 1);
