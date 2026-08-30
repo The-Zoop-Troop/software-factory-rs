@@ -16,6 +16,7 @@ x-rig: &rig
     NO_PROXY: localhost,127.0.0.1,egress
     RUST_LOG: info
     # The rig's Dolt server (service `ledger`); the same password on every rig of a host.
+    RIG_NAME: ${RIG_NAME:-rig}
     BEADS_DOLT_PASSWORD: ${LEDGER_PASSWORD:-factory}
     LEDGER_PASSWORD: ${LEDGER_PASSWORD:-factory}
   volumes:
