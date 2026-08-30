@@ -64,6 +64,7 @@ fn commands_map_or_are_refused() {
         text,
         harness: crate::cli::HarnessKind::Claude,
         model: None,
+        effort: None,
         max_budget_usd: 1.0,
         queue: false,
         interval: None,

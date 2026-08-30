@@ -172,7 +172,7 @@ telemetry, alerts, upgrade, backup/restore, logs, and troubleshooting — is
 
 ```sh
 factory doctor [--probe]            # is this host/rig able to run? --probe sends one token per configured harness
-factory plan --harness opencode --model provider/model --text "..."   # or --file plan.md
+factory plan --harness opencode --model provider/model --effort high --text "..."   # or --file plan.md
 factory work --harness claude --agent worker-1 --interval 10           # a worker loop
 factory verify --interval 10        # verifier loop
 factory integrate --check "cargo test" --remote origin --interval 10   # integrator loop

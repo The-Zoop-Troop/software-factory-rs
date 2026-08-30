@@ -13,7 +13,7 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use infra::app::Harness;
-use infra::app::domain::{AgentId, BeadId, BranchName, Duration, PlanDefaults};
+use infra::app::domain::{self, AgentId, BeadId, BranchName, Duration, PlanDefaults};
 use infra::app::{
     BeadStore, IntegrateConfig, WorkerConfig, inbox, integrate_once, ledger_summary, plan, resolve,
     verify_once, work_once,
@@ -123,6 +123,9 @@ pub(crate) enum Command {
         /// Model: Claude model name, or `provider/model` for opencode.
         #[arg(long)]
         model: Option<String>,
+        /// Thinking effort: low | medium | high | max (harness default when omitted).
+        #[arg(long, env = "RIG_EFFORT")]
+        effort: Option<String>,
         /// Spend cap for the planner run, USD (claude only).
         #[arg(long, default_value_t = 2.0)]
         max_budget_usd: f64,
@@ -168,6 +171,9 @@ pub(crate) enum Command {
         /// Model: Claude model name, or `provider/model` for opencode.
         #[arg(long)]
         model: Option<String>,
+        /// Thinking effort: low | medium | high | max (harness default when omitted).
+        #[arg(long, env = "RIG_EFFORT")]
+        effort: Option<String>,
         /// Seconds to wait when nothing is ready; omit to run one task (or none) and exit.
         #[arg(long)]
         interval: Option<u64>,
@@ -364,11 +370,17 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             text,
             harness,
             model,
+            effort,
             max_budget_usd,
             queue,
             interval,
             events,
         } => {
+            let effort = effort.map(|e| e.parse::<domain::Effort>()).transpose()?;
+            let defaults = PlanDefaults {
+                effort,
+                ..PlanDefaults::default()
+            };
             if queue {
                 let harness = build_harness(harness, model, max_budget_usd)?;
                 let git = GitCli::new(&repo, repo.join(".factory-worktrees"));
@@ -385,7 +397,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
                         &git,
                         &repo,
                         &main,
-                        PlanDefaults::default(),
+                        defaults,
                         app::Progress {
                             sink: &log,
                             clock: &SystemClock,
@@ -419,7 +431,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
                 &repo,
                 &BranchName::try_new(main)?,
                 &plan_text,
-                PlanDefaults::default(),
+                defaults,
             )
             .await?;
             println!(
@@ -443,8 +455,10 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             max_budget_usd,
             harness,
             model,
+            effort,
             interval,
         } => {
+            let effort = effort.map(|e| e.parse::<domain::Effort>()).transpose()?;
             if let Some(dir) = events.parent() {
                 std::fs::create_dir_all(dir)?;
             }
@@ -457,6 +471,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
                 main: BranchName::try_new(main)?,
                 lease_ttl: Duration::from_seconds(lease_ttl),
                 max_turns: infra::app::domain::Turns::new(max_turns),
+                effort,
             };
             loop {
                 match work_once(&store, &git, harness.as_ref(), &SystemClock, &log, &cfg).await {

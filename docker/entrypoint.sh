@@ -61,9 +61,20 @@ elif [ -n "${OPENAI_API_KEY:-}" ]; then
   printf '%s' "$OPENAI_API_KEY" | codex login --with-api-key >/dev/null 2>&1 || echo "[rig] codex login (api key) failed" >&2
 fi
 
-HARNESS_ARGS=(--harness "${RIG_HARNESS:-claude}")
-[ -n "${OPENCODE_MODEL:-}" ] && [ "${RIG_HARNESS:-claude}" = opencode ] && HARNESS_ARGS+=(--model "$OPENCODE_MODEL")
-[ -n "${CODEX_MODEL:-}" ] && [ "${RIG_HARNESS:-claude}" = codex ] && HARNESS_ARGS+=(--model "$CODEX_MODEL")
+# Harness selection per role: RIG_HARNESS, then the model for that harness (CLAUDE_MODEL /
+# OPENCODE_MODEL / CODEX_MODEL), then RIG_EFFORT; RIG_PLANNER_MODEL/RIG_PLANNER_EFFORT and
+# RIG_WORKER_MODEL/RIG_WORKER_EFFORT override for that role (plan strong, work cheap).
+harness_args() {  # $1 = role (planner|worker)
+  local role=$1 h=${RIG_HARNESS:-claude} model effort
+  case "$h" in claude) model=${CLAUDE_MODEL:-} ;; opencode) model=${OPENCODE_MODEL:-} ;; codex) model=${CODEX_MODEL:-} ;; esac
+  effort=${RIG_EFFORT:-}
+  if [ "$role" = planner ]; then model=${RIG_PLANNER_MODEL:-$model}; effort=${RIG_PLANNER_EFFORT:-$effort}; fi
+  if [ "$role" = worker ]; then model=${RIG_WORKER_MODEL:-$model}; effort=${RIG_WORKER_EFFORT:-$effort}; fi
+  HARNESS_ARGS=(--harness "$h")
+  [ -n "$model" ] && HARNESS_ARGS+=(--model "$model")
+  [ -n "$effort" ] && HARNESS_ARGS+=(--effort "$effort")
+}
+harness_args worker
 
 role=${1:-shell}; shift || true
 case "$role" in
@@ -71,8 +82,8 @@ case "$role" in
   verify)    exec factory --workdir "$RIG_DIR" verify    --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl "$@" ;;
   integrate) exec factory --workdir "$RIG_DIR" integrate --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl --main "${RIG_MAIN:-main}" "$@" ;;
   work)      exec factory --workdir "$RIG_DIR" work      --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl --main "${RIG_MAIN:-main}" --agent "${RIG_AGENT:-worker-${HOSTNAME}}" "${HARNESS_ARGS[@]}" "$@" ;;
-  plan)      exec factory --workdir "$RIG_DIR" plan      --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" "${HARNESS_ARGS[@]}" "$@" ;;
-  planner)   exec factory --workdir "$RIG_DIR" plan      --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" "${HARNESS_ARGS[@]}" --queue --interval "${PLANNER_INTERVAL:-10}" --events .factory/events.jsonl "$@" ;;
+  plan)      harness_args planner; exec factory --workdir "$RIG_DIR" plan      --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" "${HARNESS_ARGS[@]}" "$@" ;;
+  planner)   harness_args planner; exec factory --workdir "$RIG_DIR" plan      --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" "${HARNESS_ARGS[@]}" --queue --interval "${PLANNER_INTERVAL:-10}" --events .factory/events.jsonl "$@" ;;
   console)
     # Registry for this one rig, generated unless the operator mounted their own.
     # /work/console is a read-only host mount (tokens); a generated single-rig registry goes to /tmp.

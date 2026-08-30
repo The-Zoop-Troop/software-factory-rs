@@ -206,6 +206,9 @@ pub struct HarnessRequest {
     pub mcp: crate::mcp::McpConfig,
     pub max_turns: Turns,
     pub timeout: Duration,
+    /// Thinking effort; adapters map it (`claude --effort`, `OpenCode` `variant`, `Codex`
+    /// `model_reasoning_effort`). `None` leaves the harness default.
+    pub effort: Option<domain::Effort>,
 }
 
 /// Tool access granted to a harness run.

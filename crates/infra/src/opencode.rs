@@ -416,6 +416,10 @@ impl Harness for OpencodeServer {
                 ])]),
             ),
         ];
+        if let Some(effort) = req.effort {
+            // OpenCode selects a provider's reasoning preset by model variant name.
+            fields.push(("variant", effort.as_str().into()));
+        }
         if let Some(schema) = &req.schema {
             fields.push((
                 "format",
@@ -559,6 +563,7 @@ mod tests {
                 mcp: app::McpConfig::default(),
                 max_turns: Turns::new(1),
                 timeout: Duration::from_seconds(120),
+                effort: None,
             })
             .await
             .unwrap();

@@ -11,3 +11,7 @@
 | `CodexCli` | `codex exec --json` | `--output-schema` + `-o` | `-s read-only` / `--dangerously-bypass-approvals-and-sandbox` | Responses API only; system prompt is prepended to the message; stdin must be `/dev/null` |
 
 Choosing: `factory … --harness <kind> --model <m>`; `build_harness` in `crates/factory` is the single wiring site. Details of each CLI's contract: `docs/references/`.
+
+## Effort
+
+`HarnessRequest.effort: Option<Effort>` (`domain::Effort` = low | medium | high | max) travels with every session; the adapters translate it — Claude `--effort <level>`, OpenCode `variant: <level>` on the message, Codex `-c model_reasoning_effort="<level>"` with `max` spelled `xhigh`. `None` keeps the harness default. The Planner reads it from `PlanDefaults.effort`, the Worker from `WorkerConfig.effort`; the rig sets them per role from `RIG_EFFORT` and the `RIG_PLANNER_*` / `RIG_WORKER_*` overrides (2026-08-30).

@@ -189,12 +189,15 @@ impl RawPlan {
 pub struct PlanDefaults {
     pub budget: Budget,
     pub verify_timeout: Duration,
+    /// Thinking effort for the planning session (`None` = harness default).
+    pub effort: Option<crate::Effort>,
 }
 
 impl Default for PlanDefaults {
     fn default() -> Self {
         Self {
             budget: Budget::default(),
+            effort: None,
             verify_timeout: Duration::from_minutes(20),
         }
     }

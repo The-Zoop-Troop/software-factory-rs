@@ -26,6 +26,8 @@ pub struct WorkerConfig {
     pub lease_ttl: Duration,
     /// Harness turn cap per session.
     pub max_turns: Turns,
+    /// Thinking effort for worker sessions (`None` = harness default).
+    pub effort: Option<domain::Effort>,
 }
 
 /// What one session did.
@@ -119,6 +121,7 @@ pub async fn work_once(
         tools: ToolPolicy::Full,
         mcp,
         max_turns: cfg.max_turns,
+        effort: cfg.effort,
         timeout: remaining,
     });
     let outcome = run_with_heartbeats(store, clock, cfg, &id, session).await;
@@ -381,6 +384,7 @@ mod tests {
             main: BranchName::try_new("main").unwrap(),
             lease_ttl: Duration::from_seconds(30),
             max_turns: Turns::new(10),
+            effort: None,
         }
     }
     fn harness_text(text: &str) -> FakeHarness {

@@ -57,6 +57,7 @@ pub(crate) async fn probe_harnesses(cwd: &Path) -> Vec<Check> {
         mcp: infra::app::McpConfig::default(),
         max_turns: Turns::new(1),
         timeout: Duration::from_seconds(90),
+        effort: None,
     };
     let set = |k: &str| std::env::var(k).is_ok_and(|v| !v.is_empty());
     let mut checks = Vec::new();

@@ -1,5 +1,6 @@
 #!/bin/sh
 # Fake `claude -p`: echoes a result envelope; behaviour keyed by the prompt text.
+echo "$*" >> "${TMPDIR:-/tmp}/fake-claude-$PPID.log"
 prompt="$2"
 case "$prompt" in
   *ERROR*) printf '%s\n' '{"type":"result","is_error":true,"result":"Not logged in","num_turns":1}'; exit 0 ;;

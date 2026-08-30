@@ -133,6 +133,11 @@ Options:
       --model <MODEL>
           Model: Claude model name, or `provider/model` for opencode
 
+      --effort <EFFORT>
+          Thinking effort: low | medium | high | max (harness default when omitted)
+          
+          [env: RIG_EFFORT=]
+
       --max-budget-usd <MAX_BUDGET_USD>
           Spend cap for the planner run, USD (claude only)
           
@@ -228,6 +233,11 @@ Options:
 
       --model <MODEL>
           Model: Claude model name, or `provider/model` for opencode
+
+      --effort <EFFORT>
+          Thinking effort: low | medium | high | max (harness default when omitted)
+          
+          [env: RIG_EFFORT=]
 
       --interval <INTERVAL>
           Seconds to wait when nothing is ready; omit to run one task (or none) and exit

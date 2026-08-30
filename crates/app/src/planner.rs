@@ -66,6 +66,7 @@ pub async fn plan(
             mcp: crate::mcp::McpConfig::default(),
             max_turns: domain::Turns::new(4),
             timeout: domain::Duration::from_minutes(10),
+            effort: defaults.effort,
         })
         .await?;
     if outcome.is_error {

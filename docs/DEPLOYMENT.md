@@ -30,6 +30,9 @@ docker compose exec steward tail -f .factory/events.jsonl             # the even
 ```
 Landing on a remote: pass `--remote origin` to `integrate` (edit the service command) and protect `main` on the remote so only the rig's deploy key can fast-forward it.
 
+## Models and effort
+`RIG_HARNESS` picks the harness (`claude` default, `opencode`, `codex`); `CLAUDE_MODEL` / `OPENCODE_MODEL` / `CODEX_MODEL` pick the model for it; `RIG_EFFORT=low|medium|high|max` sets thinking effort (`claude --effort`, OpenCode message `variant`, Codex `model_reasoning_effort`, `max` → `xhigh`). Per role: `RIG_PLANNER_MODEL`/`RIG_PLANNER_EFFORT` and `RIG_WORKER_MODEL`/`RIG_WORKER_EFFORT` override — plan with a strong model at high effort, work with a cheaper one. On the CLI the same are `--harness`, `--model`, `--effort` on `plan` and `work`.
+
 ## Remote control (console)
 The `console` service exposes the rig over A2A on `127.0.0.1:7700` (`CONSOLE_PORT`); put TLS and a real hostname in front of it (`CONSOLE_URL` goes into the Agent Card). It shares only the `ledger` volume with the rig, mounts `docker/console` read-only for tokens, gets no `rig.env`, and sits on the `outside` network as well as `rig` only because Docker cannot publish a port on an internal-only network.
 ```sh

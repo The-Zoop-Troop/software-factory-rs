@@ -161,6 +161,9 @@ impl Harness for ClaudeCli {
         if let Some(model) = &self.model {
             cmd.arg("--model").arg(model);
         }
+        if let Some(effort) = req.effort {
+            cmd.arg("--effort").arg(effort.as_str());
+        }
         if let Some(usd) = self.max_budget_usd {
             cmd.arg("--max-budget-usd").arg(usd.to_string());
         }

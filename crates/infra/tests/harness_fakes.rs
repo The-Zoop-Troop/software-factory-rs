@@ -29,6 +29,7 @@ fn req(prompt: &str, tools: ToolPolicy, schema: bool) -> HarnessRequest {
         mcp: infra::app::McpConfig::default(),
         max_turns: Turns::new(3),
         timeout: Duration::from_seconds(2),
+        effort: None,
     }
 }
 
@@ -143,4 +144,33 @@ async fn opencode_server_paths() {
         missing.run(req("x", ToolPolicy::None, false)).await,
         Err(HarnessError::Spawn { .. })
     ));
+}
+
+#[tokio::test]
+async fn effort_reaches_the_harness_command_lines() {
+    use app::Harness as _;
+    let mut r = req("ping", ToolPolicy::None, false);
+    r.effort = Some(app::domain::Effort::High);
+    let claude = infra::ClaudeCli::default().with_bin(fakebin("claude"));
+    claude.run(r.clone()).await.expect("claude fake answers");
+    let log = std::fs::read_to_string(
+        std::env::temp_dir().join(format!("fake-claude-{}.log", std::process::id())),
+    )
+    .unwrap_or_default();
+    assert!(log.contains("--effort high"), "claude args: {log}");
+    let codex = infra::CodexCli::default().with_bin(fakebin("codex"));
+    let _ = codex.run(r).await;
+    let log = std::fs::read_to_string(
+        std::env::temp_dir().join(format!("fake-codex-{}.log", std::process::id())),
+    )
+    .unwrap_or_default();
+    assert!(
+        log.contains("model_reasoning_effort=\"high\""),
+        "codex args: {log}"
+    );
+    assert_eq!(
+        infra::codex::codex_effort(app::domain::Effort::Max),
+        "xhigh"
+    );
+    assert_eq!(infra::codex::codex_effort(app::domain::Effort::Low), "low");
 }

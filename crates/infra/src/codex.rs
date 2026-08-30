@@ -51,6 +51,36 @@ impl CodexCli {
     }
 }
 
+impl CodexCli {
+    /// `-m <model>`, the effort override, and the MCP overrides, in `codex exec` syntax.
+    fn tuning_args(&self, req: &HarnessRequest) -> Vec<String> {
+        let model = self.model.iter().flat_map(|m| ["-m".to_owned(), m.clone()]);
+        let effort = req.effort.into_iter().flat_map(|e| {
+            [
+                "-c".to_owned(),
+                format!("model_reasoning_effort=\"{}\"", codex_effort(e)),
+            ]
+        });
+        let mcp = req
+            .mcp
+            .to_codex_overrides()
+            .into_iter()
+            .flat_map(|o| ["-c".to_owned(), o]);
+        model.chain(effort).chain(mcp).collect()
+    }
+}
+
+/// Codex spells the top level `xhigh`.
+#[must_use]
+pub fn codex_effort(effort: domain::Effort) -> &'static str {
+    match effort {
+        domain::Effort::Low => "low",
+        domain::Effort::Medium => "medium",
+        domain::Effort::High => "high",
+        domain::Effort::Max => "xhigh",
+    }
+}
+
 /// One line of `codex exec --json`. Unknown event types are ignored.
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
@@ -226,12 +256,7 @@ impl Harness for CodexCli {
                 })?;
             cmd.arg("--output-schema").arg(&schema_path);
         }
-        if let Some(m) = &self.model {
-            cmd.arg("-m").arg(m);
-        }
-        for o in req.mcp.to_codex_overrides() {
-            cmd.arg("-c").arg(o);
-        }
+        cmd.args(self.tuning_args(&req));
         let prompt = format!(
             "## Instructions\n{}\n\n## Task\n{}",
             req.system_prompt, req.prompt
@@ -341,6 +366,7 @@ mod tests {
                 mcp: app::McpConfig::default(),
                 max_turns: Turns::new(1),
                 timeout: app::domain::Duration::from_seconds(120),
+                effort: None,
             })
             .await
             .unwrap();
