@@ -50,10 +50,10 @@ export class RigPage extends SignalWatcher(LitElement) {
     const inbox = tasks.filter((t) => !isEpic(t) && !isRequest(t) && needsHuman(t));
     return html`
       <header><a href="/">Rigs</a><span class="muted">/</span><h1 style="--vt: rig-${this.rig}">${this.rig}</h1></header>
-      <plan-form ?pending=${this.planning} ?allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @submit-plan=${this.onPlan}></plan-form>
+      <plan-form ?pending=${this.planning} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @submit-plan=${this.onPlan}></plan-form>
       ${inbox.length === 0 ? '' : html`<section aria-labelledby="inbox-h">
         <h2 id="inbox-h">Needs you <span class="count">${inbox.length}</span></h2>
-        <div class="grid">${repeat(inbox, (t) => t.id, (t) => html`<inbox-item .task=${t} ?pending=${pending.get().has(t.id) || this.resolving === t.id} ?allowed=${can(this.rig, 'resolve')} .reason=${whyNot(this.rig, 'resolve')} @resolve-item=${this.onResolve} @apply-option=${this.onOption}></inbox-item>`)}</div>
+        <div class="grid">${repeat(inbox, (t) => t.id, (t) => html`<inbox-item .task=${t} ?pending=${pending.get().has(t.id) || this.resolving === t.id} .allowed=${can(this.rig, 'resolve')} .reason=${whyNot(this.rig, 'resolve')} @resolve-item=${this.onResolve} @apply-option=${this.onOption}></inbox-item>`)}</div>
       </section>`}
       ${requests.length === 0 ? '' : html`<section aria-labelledby="req-h">
         <h2 id="req-h">Planning <span class="count">${requests.length}</span></h2>
@@ -63,7 +63,7 @@ export class RigPage extends SignalWatcher(LitElement) {
         <h2 id="epics-h">Epics <span class="count">${epics.length}</span></h2>
         ${epics.length === 0
           ? html`<p class="empty">Nothing in flight. Submit a plan above.</p>`
-          : html`<div class="grid">${repeat(epics, (t) => t.id, (t) => html`<epic-card .task=${t} ?pending=${pending.get().has(t.id)} ?allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @stop-epic=${this.onStop}></epic-card>`)}</div>`}
+          : html`<div class="grid">${repeat(epics, (t) => t.id, (t) => html`<epic-card .task=${t} ?pending=${pending.get().has(t.id)} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @stop-epic=${this.onStop}></epic-card>`)}</div>`}
       </section>
       <section aria-labelledby="feed-h">
         <h2 id="feed-h">Live</h2>
