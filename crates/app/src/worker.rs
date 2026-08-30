@@ -207,6 +207,7 @@ pub async fn work_once(
             holder: cfg.agent.to_string(),
             tokens: outcome.tokens,
             turns: outcome.turns,
+            wall_clock: clock.now().since(now),
             head: head.clone(),
         },
     ));

@@ -30,7 +30,7 @@ export const describe = (f: EventFrame): Line | null => {
   const bead = typeof r.bead === 'string' ? r.bead : '';
   switch (r.kind) {
     case 'claimed': return { title: `${bead} claimed by ${(str(r['holder']) || r.actor)}`, tone: 'info' };
-    case 'submitted': return { title: `${bead} submitted for verification`, tone: 'info' };
+    case 'submitted': return { title: `${bead} submitted for verification (${num(r['tokens'])} tokens, ${num(r['wall_clock'])}s)`, tone: 'info' };
     case 'released': return { title: `${bead} released: ${str(r['detail'])}`, tone: 'warning' };
     case 'verified': return r['passed'] === true ? { title: `${bead} verified`, tone: 'success' } : { title: `${bead} failed verification`, tone: 'warning' };
     case 'integrated': return r['landed'] ? { title: `${bead} landed on main`, tone: 'success' } : { title: `${bead} could not be integrated`, tone: 'warning' };

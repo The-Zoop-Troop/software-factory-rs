@@ -21,6 +21,8 @@ pub enum EventKind {
         holder: String,
         tokens: domain::Tokens,
         turns: domain::Turns,
+        /// Session wall-clock, claim to submit.
+        wall_clock: domain::Duration,
         head: domain::Sha,
     },
     /// A worker gave a task back without submitting (errored session, no changes).
