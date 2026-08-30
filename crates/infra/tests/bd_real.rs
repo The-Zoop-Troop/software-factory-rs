@@ -57,6 +57,7 @@ async fn full_ledger_roundtrip() {
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await
         .unwrap();
@@ -70,6 +71,7 @@ async fn full_ledger_roundtrip() {
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await
         .unwrap();
@@ -91,6 +93,7 @@ async fn full_ledger_roundtrip() {
             needs: vec![],
             acceptance: Some("works".into()),
             meta: Some(BeadMeta::Task(meta.clone())),
+            deferred: false,
         })
         .await
         .unwrap();
@@ -105,6 +108,7 @@ async fn full_ledger_roundtrip() {
             needs: vec![task.clone()],
             acceptance: None,
             meta: Some(BeadMeta::Task(meta.clone())),
+            deferred: false,
         })
         .await
         .unwrap();
@@ -134,6 +138,7 @@ async fn full_ledger_roundtrip() {
                 branch: infra::app::domain::BranchName::try_new("task/x").unwrap(),
                 head: sha('b'),
             })),
+            deferred: false,
         })
         .await
         .unwrap();

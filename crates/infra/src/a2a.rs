@@ -199,6 +199,7 @@ impl A2aApi for A2aHttp {
             parts: vec![Part::Text(text.to_owned())],
             task_id: task_id.map(str::to_owned),
             context_id: None,
+            metadata: None,
         };
         let r = self
             .call("SendMessage", obj([("message", val(&message))]))

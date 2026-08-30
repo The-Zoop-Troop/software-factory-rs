@@ -94,6 +94,7 @@ fn bead(meta: Option<FactoryMeta>) -> Bead {
         meta,
         verify: None,
         merge: None,
+        cross_needs: None,
     }
 }
 

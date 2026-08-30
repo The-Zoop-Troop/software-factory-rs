@@ -17,6 +17,16 @@ pub const META_KEY: &str = "fac";
 pub const VERIFY_META_KEY: &str = "fac_verify";
 /// Key for a merge bead's fields.
 pub const MERGE_META_KEY: &str = "fac_merge";
+/// Metadata key for a plan request's cross-rig needs.
+pub const NEEDS_META_KEY: &str = "fac_needs";
+
+/// An epic on another rig this plan request waits for; its contract is injected when it closes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct CrossRigNeed {
+    pub rig: crate::RigName,
+    pub epic: crate::BeadId,
+}
 
 /// Schema version of the metadata blob; bump on incompatible change.
 pub const META_VERSION: u32 = 1;
@@ -315,6 +325,8 @@ pub enum BeadMeta {
     Task(FactoryMeta),
     Verify(VerifyMeta),
     Merge(MergeMeta),
+    /// A plan request's cross-rig needs.
+    Needs(Vec<CrossRigNeed>),
 }
 
 impl BeadMeta {
@@ -325,6 +337,7 @@ impl BeadMeta {
             Self::Task(_) => META_KEY,
             Self::Verify(_) => VERIFY_META_KEY,
             Self::Merge(_) => MERGE_META_KEY,
+            Self::Needs(_) => NEEDS_META_KEY,
         }
     }
 }

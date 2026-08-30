@@ -83,6 +83,7 @@ pub(crate) async fn world() -> anyhow::Result<(FakeAuth, FakeRegistry)> {
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await?;
     let auth = FakeAuth(BTreeMap::from([

@@ -128,6 +128,7 @@ pub async fn write(
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await?;
     store.close(&id, "contract artifact, not work").await?;

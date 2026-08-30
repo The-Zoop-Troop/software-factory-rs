@@ -18,6 +18,18 @@ const FAILED_PREFIX: &str = "failed: ";
 /// The bead a remote plan submission becomes. `client` is recorded for the audit trail.
 #[must_use]
 pub fn plan_request(text: &str, client: &str) -> NewBead {
+    plan_request_with_needs(text, client, Vec::new())
+}
+
+/// A plan request that waits for epics on other rigs: created deferred, carrying `fac_needs`;
+/// the console's dependency sweep injects their contracts and un-defers it.
+#[must_use]
+pub fn plan_request_with_needs(
+    text: &str,
+    client: &str,
+    needs: Vec<domain::CrossRigNeed>,
+) -> NewBead {
+    let deferred = !needs.is_empty();
     NewBead {
         title: Title::derived(text),
         description: text.to_owned(),
@@ -28,7 +40,8 @@ pub fn plan_request(text: &str, client: &str) -> NewBead {
         acceptance: Some(format!(
             "submitted by {client}; closed by the Planner with `epic <id>`"
         )),
-        meta: None,
+        meta: deferred.then_some(domain::BeadMeta::Needs(needs)),
+        deferred,
     }
 }
 

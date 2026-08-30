@@ -490,6 +490,7 @@ mod tests {
             }),
             verify: None,
             merge: None,
+            cross_needs: None,
         };
         assert_eq!(decide(&bead, Timestamp::from_unix_seconds(10)), None);
     }

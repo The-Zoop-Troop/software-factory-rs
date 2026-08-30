@@ -67,6 +67,8 @@ pub(crate) enum Call {
         task_id: Option<String>,
         text: String,
         option: Option<AttentionOption>,
+        /// Epics on other rigs this plan waits for (`message.metadata.needs`).
+        needs: Vec<domain::CrossRigNeed>,
         /// A2A `configuration.returnImmediately`: queue the plan and return the request.
         return_immediately: bool,
     },
@@ -140,6 +142,14 @@ pub(crate) fn decode(req: &Request) -> Result<Call, RpcError> {
             Ok(Call::SendMessage {
                 option,
                 return_immediately: p.configuration.return_immediately,
+                needs: p
+                    .message
+                    .metadata
+                    .as_ref()
+                    .and_then(|m| m.get("needs").cloned())
+                    .map(|v| serde_json::from_value::<Vec<domain::CrossRigNeed>>(v).map_err(bad))
+                    .transpose()?
+                    .unwrap_or_default(),
                 task_id: p.message.task_id,
                 text: p
                     .message
@@ -211,10 +221,14 @@ pub(crate) async fn execute(
             text,
             option,
             return_immediately,
+            needs,
         } => {
             let sent = match (option, task_id.as_deref()) {
                 (Some(opt), Some(id)) => app::apply_option(rig, clock, who, id, opt, &text).await?,
-                (None, None) if return_immediately => {
+                (None, None) if return_immediately => Sent::Planned(
+                    app::enqueue_plan_with_needs(rig, clock, who, &text, needs).await?,
+                ),
+                (None, None) if false => {
                     Sent::Planned(app::enqueue_plan(rig, clock, who, &text).await?)
                 }
                 (_, id) => app::send_message(rig, clock, who, id, &text).await?,
@@ -306,7 +320,8 @@ mod tests {
                 task_id: Some("t-1".into()),
                 text: "a\nb".into(),
                 option: None,
-                return_immediately: false
+                return_immediately: false,
+                needs: vec![],
             })
         );
         let queued = req(
@@ -331,7 +346,8 @@ mod tests {
                 task_id: Some("inc-1".into()),
                 text: "use sh".into(),
                 option: Some(AttentionOption::RetryWithGuidance),
-                return_immediately: false
+                return_immediately: false,
+                needs: vec![],
             })
         );
         let bad_option = req(

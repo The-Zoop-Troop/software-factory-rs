@@ -4,12 +4,16 @@
 use domain::{BeadId, BeadKind, Forbidden, Principal, RigBudgetExceeded, RigSpend, Scope, Tokens};
 
 use super::a2a::{A2aState, CANCELED_LABEL, Task, epic_task, inbox_task, request_task};
+
+#[path = "service_lists.rs"]
+mod lists;
 use super::attention::{AttentionOption, incident_task_id};
 use super::{Rig, SubmitError, TailError};
 use crate::bead::{Bead, BeadStatus};
 use crate::console::resolve;
 use crate::events::{EventKind, FactoryEvent};
 use crate::ports::{Clock, StoreError};
+pub use lists::{list_history, list_tasks_with_vanished};
 
 /// Why a remote operation was refused or failed.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -109,51 +113,6 @@ pub async fn list_tasks(
     Ok(out)
 }
 
-/// Closed epics — the rig's history — as the ledger lists them (sort by the `epic_closed`
-/// event when the log is at hand).
-///
-/// # Errors
-/// `Unauthorized` without `watch`; store failures.
-pub async fn list_history(
-    rig: &Rig,
-    clock: &dyn Clock,
-    who: &Principal,
-) -> Result<Vec<Task>, RemoteError> {
-    authorize(rig, clock, who, Scope::Watch, "ListTasks")?;
-    let now = clock.now().to_string();
-    let mut out = Vec::new();
-    for epic in rig.store.list_closed(BeadKind::Epic).await? {
-        let children = rig.store.children(&epic.id).await?;
-        out.push(epic_task(&epic, &children, &now));
-    }
-    Ok(out)
-}
-
-/// `ListTasks` plus the tasks in `seen` that dropped out of the listing (closed epics),
-/// each fetched once so a watcher observes its terminal state.
-///
-/// # Errors
-/// As `list_tasks`.
-pub async fn list_tasks_with_vanished(
-    rig: &Rig,
-    clock: &dyn Clock,
-    who: &Principal,
-    seen: &std::collections::BTreeMap<String, A2aState>,
-) -> Result<Vec<Task>, RemoteError> {
-    let mut tasks = list_tasks(rig, clock, who).await?;
-    let listed: std::collections::BTreeSet<String> = tasks.iter().map(|t| t.id.clone()).collect();
-    for id in seen
-        .iter()
-        .filter(|(id, state)| !listed.contains(*id) && !state.is_terminal())
-        .map(|(id, _)| id)
-    {
-        if let Ok(t) = get_task(rig, clock, who, id).await {
-            tasks.push(t);
-        }
-    }
-    Ok(tasks)
-}
-
 /// `GetTask`: an epic or an inbox item by id.
 ///
 /// # Errors
@@ -232,6 +191,20 @@ pub async fn enqueue_plan(
     who: &Principal,
     text: &str,
 ) -> Result<Task, RemoteError> {
+    enqueue_plan_with_needs(rig, clock, who, text, Vec::new()).await
+}
+
+/// `enqueue_plan` for a plan that waits on epics of other rigs (`fac-e8o`): created deferred.
+///
+/// # Errors
+/// As `enqueue_plan`.
+pub async fn enqueue_plan_with_needs(
+    rig: &Rig,
+    clock: &dyn Clock,
+    who: &Principal,
+    text: &str,
+    needs: Vec<domain::CrossRigNeed>,
+) -> Result<Task, RemoteError> {
     if text.trim().is_empty() {
         return Err(RemoteError::EmptyMessage);
     }
@@ -241,7 +214,11 @@ pub async fn enqueue_plan(
         .inspect_err(|e| audit(rig, clock, who, "plan-refused", None, e.to_string()))?;
     let request = rig
         .store
-        .create(crate::plan_queue::plan_request(text, who.client.as_ref()))
+        .create(crate::plan_queue::plan_request_with_needs(
+            text,
+            who.client.as_ref(),
+            needs,
+        ))
         .await?;
     audit(
         rig,

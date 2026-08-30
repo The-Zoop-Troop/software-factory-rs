@@ -130,6 +130,7 @@ async fn seeded_incident() -> (super::Rig, std::sync::Arc<FakeStore>, BeadId) {
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await
         .expect("created");
@@ -303,6 +304,7 @@ async fn options_do_what_they_say() {
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await
         .expect("q");
@@ -382,6 +384,7 @@ async fn resume_branch_marks_the_task_and_reopens_it() {
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await
         .expect("created");

@@ -14,6 +14,7 @@ fn task(id: &str, kind: &str, state: A2aState, closed: u64, total: u64, incident
         parts: vec![Part::Text("why?\nmore".into())],
         task_id: Some(id.into()),
         context_id: None,
+        metadata: None,
     });
     Task {
         id: id.into(),

@@ -196,6 +196,7 @@ async fn resolve_closes_inbox_item_and_reopens_task() {
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await
         .expect("created");
@@ -324,6 +325,7 @@ fn pure_mapping_and_serde_shapes() {
         ],
         task_id: None,
         context_id: None,
+        metadata: None,
     };
     assert_eq!(m.text(), "a\nb");
     let json = serde_json::to_value(&m).expect("json");

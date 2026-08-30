@@ -34,6 +34,24 @@ pub trait BeadStore: Send + Sync {
     /// Transport/decode failures.
     async fn list_active(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError>;
 
+    /// Deferred beads of `kind` (plan requests waiting on other rigs).
+    ///
+    /// # Errors
+    /// Transport/decode failures.
+    async fn list_deferred(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError>;
+
+    /// Make a deferred bead open again.
+    ///
+    /// # Errors
+    /// `NotFound`; transport failures.
+    async fn undefer(&self, id: &BeadId) -> Result<(), StoreError>;
+
+    /// Replace a bead's description (used to inject upstream contracts into a plan request).
+    ///
+    /// # Errors
+    /// `NotFound`; transport failures.
+    async fn set_description(&self, id: &BeadId, text: &str) -> Result<(), StoreError>;
+
     /// Closed beads of `kind` — the rig's history.
     ///
     /// # Errors

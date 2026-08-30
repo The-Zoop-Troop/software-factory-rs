@@ -155,6 +155,7 @@ async fn whoami_rig_counts_and_attention_options() {
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await
         .expect("inc");
@@ -199,6 +200,7 @@ async fn whoami_rig_counts_and_attention_options() {
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await
         .expect("inc");

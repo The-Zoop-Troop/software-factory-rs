@@ -63,6 +63,6 @@ parent sweep needs every other epic's final commit.
 ## Progress
 
 - [x] contract artifacts — `fac-e8o.1`: `contract` bead per closed epic (range, files, added public surface across Rust/TS/Go/Python + routes + env vars, tasks with landed shas, plan + reference text); `stewardd --repo --main`; event `contract_written` (2026-08-30)
-- [ ] cross-rig needs + deferred plan requests
+- [x] cross-rig needs + deferred plan requests — `fac-e8o.2`: `SendMessage` `metadata.needs: [{rig, epic}]` creates the request deferred with `fac_needs`; the console sweeps every 30 s, resolves each need on its rig (closed + contract child), appends `## Upstream contracts` to the request and un-defers it; event `remote/deps_ready` (2026-08-30)
 - [ ] submission (A2A + UI)
 - [ ] failure semantics

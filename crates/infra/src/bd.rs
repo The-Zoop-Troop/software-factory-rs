@@ -188,6 +188,13 @@ impl TryFrom<RawBead> for Bead {
             .remove(MERGE_META_KEY)
             .map(|v| serde_json::from_value::<MergeMeta>(v).map_err(|e| decode(MERGE_META_KEY, &e)))
             .transpose()?;
+        let cross_needs = metadata
+            .remove(domain::NEEDS_META_KEY)
+            .map(|v| {
+                serde_json::from_value::<Vec<domain::CrossRigNeed>>(v)
+                    .map_err(|e| decode(domain::NEEDS_META_KEY, &e))
+            })
+            .transpose()?;
         Ok(Self {
             id,
             title: raw.title,
@@ -201,6 +208,7 @@ impl TryFrom<RawBead> for Bead {
             meta,
             verify,
             merge,
+            cross_needs,
         })
     }
 }
@@ -219,6 +227,7 @@ fn bead_meta_json(meta: &BeadMeta) -> Result<String, StoreError> {
         BeadMeta::Task(m) => wrap_json(meta.key(), m),
         BeadMeta::Verify(m) => wrap_json(meta.key(), m),
         BeadMeta::Merge(m) => wrap_json(meta.key(), m),
+        BeadMeta::Needs(n) => wrap_json(meta.key(), n),
     }
 }
 
@@ -383,8 +392,8 @@ impl BeadStore for BdCli {
         // A bead is claimable the instant it exists, but its `needs` edges can only be added
         // afterwards. Hide it from `bd ready` until the edges are in place, or a polling worker
         // can grab a task whose blockers aren't closed.
-        let deferred = !new.needs.is_empty();
-        if deferred {
+        let hide_until_edges = !new.needs.is_empty();
+        if hide_until_edges || new.deferred {
             args.extend(["--defer".into(), "+1d".into()]);
         }
         let borrowed: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -399,14 +408,41 @@ impl BeadStore for BdCli {
         for blocker in &new.needs {
             self.add_needs(&id, blocker).await?;
         }
-        if deferred {
-            self.run(
-                StoreOp::Update,
-                &["update", id.as_ref(), "--defer", "", "--json"],
-            )
-            .await?;
+        if hide_until_edges && !new.deferred {
+            self.undefer(&id).await?;
         }
         Ok(id)
+    }
+
+    async fn list_deferred(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
+        let label = kind.label();
+        let raws: Vec<RawBead> = self
+            .run_json(
+                StoreOp::List,
+                &[
+                    "list", "--label", &label, "--status", "deferred", "--limit", "0", "--json",
+                ],
+            )
+            .await?;
+        raws.into_iter().map(Bead::try_from).collect()
+    }
+
+    async fn undefer(&self, id: &BeadId) -> Result<(), StoreError> {
+        self.run(
+            StoreOp::Update,
+            &["update", id.as_ref(), "--defer", "", "--json"],
+        )
+        .await
+        .map(|_| ())
+    }
+
+    async fn set_description(&self, id: &BeadId, text: &str) -> Result<(), StoreError> {
+        self.run(
+            StoreOp::Update,
+            &["update", id.as_ref(), "--description", text, "--json"],
+        )
+        .await
+        .map(|_| ())
     }
 
     async fn close(&self, id: &BeadId, reason: &str) -> Result<(), StoreError> {

@@ -87,6 +87,7 @@ async fn run_effect(store: &dyn BeadStore, effect: &Effect) -> Result<(), StoreE
                 needs: vec![],
                 acceptance: None,
                 meta: None,
+                deferred: false,
             })
             .await
             .map(|_| ()),
@@ -122,6 +123,7 @@ pub async fn open_merge_bead(
                 branch: branch.clone(),
                 head: head.clone(),
             })),
+            deferred: false,
         })
         .await
         .map(|_| ())

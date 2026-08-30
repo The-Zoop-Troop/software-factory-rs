@@ -331,6 +331,7 @@ mod tests {
                     parts: vec![Part::Text("why?".into())],
                     task_id: None,
                     context_id: None,
+                    metadata: None,
                 }),
                 timestamp: "t".into(),
             },

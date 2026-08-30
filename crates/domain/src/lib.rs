@@ -34,7 +34,9 @@ pub use effort::{Effort, UnknownEffort};
 pub use ids::{AgentId, BeadId, BranchName, ClientId, RigName, Sha};
 pub use kind::BeadKind;
 pub use lease::Lease;
-pub use meta::{BeadMeta, FactoryMeta, MergeMeta, MetaParseError, VerifyMeta};
+pub use meta::{
+    BeadMeta, CrossRigNeed, FactoryMeta, MergeMeta, MetaParseError, NEEDS_META_KEY, VerifyMeta,
+};
 pub use nonempty::{EmptyError, NonEmpty};
 pub use plan::{Plan, PlanDefaults, PlanError, PlannedTask, RawPlan, RawPlannedTask, TaskKey};
 pub use remote::{

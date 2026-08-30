@@ -21,6 +21,7 @@ mod adapters;
 mod alerts;
 mod auth;
 mod config;
+mod deps;
 #[cfg(feature = "fake")]
 mod fake;
 mod rpc;
@@ -149,6 +150,11 @@ async fn main() -> anyhow::Result<()> {
                 poll: std::time::Duration::from_secs(1),
             };
             tracing::info!(ui = webapp::built(), "web console embedded");
+            tokio::spawn(deps::run(
+                state.registry.clone(),
+                state.clock.clone(),
+                domain::Duration::from_seconds(30),
+            ));
             if let Some(url) = alert_url {
                 tokio::spawn(alerts::run(
                     state.registry.clone(),

@@ -71,6 +71,12 @@ pub struct Message {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub context_id: Option<String>,
+    /// Free-form A2A metadata; the console reads `needs: [{rig, epic}]` for cross-rig plans.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl Message {
@@ -200,6 +206,7 @@ pub fn epic_task(epic: &Bead, children: &[Bead], now: &str) -> Task {
         ))],
         task_id: Some(epic.id.to_string()),
         context_id: Some(epic.id.to_string()),
+        metadata: None,
     });
     Task {
         id: epic.id.to_string(),
@@ -286,6 +293,7 @@ pub fn inbox_task(bead: &Bead, task: Option<&Bead>, now: &str) -> Task {
                 ],
                 task_id: Some(bead.id.to_string()),
                 context_id: None,
+                metadata: None,
             }),
             timestamp: now.to_owned(),
         },
@@ -325,6 +333,7 @@ pub fn request_task(bead: &Bead, now: &str) -> Task {
                 parts: vec![Part::Text(failure.clone().unwrap_or(progress))],
                 task_id: Some(bead.id.to_string()),
                 context_id: None,
+                metadata: None,
             }),
             timestamp: now.to_owned(),
         },

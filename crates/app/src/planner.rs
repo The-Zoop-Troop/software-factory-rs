@@ -114,6 +114,7 @@ async fn verify_placeholder(
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await?)
 }
@@ -140,6 +141,7 @@ async fn materialize(
             needs: vec![],
             acceptance: None,
             meta: None,
+            deferred: false,
         })
         .await?;
     if let Some(reference) = &plan.reference {
@@ -155,6 +157,7 @@ async fn materialize(
                 needs: vec![],
                 acceptance: None,
                 meta: None,
+                deferred: false,
             })
             .await?;
         store
@@ -188,6 +191,7 @@ async fn materialize(
                     lease_expiries: Attempts::new(0),
                     state: TaskState::Open,
                 })),
+                deferred: false,
             })
             .await?;
         store

@@ -69,6 +69,8 @@ pub struct Bead {
     pub verify: Option<VerifyMeta>,
     /// Merge fields (`metadata.fac_merge`).
     pub merge: Option<MergeMeta>,
+    /// A plan request's cross-rig needs (`metadata.fac_needs`).
+    pub cross_needs: Option<Vec<domain::CrossRigNeed>>,
 }
 
 /// What the factory needs to create a bead.
@@ -83,6 +85,8 @@ pub struct NewBead {
     pub needs: Vec<BeadId>,
     pub acceptance: Option<String>,
     pub meta: Option<BeadMeta>,
+    /// Create deferred: hidden from `bd ready` until something un-defers it (cross-rig needs).
+    pub deferred: bool,
 }
 
 #[cfg(test)]

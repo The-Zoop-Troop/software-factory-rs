@@ -170,6 +170,7 @@ mod tests {
                 needs: vec![],
                 acceptance: None,
                 meta: None,
+                deferred: false,
             })
             .await
             .unwrap();
@@ -203,6 +204,7 @@ mod tests {
                 needs: vec![],
                 acceptance: None,
                 meta: None,
+                deferred: false,
             })
             .await
             .unwrap();
@@ -231,6 +233,7 @@ mod tests {
                 needs: vec![],
                 acceptance: None,
                 meta: None,
+                deferred: false,
             })
             .await
             .unwrap();

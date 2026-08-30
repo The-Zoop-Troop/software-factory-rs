@@ -44,7 +44,9 @@ pub use errors::{
 pub use events::{EventKind, FactoryEvent};
 pub use integrator::{IntegrateConfig, IntegrateReport, IntegratorError, integrate_once};
 pub use mcp::{McpConfig, McpConfigError, McpServer};
-pub use plan_queue::{Progress, QueuedOutcome, plan_outcome, plan_queued_once, plan_request};
+pub use plan_queue::{
+    Progress, QueuedOutcome, plan_outcome, plan_queued_once, plan_request, plan_request_with_needs,
+};
 pub use planner::{PlanReport, PlannerError, plan};
 pub use ports::{
     BeadStore, Clock, DiffStat, DiffSummary, EventSink, Harness, HarnessOutcome, HarnessRequest,
@@ -56,8 +58,9 @@ pub use remote::chat::{
     parse_command, render_inbox, render_tasks, with_vanished,
 };
 pub use remote::service::{
-    Overview, RemoteError, Sent, apply_option, cancel_task, enqueue_plan, events_after, get_task,
-    list_history, list_tasks, list_tasks_with_vanished, overview, send_message, spend,
+    Overview, RemoteError, Sent, apply_option, cancel_task, enqueue_plan, enqueue_plan_with_needs,
+    events_after, get_task, list_history, list_tasks, list_tasks_with_vanished, overview,
+    send_message, spend,
 };
 pub use remote::{
     Authenticator, EventRecord, EventTail, PlanSubmitter, Rig, RigRegistry, SubmitError, TailError,
