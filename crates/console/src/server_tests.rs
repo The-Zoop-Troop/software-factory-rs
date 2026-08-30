@@ -413,3 +413,28 @@ async fn history_flag_lists_closed_epics_and_epic_events_replays_the_log() {
     let (st, _) = get(&s, "/rigs/nope/epics/ep-0/events", Some("watcher")).await;
     assert_eq!(st, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn metrics_reports_every_epic_in_the_log_or_one() {
+    let (s, _store, tail) = state().await;
+    tail.push("planner", Some(id("ep-1.1")), "task_planned");
+    tail.push("worker", Some(id("ep-1.1")), "claimed");
+    tail.push("worker", Some(id("zz-2.1")), "claimed");
+    let (st, body) = get(&s, "/rigs/toy/metrics", Some("watcher")).await;
+    assert_eq!(st, StatusCode::OK);
+    let ids: Vec<_> = body["epics"]
+        .as_array()
+        .expect("epics")
+        .iter()
+        .map(|e| e["epic"].as_str().unwrap_or(""))
+        .collect();
+    assert_eq!(ids, ["ep-1", "zz-2"]);
+    let (_, body) = get(&s, "/rigs/toy/metrics?epic=ep-1", Some("watcher")).await;
+    assert_eq!(body["epics"].as_array().map(Vec::len), Some(1));
+    // The fake tail stamps records with ISO text; the fold keys on unix seconds, so the shape
+    // is asserted here and the numbers in app::metrics_tests.
+    assert!(body["epics"][0]["tasks"].is_array());
+    assert_eq!(body["epics"][0]["epic"], "ep-1");
+    let (st, _) = get(&s, "/rigs/toy/metrics", Some("stranger")).await;
+    assert_eq!(st, StatusCode::FORBIDDEN);
+}

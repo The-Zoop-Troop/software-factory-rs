@@ -43,6 +43,11 @@ pub trait A2aApi: Send + Sync {
     /// # Errors
     /// `Refused`, `Transport`, or `Decode`.
     async fn send(&self, text: &str, task_id: Option<&str>) -> Result<Task, ClientError>;
+    /// The rig's throughput report (`GET /rigs/<rig>/metrics?epic=`), as the console renders it.
+    ///
+    /// # Errors
+    /// `Refused`, `Transport`, or `Decode`.
+    async fn metrics(&self, epic: Option<&str>) -> Result<serde_json::Value, ClientError>;
     /// # Errors
     /// `Refused`, `Transport`, or `Decode`.
     async fn cancel(&self, id: &str) -> Result<Task, ClientError>;

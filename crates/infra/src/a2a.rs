@@ -159,6 +159,26 @@ impl A2aApi for A2aHttp {
         self.fetch_card().await
     }
 
+    async fn metrics(&self, epic: Option<&str>) -> Result<Value, ClientError> {
+        let base = self.endpoint.trim_end_matches("/a2a");
+        let mut req = self
+            .client
+            .get(format!("{base}/metrics"))
+            .bearer_auth(&self.token);
+        if let Some(e) = epic {
+            req = req.query(&[("epic", e)]);
+        }
+        let resp = req.send().await.map_err(|e| transport(&e))?;
+        if !resp.status().is_success() {
+            return Err(ClientError::Refused {
+                status: resp.status().as_u16(),
+                code: None,
+                message: resp.text().await.unwrap_or_default(),
+            });
+        }
+        resp.json::<Value>().await.map_err(|e| decode(&e))
+    }
+
     async fn list_tasks(&self) -> Result<Vec<Task>, ClientError> {
         let r = self.call("ListTasks", Value::Null).await?;
         serde_json::from_value(r.get("tasks").cloned().unwrap_or(Value::Array(Vec::new()))).map_err(

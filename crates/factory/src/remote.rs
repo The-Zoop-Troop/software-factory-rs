@@ -22,6 +22,11 @@ pub(crate) enum RemoteCommand {
         epic: String,
     },
     Doctor,
+    Metrics {
+        epic: Option<String>,
+        json: bool,
+        csv: bool,
+    },
     Telegram {
         bot_token: String,
         chats: Vec<i64>,
@@ -51,6 +56,9 @@ pub(crate) fn remote_command(cmd: Command) -> Result<RemoteCommand, RemoteUnsupp
         Command::Inbox { resolve, note } => Ok(RemoteCommand::Inbox { resolve, note }),
         Command::Stop { epic } => Ok(RemoteCommand::Stop { epic }),
         Command::Doctor { .. } => Ok(RemoteCommand::Doctor),
+        Command::Metrics {
+            epic, json, csv, ..
+        } => Ok(RemoteCommand::Metrics { epic, json, csv }),
         Command::Telegram {
             bot_token,
             chats,
@@ -106,6 +114,10 @@ pub(crate) async fn execute(api: &dyn A2aApi, cmd: RemoteCommand) -> Result<Stri
         }
         RemoteCommand::Plan { text } => handle(api, ChatCommand::Plan { text }).await,
         RemoteCommand::Stop { epic } => handle(api, ChatCommand::Stop { id: epic }).await,
+        RemoteCommand::Metrics { epic, json, csv } => {
+            let body = api.metrics(epic.as_deref()).await?;
+            Ok(crate::metrics::render_value(&body, json, csv))
+        }
         RemoteCommand::Doctor => {
             let card = api.card().await?;
             let name = card
@@ -147,6 +159,7 @@ pub(crate) async fn run_remote(api: &infra::A2aHttp, cmd: Command) -> anyhow::Re
         | RemoteCommand::Inbox { .. }
         | RemoteCommand::Plan { .. }
         | RemoteCommand::Stop { .. }
+        | RemoteCommand::Metrics { .. }
         | RemoteCommand::Doctor) => {
             print!("{}", execute(api, single).await?);
             Ok(())

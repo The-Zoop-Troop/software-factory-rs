@@ -15,7 +15,7 @@ type Secs = i64;
 
 /// One session of a task, from claim to whatever ended it.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Attempt {
     pub claimed: Secs,
     pub submitted: Option<Secs>,
@@ -41,7 +41,7 @@ impl Attempt {
 
 /// A task's history across attempts.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TaskMetrics {
     pub task: String,
     pub planned: Option<Secs>,
@@ -82,9 +82,9 @@ impl TaskMetrics {
 
 /// A named duration sample set.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StageStats {
-    pub stage: &'static str,
+    pub stage: String,
     pub samples: usize,
     pub p50: Secs,
     pub max: Secs,
@@ -93,7 +93,7 @@ pub struct StageStats {
 
 /// Everything the report shows for one epic.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EpicMetrics {
     pub epic: String,
     pub tasks: Vec<TaskMetrics>,
@@ -218,12 +218,12 @@ pub fn tasks_of(epic: &str, log: &[EventRecord]) -> Vec<TaskMetrics> {
     tasks.into_values().collect()
 }
 
-fn stats(stage: &'static str, mut xs: Vec<Secs>) -> StageStats {
+fn stats(stage: &str, mut xs: Vec<Secs>) -> StageStats {
     xs.sort_unstable();
     let samples = xs.len();
     let p50 = xs.get(samples / 2).copied().unwrap_or(0);
     StageStats {
-        stage,
+        stage: stage.to_owned(),
         samples,
         p50,
         max: xs.last().copied().unwrap_or(0),
@@ -341,6 +341,25 @@ fn concurrency(tasks: &[TaskMetrics], origin: Secs) -> Vec<(Secs, usize)> {
             (sec, usize::try_from(live.max(0)).unwrap_or(0))
         })
         .collect()
+}
+
+/// Epic ids seen in the log (a bead `x-1.2` belongs to `x-1`; `x-1` itself is an epic when
+/// it has children or was closed as one), in first-seen order.
+#[must_use]
+pub fn epics_in(log: &[EventRecord]) -> Vec<String> {
+    let mut seen = Vec::new();
+    for r in log {
+        let Some(b) = bead(r) else { continue };
+        let epic = match b.rsplit_once('.') {
+            Some((e, _)) => e,
+            None if r.kind == "epic_closed" || r.kind == "task_planned" => b,
+            None => continue,
+        };
+        if !seen.iter().any(|s: &String| s == epic) {
+            seen.push(epic.to_owned());
+        }
+    }
+    seen
 }
 
 /// The report for one epic.

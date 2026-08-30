@@ -105,3 +105,58 @@ pub(super) async fn epic_events(
             .into_response(),
     }
 }
+
+#[derive(Debug, serde::Deserialize)]
+pub(super) struct MetricsQuery {
+    pub epic: Option<String>,
+}
+
+/// `GET /rigs/{rig}/metrics?epic=<id>`: the throughput report for one epic, or for every epic in
+/// the log when `epic` is omitted (`app::metrics`).
+pub(super) async fn metrics(
+    State(s): State<AppState>,
+    Path(rig): Path<String>,
+    Query(q): Query<MetricsQuery>,
+    headers: HeaderMap,
+) -> Response {
+    let who = match principal(&s, &headers) {
+        Err(r) => return *r,
+        Ok(p) => p,
+    };
+    let Some(rig) = RigName::try_new(&rig).ok().and_then(|n| s.registry.rig(&n)) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(obj([("error", "no such rig".into())])),
+        )
+            .into_response();
+    };
+    if let Err(e) = domain::require(&who, &rig.name, domain::Scope::Watch) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(obj([("error", e.to_string().into())])),
+        )
+            .into_response();
+    }
+    match rig.events.read_from(0).await {
+        Ok((log, _)) => {
+            let ids = match q.epic {
+                Some(e) => vec![e],
+                None => app::metrics::epics_in(&log),
+            };
+            let epics: Vec<Value> = ids
+                .iter()
+                .map(|e| val(&app::metrics::epic(e, &log)))
+                .collect();
+            Json(obj([
+                ("rig", rig.name.to_string().into()),
+                ("epics", Value::Array(epics)),
+            ]))
+            .into_response()
+        }
+        Err(e) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(obj([("error", e.to_string().into())])),
+        )
+            .into_response(),
+    }
+}

@@ -166,6 +166,10 @@ impl A2aApi for FakeApi {
         self.check()?;
         Ok(serde_json::Value::String("factory rig fake".to_owned()))
     }
+    async fn metrics(&self, epic: Option<&str>) -> Result<serde_json::Value, ClientError> {
+        self.check()?;
+        Ok(serde_json::json!({ "rig": "fake", "epics": [], "asked": epic }))
+    }
 
     async fn list_tasks(&self) -> Result<Vec<Task>, ClientError> {
         self.check()?;

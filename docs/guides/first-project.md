@@ -170,6 +170,20 @@ $R exec steward sh -c 'cd /work/rig && factory watch'                           
 Landed work is on `<feature-branch>` at the remote after every `integrated` event (one squash
 commit per task, message from the task title). `main` is untouched.
 
+How long each stop took — and whether more workers would have helped — comes from the event
+log, not from watching:
+
+```sh
+factory --rig https://<console>/rigs/<rig> --token $TOKEN metrics            # every epic
+factory --rig … metrics --epic <id> --json                                    # one epic, machine-readable
+$R exec steward sh -c 'cd /work/rig && factory metrics --csv'                 # inside the rig
+```
+
+The table gives per-stage p50/max (queue wait, session, verify wait, verify, integrate wait,
+integrate), wall-clock vs. work, the critical path along task dependencies, the retry tax, and
+the peak number of live sessions. "More workers could save up to" is wall-clock minus the
+critical path. The same report backs `GET /rigs/<rig>/metrics?epic=` on the console.
+
 ## 6. Act on incidents
 
 An incident is a task the factory gave up on: verify failed three times, a merge no longer

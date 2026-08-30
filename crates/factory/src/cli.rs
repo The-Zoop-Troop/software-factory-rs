@@ -43,6 +43,22 @@ pub(crate) struct Cli {
 pub(crate) enum Command {
     /// Print build/version information.
     Version,
+    /// Throughput report: stage timings, critical path, concurrency (from the event log, or
+    /// from a console with --rig).
+    Metrics {
+        /// One epic (default: every epic in the log).
+        #[arg(long)]
+        epic: Option<String>,
+        /// The event log to read (local mode).
+        #[arg(long, default_value = ".factory/events.jsonl")]
+        events: PathBuf,
+        /// JSON instead of the table.
+        #[arg(long, conflicts_with = "csv")]
+        json: bool,
+        /// One CSV row per stage per epic.
+        #[arg(long)]
+        csv: bool,
+    },
     /// Inspect beads through the factory's typed view.
     Bead {
         #[command(subcommand)]
@@ -343,6 +359,15 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             print!("{text}");
             anyhow::ensure!(ok, "doctor found problems (see fixes above)");
         }
+        Command::Metrics {
+            epic,
+            events,
+            json,
+            csv,
+        } => print!(
+            "{}",
+            crate::metrics::from_file(&cli.workdir.join(&events), epic.as_deref(), json, csv)?
+        ),
         Command::Watch { interval } => loop {
             let s = ledger_summary(&store).await?;
             print!("{}", render_summary(&s));
