@@ -356,6 +356,8 @@ Commands:
   create   Register a rig, write its env + secrets, and start it
   list     Rigs on this host
   destroy  Stop a rig and forget it; `--volumes` also deletes its ledger and repo
+  stop     Stop a rig's roles and egress; the ledger stays up so its history stays readable
+  start    Start a rig again
   doctor   Ledger volume and running services per rig
   backup   Archive a rig's ledger and repo volumes into a directory
   restore  Replace a stopped rig's ledger (and optionally repo) volume from `rig backup` tarballs

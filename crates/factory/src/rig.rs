@@ -172,6 +172,64 @@ pub(crate) async fn create(
 }
 
 /// `rig destroy`: bring the project down (optionally with volumes), forget it.
+/// Roles and egress down, `ledger` left up: a stopped rig keeps its history readable by the
+/// console (server mode reads beads through the ledger service).
+pub(crate) async fn stop(
+    docker: &dyn HostDocker,
+    layout: &Layout,
+    name: &str,
+) -> Result<String, RigCmdError> {
+    let name = RigName::try_new(name).map_err(|e| RigCmdError::Name {
+        detail: e.to_string(),
+    })?;
+    let registry = layout.load()?;
+    let rig = registry
+        .get(&name)
+        .cloned()
+        .ok_or_else(|| app::RegistryError::Unknown { name: name.clone() })?;
+    let env = layout.rig_dir(&name).join("compose.env");
+    docker
+        .compose(
+            &rig.project(),
+            &env,
+            &layout.compose_file,
+            &[
+                "stop",
+                "steward",
+                "verifier",
+                "integrator",
+                "worker",
+                "planner",
+                "egress",
+            ],
+        )
+        .await?;
+    Ok(format!(
+        "stopped rig {name} (ledger up: history stays readable)\n"
+    ))
+}
+
+/// Everything up again (ledger, egress, roles), profiles included as configured.
+pub(crate) async fn start(
+    docker: &dyn HostDocker,
+    layout: &Layout,
+    name: &str,
+) -> Result<String, RigCmdError> {
+    let name = RigName::try_new(name).map_err(|e| RigCmdError::Name {
+        detail: e.to_string(),
+    })?;
+    let registry = layout.load()?;
+    let rig = registry
+        .get(&name)
+        .cloned()
+        .ok_or_else(|| app::RegistryError::Unknown { name: name.clone() })?;
+    let env = layout.rig_dir(&name).join("compose.env");
+    docker
+        .compose(&rig.project(), &env, &layout.compose_file, &["up", "-d"])
+        .await?;
+    Ok(format!("started rig {name}\n"))
+}
+
 pub(crate) async fn destroy(
     docker: &dyn HostDocker,
     layout: &Layout,
@@ -388,6 +446,10 @@ pub(crate) enum RigCommand {
         #[arg(long)]
         volumes: bool,
     },
+    /// Stop a rig's roles and egress; the ledger stays up so its history stays readable.
+    Stop { name: String },
+    /// Start a rig again.
+    Start { name: String },
     /// Ledger volume and running services per rig.
     Doctor,
     /// Archive a rig's ledger and repo volumes into a directory.
@@ -444,6 +506,8 @@ pub(crate) async fn run(
         }
         RigCommand::List => list(layout)?,
         RigCommand::Destroy { name, volumes } => destroy(docker, layout, &name, volumes).await?,
+        RigCommand::Stop { name } => stop(docker, layout, &name).await?,
+        RigCommand::Start { name } => start(docker, layout, &name).await?,
         RigCommand::Doctor => doctor(docker, layout).await?,
         RigCommand::Backup { name, to } => {
             backup(

@@ -13,6 +13,7 @@ use app::testing::FakeHostDocker;
 
 use crate::rig::{
     CreateSpec, Layout, RigCmdError, backup, console, create, destroy, doctor, list, restore,
+    start, stop,
 };
 
 fn spec(
@@ -164,6 +165,19 @@ async fn create_list_doctor_backup_restore_destroy() {
             .contains("2 rig(s)")
     );
     assert!(console(&docker, &l, false).await.unwrap().contains("down"));
+    assert!(
+        stop(&docker, &l, "toy")
+            .await
+            .unwrap()
+            .contains("ledger up")
+    );
+    assert!(
+        start(&docker, &l, "toy")
+            .await
+            .unwrap()
+            .contains("started rig toy")
+    );
+    assert!(stop(&docker, &l, "nope").await.is_err());
     let out = destroy(&docker, &l, "toy", true).await.unwrap();
     assert!(out.contains("and its volumes"));
     assert!(!l.root.join("toy").exists());

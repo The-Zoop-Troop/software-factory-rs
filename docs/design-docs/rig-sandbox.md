@@ -15,7 +15,8 @@
 `ledger` (the rig's Dolt SQL server, first up, health-checked), `egress` (the only route out),
 then the roles: `steward`, `verifier`, `integrator`, `worker`, `planner`; optional profiles add
 a rig-local `console`, `postgres`, `redis`, an OpenCode worker, and a chat bridge. Roles wait
-for `ledger` to be healthy. `RIG_WORKERS=N` (compose env) runs N worker replicas; leases keep them
+for `ledger` to be healthy. `factory rig stop` takes the roles and egress down and leaves
+`ledger` up, so a stopped rig's history stays readable; only `rig destroy` takes it down. `RIG_WORKERS=N` (compose env) runs N worker replicas; leases keep them
 from claiming the same task, worktrees are per task branch, and the shared cache volume is
 safe under cargo's own locking. The throughput report says whether a second worker pays:
 wall-clock minus critical path is the most it can save. See `ledger.md` for why the server exists.
