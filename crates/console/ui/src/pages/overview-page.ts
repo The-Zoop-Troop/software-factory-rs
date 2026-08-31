@@ -17,7 +17,6 @@ export class OverviewPage extends SignalWatcher(LitElement) {
     a.surface { display: grid; gap: var(--space-2); text-decoration: none; color: inherit; view-transition-name: var(--vt); }
     .name { font-size: 1.2rem; font-weight: 800; font-family: var(--mono); }
     .stats { display: flex; gap: var(--space-2); flex-wrap: wrap; }
-    .empty { color: var(--fg-muted); }
   `];
 
   override render() {

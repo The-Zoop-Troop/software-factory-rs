@@ -43,7 +43,6 @@ export class RigPage extends SignalWatcher(LitElement) {
     h2 { font-size: 1.1rem; font-weight: 700; color: var(--fg-muted); margin-block-end: var(--space-3); display: flex; gap: var(--space-2); align-items: center; }
     .count { font-size: .8rem; background: var(--accent-soft); color: var(--accent-strong); border-radius: 999px; padding: 0 .6rem; }
     .grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr)); }
-    .empty { color: var(--fg-muted); max-inline-size: 70ch; text-wrap: pretty; }
   `];
 
   @property() rig = '';

@@ -13,7 +13,7 @@ export class AlertsLog extends SignalWatcher(LitElement) {
     li { display: grid; grid-template-columns: auto 1fr; gap: .6rem; align-items: baseline; font-size: .9rem; padding: .35rem .6rem; border-radius: var(--radius-sm); border: 1px solid var(--line); background: var(--bg-elev); }
     li::before { content: '✉'; color: var(--info); } li.failed::before { content: '✕'; color: var(--danger); }
     time { color: var(--fg-muted); font-family: var(--mono); font-size: .75rem; margin-inline-start: .5rem; }
-    .empty { color: var(--fg-muted); font-size: .9rem; }
+    .empty { color: var(--fg-muted); font-size: .9rem; text-wrap: pretty; padding: var(--space-4); border: 1px dashed var(--line); border-radius: var(--radius); }
   `;
 
   override render() {

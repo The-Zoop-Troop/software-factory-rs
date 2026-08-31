@@ -28,8 +28,10 @@ export class ThroughputPage extends SignalWatcher(LitElement) {
     h2 { font-size: 1.1rem; font-weight: 700; color: var(--fg-muted); margin-block-end: var(--space-3); display: flex; gap: var(--space-2); align-items: center; }
     section { container-type: inline-size; }
     .muted { color: var(--fg-muted); }
-    .totals { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); font-variant-numeric: tabular-nums; }
-    .totals b { font-family: var(--mono); }
+    .totals { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-8); }
+    .totals .stat { display: grid; gap: 2px; }
+    .totals .stat b { font-size: 1.25rem; font-weight: 650; line-height: 1.1; color: var(--fg); }
+    .totals .stat span { font-size: .72rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-muted); }
     .gantt { display: grid; grid-template-columns: minmax(8rem, 14rem) 1fr; gap: var(--space-2) var(--space-3); align-items: center; }
     .gantt .task { font-family: var(--mono); font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     @container (max-width: 40rem) {
@@ -95,16 +97,16 @@ export class ThroughputPage extends SignalWatcher(LitElement) {
       ${this.header()}
       <section aria-labelledby="totals-h">
         <h2 id="totals-h">Totals <help-tip text=${SECTION_HELP.totals} label="About these metrics"></help-tip></h2>
-        <div class="totals">
-          <span>wall-clock <b>${mmss(m.wall_clock)}</b></span>
-          <span>work <b>${mmss(m.work)}</b></span>
-          <span>parallelism <b>${m.parallelism_pct}%</b></span>
-          <span>critical path <b>${mmss(m.critical_path)}</b></span>
-          <span>retry tax <b>${mmss(m.retry_tax)}</b></span>
-          <span>first-pass <b>${m.first_pass}/${m.tasks.length}</b></span>
-          <span>peak live sessions <b>${peak}</b></span>
-          <span>more workers could save up to <b>${mmss(Math.max(0, m.wall_clock - m.critical_path))}</b></span>
-        </div>
+        <div class="surface"><div class="totals">
+          <div class="stat"><b>${mmss(m.wall_clock)}</b><span>wall-clock</span></div>
+          <div class="stat"><b>${mmss(m.work)}</b><span>work</span></div>
+          <div class="stat"><b>${m.parallelism_pct}%</b><span>parallelism</span></div>
+          <div class="stat"><b>${mmss(m.critical_path)}</b><span>critical path</span></div>
+          <div class="stat"><b>${mmss(m.retry_tax)}</b><span>retry tax</span></div>
+          <div class="stat"><b>${m.first_pass}/${m.tasks.length}</b><span>first-pass</span></div>
+          <div class="stat"><b>${peak}</b><span>peak sessions</span></div>
+          <div class="stat"><b>${mmss(Math.max(0, m.wall_clock - m.critical_path))}</b><span>workers could save</span></div>
+        </div></div>
       </section>
       <section aria-labelledby="gantt-h">
         <h2 id="gantt-h">Every attempt, by stage <help-tip text=${SECTION_HELP.gantt} label="About this chart"></help-tip></h2>

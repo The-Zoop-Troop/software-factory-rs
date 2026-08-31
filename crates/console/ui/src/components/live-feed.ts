@@ -16,7 +16,7 @@ export class LiveFeed extends SignalWatcher(LitElement) {
     li::before { content: ''; inline-size: .5rem; block-size: .5rem; border-radius: 50%; background: var(--tone, var(--fg-muted)); }
     .success { --tone: var(--ok); } .warning { --tone: var(--warn); } .danger { --tone: var(--danger); } .info { --tone: var(--info); }
     time { color: var(--fg-muted); font-family: var(--mono); font-size: .75rem; margin-inline-start: .5rem; }
-    .empty { color: var(--fg-muted); font-size: .9rem; }
+    .empty { color: var(--fg-muted); font-size: .9rem; text-wrap: pretty; padding: var(--space-4); border: 1px dashed var(--line); border-radius: var(--radius); }
   `;
 
   @property() rig = '';

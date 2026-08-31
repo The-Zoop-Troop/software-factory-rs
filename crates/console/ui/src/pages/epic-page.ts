@@ -46,7 +46,6 @@ export class EpicPage extends SignalWatcher(LitElement) {
     .timeline li::before { content: ''; inline-size: .6rem; block-size: .6rem; border-radius: 50%; background: var(--tone, var(--fg-muted)); border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--tone, var(--line)); z-index: 1; }
     .success { --tone: var(--ok); } .warning { --tone: var(--warn); } .danger { --tone: var(--danger); } .info { --tone: var(--info); }
     .timeline time { color: var(--fg-muted); font-family: var(--mono); font-size: .75rem; margin-inline-start: .5rem; }
-    .empty { color: var(--fg-muted); max-inline-size: 70ch; text-wrap: pretty; }
     /* Metrics as a stat-tile strip: big value over a small label, on its own card. */
     .rollup-card { display: grid; gap: var(--space-3); }
     .rollup { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-8); align-items: start; }
@@ -64,7 +63,6 @@ export class EpicPage extends SignalWatcher(LitElement) {
     ul.consumers a.rig { font-weight: 700; font-family: var(--mono); color: var(--accent-strong); text-decoration: none; }
     ul.consumers a.rig:hover { text-decoration: underline; }
     ul.consumers .title { flex: 1 1 12rem; min-inline-size: 0; }
-    .page-desc { font-size: .9rem; }
     tbody tr { cursor: pointer; }
     @media (hover: hover) { tbody tr:hover { background: color-mix(in oklch, var(--accent) 6%, transparent); } }
     .tasklink { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: start; }
