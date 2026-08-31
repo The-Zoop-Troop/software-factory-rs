@@ -1,6 +1,6 @@
 # Exec plan: throughput metrics
 
-- **Status:** active · **Owner:** human steers, agents execute · **Started:** 2026-08-30
+- **Status:** completed 2026-08-31 · **Owner:** human steers, agents execute · **Started:** 2026-08-30
 - **Beads epic:** `fac-n7j`
 - **Depends on:** the per-rig event log (`.factory/events.jsonl` on the ledger volume), the console
 
@@ -59,8 +59,23 @@ verify rate, incidents by reason, tokens per landed task, role idle time, retry 
 3. `fac-n7j.3` `app::metrics` — the pure fold, tested on the anonymised Phase 0 log
 4. `fac-n7j.4` `factory metrics` + console route
 5. `fac-n7j.5` console Throughput view
-6. `fac-n7j.6` `RIG_WORKERS` replicas (compose `deploy.replicas`, shipped); measured on a
-   later phase of the guide project — before/after table to be added here
+6. `fac-n7j.6` `RIG_WORKERS` replicas — measured 2026-08-31 on the guide project's two
+   frontend phases (same stack, comparable epics):
+
+   | | portal `por-8hl` (1 worker) | admin `adm-wma` (2 workers) |
+   |---|---|---|
+   | tasks landed / first-pass | 7 / 6 | 6 / 6 |
+   | wall-clock | 36:24 | **15:31** |
+   | work (sessions) | 21:43 | 16:45 |
+   | parallelism | 59 % | **107 %** |
+   | peak live sessions | 1 | 2 |
+   | queue wait p50 / max | — | 0:05 / 2:47 |
+   | retry tax | 5:50 | 0:00 |
+   | "more workers could save" | 25:37 | 4:10 |
+
+   The second worker roughly halved wall-clock on a graph with three independent middle tasks;
+   leases serialised claims with no conflicts, and verify/integrate stayed sub-minute
+   throughout (the ledger service keeps `bd` at ~60 ms).
 7. `fac-n7j.7` history read model: closed epics in the A2A read models + a server-side,
    epic-filtered read of the full event log (the list of past epics derives from
    `task_planned` … `epic_closed`, no `bd` calls)
@@ -68,6 +83,9 @@ verify rate, incidents by reason, tokens per landed task, role idle time, retry 
    (sequenced before the Gantt so it draws real closed epics)
 
 ## Decision log
+
+- 2026-08-31 — RIG_WORKERS=2 verdict: use it whenever the plan has ≥2 independent tasks; the
+  report's "more workers could save up to" (wall-clock − critical path) says when.
 
 - 2026-08-30 — derive from the event log, no telemetry stack: the questions are offline
   questions and the rig must not gain an egress path for metrics.
