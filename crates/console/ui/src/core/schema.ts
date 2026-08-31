@@ -142,6 +142,31 @@ export const EpicMetrics = Schema.Struct({
 export type EpicMetrics = typeof EpicMetrics.Type;
 export const MetricsReply = Schema.Struct({ rig: Schema.String, epics: Schema.Array(EpicMetrics) });
 
+export const RigHostFacts = Schema.Struct({
+  repo_url: Schema.NullOr(Schema.String),
+  runtime: Schema.NullOr(Schema.String),
+  harness: Schema.NullOr(Schema.String),
+  main: Schema.NullOr(Schema.String),
+});
+export const RigDetail = Schema.Struct({
+  rig: Schema.String,
+  facts: Schema.NullOr(RigHostFacts),
+  posture: Schema.Literal('available', 'stopped', 'never-ran'),
+  ledger_ms: Schema.NullOr(Schema.Number),
+  events: Schema.Struct({ count: Schema.Number, last_at: Schema.NullOr(Schema.Number) }),
+  budget: Schema.Struct({ max_tokens: Schema.NullOr(Schema.Number), max_usd_micros: Schema.NullOr(Schema.Number) }),
+  rollup: Schema.Struct({
+    epics: Schema.Number,
+    tasks_landed: Schema.Number,
+    tasks_planned: Schema.Number,
+    first_pass: Schema.Number,
+    tokens: Schema.Number,
+    work_seconds: Schema.Number,
+    retry_tax_seconds: Schema.Number,
+  }),
+});
+export type RigDetail = typeof RigDetail.Type;
+
 export const Whoami = Schema.Struct({
   client: Schema.String,
   grants: Schema.Array(Schema.Struct({ rig: Schema.String, scopes: Schema.Array(Scope) })),

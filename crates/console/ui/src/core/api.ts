@@ -3,7 +3,7 @@ import { Context, Effect, Layer, Schema } from 'effect';
 import type { ApiError } from './errors.js';
 import { Unauthorized, Forbidden, TaskNotFound } from './errors.js';
 import { decode, fetchJson, rejectIfError } from './interop.js';
-import { AgentCard, MetricsReply, RigList, RpcReply, Task, TaskList, Whoami, type AttentionOption, type EpicMetrics, type RigName, type Task as TaskT } from './schema.js';
+import { AgentCard, MetricsReply, RigDetail, RigList, RpcReply, Task, TaskList, Whoami, type AttentionOption, type EpicMetrics, type RigDetail as RigDetailT, type RigName, type Task as TaskT } from './schema.js';
 
 export interface RigListT { readonly names: ReadonlyArray<RigName>; readonly unavailable: Readonly<Record<string, string>> }
 import { EventRecord } from './events.js';
@@ -28,6 +28,8 @@ export interface ConsoleApiShape {
   readonly epicEvents: (rig: RigName, id: string) => Effect.Effect<ReadonlyArray<EventRecord>, ApiError>;
   /** The throughput report for one epic (`GET /rigs/<rig>/metrics?epic=`). */
   readonly metrics: (rig: RigName, id: string) => Effect.Effect<EpicMetrics | null, ApiError>;
+  /** Host facts, posture, and lifetime totals (`GET /rigs/<rig>/detail`). */
+  readonly detail: (rig: RigName) => Effect.Effect<RigDetailT, ApiError>;
 }
 
 export class ConsoleApi extends Context.Tag('ConsoleApi')<ConsoleApi, ConsoleApiShape>() {}
@@ -100,6 +102,13 @@ export const ConsoleApiLive = (session: Session): Layer.Layer<ConsoleApi> =>
         Effect.flatMap((b) => decode(MetricsReply, b)),
         Effect.map((r) => r.epics[0] ?? null),
       ),
+    detail: (rig) =>
+      fetchJson(`${session.baseUrl}/rigs/${rig}/detail`, {
+        headers: { authorization: `Bearer ${session.token}` },
+      }).pipe(
+        Effect.flatMap(rejectIfError),
+        Effect.flatMap((b) => decode(RigDetail, b)),
+      ),
     // Non-blocking: the console returns the queued request as a SUBMITTED task; the event
     // stream and refreshes carry it to COMPLETED (epic created) or FAILED.
     plan: (rig, text, needs = []) =>
@@ -136,6 +145,8 @@ export interface FakeWorld {
   events?: Record<string, ReadonlyArray<EventRecord>>;
   /** Throughput reports per `rig/epic`. */
   metrics?: Record<string, EpicMetrics>;
+  /** Rig detail per rig name. */
+  details?: Record<string, RigDetailT>;
   /** Rigs the console reports as unable to answer, with the reason. */
   unavailable?: Record<string, string>;
   /** Needs passed to `plan`, per call. */
@@ -175,6 +186,11 @@ export const ConsoleApiFake = (world: FakeWorld, token: string): Layer.Layer<Con
     history: (rig) => auth(() => Effect.succeed(world.history?.[rig] ?? [])),
     epicEvents: (rig, id) => auth(() => Effect.succeed(world.events?.[`${rig}/${id}`] ?? [])),
     metrics: (rig, id) => auth(() => Effect.succeed(world.metrics?.[`${rig}/${id}`] ?? null)),
+    detail: (rig) =>
+      auth(() => {
+        const d = world.details?.[rig];
+        return d === undefined ? Effect.fail(new TaskNotFound({ id: rig })) : Effect.succeed(d);
+      }),
     applyOption: (rig, id, option, note) =>
       auth(() => {
         world.applied = [...(world.applied ?? []), { id, option, note }];

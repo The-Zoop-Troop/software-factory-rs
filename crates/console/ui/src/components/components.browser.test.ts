@@ -147,3 +147,35 @@ describe('attention-panel and scope-aware controls', () => {
     expect((ev as CustomEvent<{ id: string }>).detail.id).toBe('ep-1');
   });
 });
+
+describe('rig-facts', () => {
+  it('renders the posture badge, fact rows, and totals strip', async () => {
+    await import('./rig-facts.js');
+    const { Schema } = await import('effect');
+    const { RigDetail } = await import('../core/schema.js');
+    const detail = Schema.decodeUnknownSync(RigDetail)({
+      rig: 'toy',
+      facts: { repo_url: 'https://github.com/x/y.git', runtime: 'node', harness: 'claude', main: 'feat/z' },
+      posture: 'stopped',
+      ledger_ms: null,
+      events: { count: 7, last_at: null },
+      budget: { max_tokens: 5_000_000, max_usd_micros: null },
+      rollup: { epics: 2, tasks_landed: 6, tasks_planned: 6, first_pass: 5, tokens: 42_000, work_seconds: 3600, retry_tax_seconds: 0 },
+    });
+    const el = await fixture<HTMLElement>(html`<rig-facts .detail=${detail}></rig-facts>`);
+    const root = el.shadowRoot as ShadowRoot;
+    expect(root.querySelector('.badge')?.textContent).toContain('stopped');
+    const labels = [...root.querySelectorAll('dt')].map((n) => n.textContent);
+    expect(labels).toEqual(['Repo', 'Branch', 'Runtime', 'Harness', 'Budget']);
+    expect(root.querySelector('dd a')?.getAttribute('href')).toBe('https://github.com/x/y.git');
+    const tots = [...root.querySelectorAll('.tot .lbl')].map((n) => n.textContent);
+    expect(tots).toEqual(['epics', 'tasks landed', 'first pass', 'tokens', 'work', 'events']);
+    expect([...root.querySelectorAll('.tot .num')].map((n) => n.textContent)).toContain('42k');
+  });
+
+  it('renders nothing at all without a detail', async () => {
+    await import('./rig-facts.js');
+    const el = await fixture<HTMLElement>(html`<rig-facts></rig-facts>`);
+    expect((el.shadowRoot as ShadowRoot).textContent.trim()).toBe('');
+  });
+});

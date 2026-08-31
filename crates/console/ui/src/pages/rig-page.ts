@@ -2,13 +2,15 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state, query } from 'lit/decorators.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { repeat } from 'lit/directives/repeat.js';
-import { applyOption, loadHistory, pending, resolveItem, refreshRig, stopEpic, submitPlan } from '../actions.js';
+import { applyOption, lastRefreshAt, loadHistory, loadRigDetail, pending, resolveItem, refreshRig, stopEpic, submitPlan } from '../actions.js';
 import type { AttentionOption } from '../core/schema.js';
 import { can, whyNot } from '../state/session.js';
 import type { RigName } from '../core/schema.js';
 import { currentRig, historyByRig, isEpic, isRequest, needsHuman, openEpicsAcrossRigs, tasksByRig } from '../state/rigs.js';
+import { detailByRig } from '../state/detail.js';
 import { controls } from '../styles/shared.js';
 import '../components/epic-card.js';
+import '../components/rig-facts.js';
 import '../components/state-badge.js';
 import '../components/plan-form.js';
 import '../components/inbox-item.js';
@@ -50,6 +52,7 @@ export class RigPage extends SignalWatcher(LitElement) {
     currentRig.set(this.rig as RigName);
     void refreshRig(this.rig as RigName);
     void loadHistory(this.rig as RigName);
+    void loadRigDetail(this.rig as RigName);
   }
 
   override disconnectedCallback(): void {
@@ -57,7 +60,15 @@ export class RigPage extends SignalWatcher(LitElement) {
     currentRig.set(null);
   }
 
+  private seenRefresh = 0;
+
   override render() {
+    // Loaded on navigation; refetched only when the backstop's full refresh lands.
+    const refreshedAt = lastRefreshAt.get();
+    if (refreshedAt !== this.seenRefresh) {
+      this.seenRefresh = refreshedAt;
+      if (refreshedAt !== 0) void loadRigDetail(this.rig as RigName);
+    }
     const tasks = tasksByRig.get()[this.rig] ?? [];
     const epics = tasks.filter(isEpic);
     const requests = tasks.filter(isRequest);
@@ -65,6 +76,7 @@ export class RigPage extends SignalWatcher(LitElement) {
     const done = (historyByRig.get()[this.rig] ?? []).filter(isEpic);
     return html`
       <header><a href="/">Rigs</a><span class="muted">/</span><h1 style="--vt: rig-${this.rig}">${this.rig}</h1></header>
+      <rig-facts .detail=${detailByRig.get()[this.rig] ?? null}></rig-facts>
       <plan-form ?pending=${this.planning} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} .choices=${openEpicsAcrossRigs.get().filter((c) => c.rig !== this.rig)} @submit-plan=${this.onPlan}></plan-form>
       ${inbox.length === 0 ? '' : html`<section aria-labelledby="inbox-h">
         <h2 id="inbox-h">Needs you <span class="count">${inbox.length}</span></h2>

@@ -7,6 +7,7 @@ import { ConsoleApi } from './core/api.js';
 import { run, withApi } from './core/runtime.js';
 import { notify } from './state/notices.js';
 import { historyByRig, markUnavailable, rigs, setHistory, setTasks, taskById } from './state/rigs.js';
+import { setDetail } from './state/detail.js';
 import { setEpicHistory } from './state/events.js';
 import { connection, identity, lastError } from './state/session.js';
 import { signal } from '@lit-labs/signals';
@@ -88,6 +89,15 @@ export const inFlightCount = (): number => inFlight.size;
 export const lastRefreshAt = signal<number>(0);
 
 const historyOf = (rig: RigName) => historyByRig.get()[rig] ?? [];
+
+/** Rig facts + lifetime rollup. Best-effort: a rig without detail keeps its page, quietly. */
+export const loadRigDetail = (rig: RigName): Promise<boolean> =>
+  run(
+    withApi((api) => api.detail(rig)).pipe(
+      Effect.map((d) => { setDetail(rig, d); return true as const; }),
+      Effect.catchAll(() => Effect.succeed(false as const)),
+    ),
+  ).catch(() => false);
 
 /** Closed epics of a rig (the Completed section). */
 export const loadHistory = (rig: RigName): Promise<boolean> =>
