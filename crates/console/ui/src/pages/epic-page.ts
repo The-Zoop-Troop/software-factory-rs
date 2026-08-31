@@ -36,7 +36,11 @@ export class EpicPage extends SignalWatcher(LitElement) {
     th, td { text-align: start; padding: .5rem .6rem; border-block-end: 1px solid var(--line); vertical-align: top; }
     th { color: var(--fg-muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
     td.num { font-variant-numeric: tabular-nums; text-align: end; }
-    .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; position: relative; }
+    /* The event list stays compact: it scrolls inside its own box instead of stretching the page. */
+    .timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; position: relative;
+      max-block-size: 28rem; overflow-y: auto; overscroll-behavior: contain;
+      scrollbar-width: thin; scrollbar-color: color-mix(in oklch, var(--fg-muted) 35%, transparent) transparent;
+      padding-inline-end: var(--space-2); }
     .timeline::before { content: ''; position: absolute; inset-block: .4rem; inset-inline-start: .45rem; inline-size: 2px; background: var(--line); }
     .timeline li { display: grid; grid-template-columns: 1rem 1fr; gap: .6rem; align-items: baseline; }
     .timeline li::before { content: ''; inline-size: .6rem; block-size: .6rem; border-radius: 50%; background: var(--tone, var(--fg-muted)); border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--tone, var(--line)); z-index: 1; }

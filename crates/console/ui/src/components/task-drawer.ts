@@ -11,6 +11,7 @@ import { beadDetails, taskTouched } from '../state/detail.js';
 import { STAGE_LABEL, mmss, type Row } from '../state/gantt.js';
 import { badges, controls, surface } from '../styles/shared.js';
 import { SECTION_HELP } from '../copy.js';
+import { lockScroll, unlockScroll } from '../core/scroll-lock.js';
 import './help-tip.js';
 
 interface Meter {
@@ -48,12 +49,27 @@ export class TaskDrawer extends SignalWatcher(LitElement) {
       inline-size: min(36rem, 94vw); block-size: 100dvh; max-block-size: 100dvh; max-inline-size: none;
       border: 0; border-inline-start: 1px solid var(--line);
       background: var(--bg); color: var(--fg); box-shadow: var(--shadow-raised);
-      transition: translate 250ms var(--ease-out), overlay 250ms allow-discrete, display 250ms allow-discrete;
+      transition: translate 480ms var(--ease-spring), overlay 480ms allow-discrete, display 480ms allow-discrete;
     }
     dialog[open] { translate: 0 0; @starting-style { translate: 100% 0; } }
-    dialog:not([open]) { translate: 100% 0; }
-    dialog::backdrop { background: oklch(0% 0 0 / 0.35); backdrop-filter: blur(3px); }
-    .panel { block-size: 100%; overflow: auto; overscroll-behavior: contain; padding: var(--space-5); display: grid; gap: var(--space-4); align-content: start; }
+    dialog:not([open]) { translate: 100% 0; transition-duration: 220ms; transition-timing-function: var(--ease-out); }
+    dialog::backdrop {
+      background: oklch(0% 0 0 / 0.35); backdrop-filter: blur(3px);
+      transition: background-color 480ms var(--ease-out), backdrop-filter 480ms var(--ease-out), overlay 480ms allow-discrete, display 480ms allow-discrete;
+    }
+    dialog[open]::backdrop { @starting-style { background: oklch(0% 0 0 / 0); backdrop-filter: blur(0); } }
+    .panel {
+      block-size: 100%; overflow: auto; overscroll-behavior: contain; padding: var(--space-5);
+      display: grid; gap: var(--space-4); align-content: start;
+      scrollbar-width: thin; scrollbar-color: color-mix(in oklch, var(--fg-muted) 35%, transparent) transparent;
+    }
+    /* Sections rise in a beat behind the sheet. */
+    .panel > * { animation: rise 500ms var(--ease-out) backwards; }
+    .panel > :nth-child(2) { animation-delay: 60ms; }
+    .panel > :nth-child(3) { animation-delay: 100ms; }
+    .panel > :nth-child(4) { animation-delay: 130ms; }
+    .panel > :nth-child(n + 5) { animation-delay: 150ms; }
+    @keyframes rise { from { opacity: 0; translate: 0 12px; } }
     header { display: flex; align-items: start; gap: var(--space-3); }
     header .titles { display: grid; gap: 2px; flex: 1; min-inline-size: 0; }
     h2 { font-size: 1.1rem; font-weight: 800; margin: 0; }
@@ -97,8 +113,17 @@ export class TaskDrawer extends SignalWatcher(LitElement) {
   private seenTouch = 0;
   @query('dialog') private dialog?: HTMLDialogElement;
 
+  private locked = false;
+
   override firstUpdated(): void {
     this.dialog?.showModal();
+    lockScroll();
+    this.locked = true;
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this.locked) { unlockScroll(); this.locked = false; }
   }
 
   override updated(changed: PropertyValues): void {
@@ -195,6 +220,7 @@ export class TaskDrawer extends SignalWatcher(LitElement) {
   };
 
   private readonly onClosed = (): void => {
+    if (this.locked) { unlockScroll(); this.locked = false; }
     this.dispatchEvent(new CustomEvent('close'));
   };
 }

@@ -6,6 +6,7 @@ import { attentionOf } from '../core/schema.js';
 import { attentionItems } from '../state/rigs.js';
 import { controls, badges } from '../styles/shared.js';
 import { EMPTY, SECTION_HELP } from '../copy.js';
+import { lockScroll, unlockScroll } from '../core/scroll-lock.js';
 
 /** The badge in the header and the drawer it opens: every item that needs a human, all rigs. */
 @customElement('attention-drawer')
@@ -16,10 +17,14 @@ export class AttentionDrawer extends SignalWatcher(LitElement) {
     .badge-button:disabled { cursor: default; }
     dialog { inset-inline: auto 0; inset-block: 0; margin: 0; block-size: 100dvh; max-block-size: 100dvh; inline-size: min(28rem, 92vw);
              border: 0; border-inline-start: 1px solid var(--line); background: var(--bg-elev); backdrop-filter: blur(16px); color: var(--fg); padding: var(--space-6);
-             transition: translate 250ms var(--ease-out), overlay 250ms allow-discrete, display 250ms allow-discrete; }
+             overflow-y: auto; overscroll-behavior: contain;
+             scrollbar-width: thin; scrollbar-color: color-mix(in oklch, var(--fg-muted) 35%, transparent) transparent;
+             transition: translate 480ms var(--ease-spring), overlay 480ms allow-discrete, display 480ms allow-discrete; }
     dialog[open] { translate: 0 0; @starting-style { translate: 100% 0; } }
-    dialog:not([open]) { translate: 100% 0; }
-    dialog::backdrop { background: oklch(0% 0 0 / 0.3); }
+    dialog:not([open]) { translate: 100% 0; transition-duration: 220ms; transition-timing-function: var(--ease-out); }
+    dialog::backdrop { background: oklch(0% 0 0 / 0.3);
+      transition: background-color 480ms var(--ease-out), overlay 480ms allow-discrete, display 480ms allow-discrete; }
+    dialog[open]::backdrop { @starting-style { background: oklch(0% 0 0 / 0); } }
     header { display: flex; justify-content: space-between; align-items: center; margin-block-end: var(--space-4); }
     h2 { font-size: 1.2rem; font-weight: 800; }
     ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
@@ -37,10 +42,10 @@ export class AttentionDrawer extends SignalWatcher(LitElement) {
     const items = attentionItems.get();
     const n = items.length;
     return html`
-      <button type="button" class="badge-button" aria-label="${n} item${n === 1 ? '' : 's'} need you" ?disabled=${n === 0} @click=${() => this.dialog?.showModal()}>
+      <button type="button" class="badge-button" aria-label="${n} item${n === 1 ? '' : 's'} need you" ?disabled=${n === 0} @click=${this.open}>
         <span class="badge ${n > 0 ? 'warn' : ''}" role="status">${n} need${n === 1 ? 's' : ''} you</span>
       </button>
-      <dialog aria-labelledby="att-h" @click=${this.onBackdrop}>
+      <dialog aria-labelledby="att-h" @click=${this.onBackdrop} @close=${unlockScroll}>
         <header><h2 id="att-h">Needs you</h2><button type="button" @click=${() => this.dialog?.close()}>Close</button></header>
         <p class="hint">${SECTION_HELP.attention}</p>
         ${n === 0 ? html`<p class="empty">${EMPTY.attention}</p>` : html`<ol>
@@ -56,6 +61,11 @@ export class AttentionDrawer extends SignalWatcher(LitElement) {
         </ol>`}
       </dialog>`;
   }
+
+  private readonly open = (): void => {
+    this.dialog?.showModal();
+    lockScroll();
+  };
 
   private readonly onBackdrop = (e: MouseEvent): void => {
     if (e.target === this.dialog) this.dialog.close();
