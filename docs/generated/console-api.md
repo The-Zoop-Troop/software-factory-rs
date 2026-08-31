@@ -155,7 +155,7 @@ Options:
       --alert-url <ALERT_URL>
           Webhook that receives `{"rig","text"}` when a task needs a human or finishes [env: CONSOLE_ALERT_URL=]
       --alert-interval <ALERT_INTERVAL>
-          Seconds between alert sweeps [default: 30]
+          Seconds between alert sweeps [env: CONSOLE_ALERT_INTERVAL=] [default: 30]
   -h, --help
           Print help
 ```
