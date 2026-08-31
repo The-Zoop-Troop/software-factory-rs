@@ -53,6 +53,15 @@ export const setTasks = (rig: RigName, tasks: ReadonlyArray<Task>): void => {
   tasksByRig.set({ ...tasksByRig.get(), [rig]: tasks });
 };
 
+/** One task changed (pushed over the stream): replace it in place, or append if new. */
+export const upsertTask = (rig: string, task: Task): void => {
+  const current = tasksByRig.get()[rig] ?? [];
+  const next = current.some((t) => t.id === task.id)
+    ? current.map((t) => (t.id === task.id ? task : t))
+    : [...current, task];
+  tasksByRig.set({ ...tasksByRig.get(), [rig]: next });
+};
+
 export const reset = (): void => {
   historyByRig.set({});
   unavailable.set({});

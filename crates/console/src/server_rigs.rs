@@ -167,3 +167,62 @@ pub(super) async fn metrics(
             .into_response(),
     }
 }
+
+/// Event kinds after which a task object differs; mirror of the client's old refresh set.
+const TASK_CHANGING: [&str; 10] = [
+    "claimed",
+    "submitted",
+    "released",
+    "verified",
+    "verify_blocked",
+    "integrated",
+    "lease_reaped",
+    "epic_closed",
+    "task_planned",
+    "merge_bead_repaired",
+];
+
+/// The epic (or plan request) a record's bead belongs to.
+fn owner_of(bead: &str) -> &str {
+    bead.rsplit_once('.').map_or(bead, |(epic, _)| epic)
+}
+
+/// A `task_update` frame carrying the fresh task read model after `record`, when it changed one.
+/// `remote` events point at plan requests; everything else resolves to the bead's epic.
+pub(crate) async fn task_update_frame(
+    rig: &app::remote::Rig,
+    clock: &dyn app::Clock,
+    who: &app::domain::Principal,
+    cursor: u64,
+    record: &app::remote::EventRecord,
+) -> Option<Event> {
+    let bead = record.bead.as_ref()?;
+    let id = if record.kind == "remote" {
+        bead.as_ref().to_owned()
+    } else if TASK_CHANGING.contains(&record.kind.as_str()) {
+        owner_of(bead.as_ref()).to_owned()
+    } else {
+        return None;
+    };
+    let task = app::get_task(rig, clock, who, &id).await.ok()?;
+    Some(
+        Event::default().event("factory").data(
+            obj([
+                ("rig", rig.name.to_string().into()),
+                ("cursor", cursor.into()),
+                ("replay", Value::Bool(false)),
+                (
+                    "record",
+                    obj([
+                        ("at", record.at.clone().into()),
+                        ("actor", "console".into()),
+                        ("bead", id.into()),
+                        ("kind", "task_update".into()),
+                        ("task", val(&task)),
+                    ]),
+                ),
+            ])
+            .to_string(),
+        ),
+    )
+}

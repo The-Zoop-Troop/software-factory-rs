@@ -22,6 +22,8 @@ use crate::rpc::{self, Call, RpcError, obj, val};
 #[path = "server_rigs.rs"]
 mod rigs;
 use rigs::list_rigs;
+#[cfg(test)]
+pub(crate) use rigs::task_update_frame as server_rigs_test_hook_inner;
 
 #[derive(Clone)]
 pub(crate) struct AppState {
@@ -520,10 +522,19 @@ fn rig_stream(
                         return Some((vec![Ok(ev)], cursor));
                     }
                 };
-            let events: Vec<Result<Event, std::convert::Infallible>> = records
+            let mut events: Vec<Result<Event, std::convert::Infallible>> = records
                 .iter()
                 .map(|r| Ok(event_frame(&rig.name, next, r, false)))
                 .collect();
+            // The console owns the read model: after a state-changing event, push the updated
+            // task so clients never re-list (fac-5n8.5).
+            for r in &records {
+                if let Some(frame) =
+                    rigs::task_update_frame(&rig, s.clock.as_ref(), &who, next, r).await
+                {
+                    events.push(Ok(frame));
+                }
+            }
             if events.is_empty() {
                 s.clock
                     .sleep(domain::Duration::from_seconds(s.poll.as_secs()))

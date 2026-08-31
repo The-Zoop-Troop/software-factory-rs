@@ -479,3 +479,61 @@ async fn a_rig_that_cannot_answer_is_refused_cheaply_and_deep_links_serve_the_ap
         assert_eq!(resp.status(), StatusCode::OK, "{path}");
     }
 }
+
+#[tokio::test]
+async fn state_changing_events_carry_a_task_update_frame_and_noise_does_not() {
+    let (s, _store, _tail) = state().await;
+    let rig = s
+        .registry
+        .rig(&RigName::try_new("toy").expect("r"))
+        .expect("rig");
+    let who = grant("toy", &[Scope::Watch]);
+    let clock = FixedClock(Timestamp::from_unix_seconds(1));
+    let rec = |bead: Option<&str>, kind: &str| app::remote::EventRecord {
+        at: "1".into(),
+        actor: "w".into(),
+        bead: bead.map(|b| app::domain::BeadId::try_new(b).expect("id")),
+        kind: kind.into(),
+        detail: serde_json::Map::new(),
+    };
+    let frame = crate::server::server_rigs_test_hook_inner(
+        &rig,
+        &clock,
+        &who,
+        7,
+        &rec(Some("ep-1.1"), "claimed"),
+    )
+    .await;
+    let text = format!("{frame:?}");
+    assert!(
+        text.contains("task_update") && text.contains("ep-1"),
+        "{text}"
+    );
+    assert!(
+        crate::server::server_rigs_test_hook_inner(
+            &rig,
+            &clock,
+            &who,
+            7,
+            &rec(Some("ep-1.1"), "sweep_done")
+        )
+        .await
+        .is_none()
+    );
+    assert!(
+        crate::server::server_rigs_test_hook_inner(
+            &rig,
+            &clock,
+            &who,
+            7,
+            &rec(Some("ep-1.1"), "progress")
+        )
+        .await
+        .is_none()
+    );
+    assert!(
+        crate::server::server_rigs_test_hook_inner(&rig, &clock, &who, 7, &rec(None, "claimed"))
+            .await
+            .is_none()
+    );
+}

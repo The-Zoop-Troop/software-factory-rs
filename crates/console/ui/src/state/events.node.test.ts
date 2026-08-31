@@ -33,10 +33,19 @@ suite('events store', () => {
     expect(Number.isNaN(recordDate('t').getTime())).toBe(false);
   });
 
-  it('refreshes a rig only after state-changing events', async () => {
-    const { REFRESH_KINDS } = await import('../live.js');
-    expect(REFRESH_KINDS.has('claimed') && REFRESH_KINDS.has('integrated') && REFRESH_KINDS.has('remote')).toBe(true);
-    expect(REFRESH_KINDS.has('progress') || REFRESH_KINDS.has('sweep_done') || REFRESH_KINDS.has('verify_started')).toBe(false);
+  it('applies pushed task updates in place and re-lists only for inbox-membership kinds', async () => {
+    const { REFRESH_KINDS, onFrame } = await import('../live.js');
+    const { tasksByRig, reset: rigsReset } = await import('./rigs.js');
+    rigsReset();
+    expect([...REFRESH_KINDS].sort()).toEqual(['escalated', 'remote']);
+    const task = { id: 'ep-1', contextId: 'ep-1', status: { state: 'TASK_STATE_WORKING', timestamp: 't' }, metadata: { factory: { kind: 'epic', title: 'Build', tasks: 2 } } };
+    onFrame({ rig: 'toy', cursor: 9, replay: false, record: { at: 1, actor: 'console', bead: 'ep-1', kind: 'task_update', task } });
+    expect(tasksByRig.get()['toy']?.[0]?.metadata.factory.title).toBe('Build');
+    const updated = { ...task, status: { state: 'TASK_STATE_COMPLETED', timestamp: 't' } };
+    onFrame({ rig: 'toy', cursor: 10, replay: false, record: { at: 2, actor: 'console', bead: 'ep-1', kind: 'task_update', task: updated } });
+    expect(tasksByRig.get()['toy']?.length).toBe(1);
+    expect(tasksByRig.get()['toy']?.[0]?.status.state).toBe('TASK_STATE_COMPLETED');
+    expect(recent.get().every((f) => f.record.kind !== 'task_update')).toBe(true);
   });
 
   it('shows progress in the feed and the epic page but never as a toast', () => {

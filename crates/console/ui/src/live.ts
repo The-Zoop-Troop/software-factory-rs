@@ -2,6 +2,8 @@
 // belongs to (debounced) and surface the ones a human wants to hear about.
 import { Effect, Fiber, Stream } from 'effect';
 import { refreshRig } from './actions.js';
+import { upsertTask } from './state/rigs.js';
+import { Task } from './core/schema.js';
 import { eventStream, type EventSourceFactory } from './core/events.js';
 import { RigName } from './core/schema.js';
 import { describe, push, streamStatus } from './state/events.js';
@@ -24,10 +26,16 @@ const scheduleRefresh = (rig: string): void => {
   );
 };
 
-/** Events after which the task list can differ. Progress samples and steward sweeps are not among them. */
-export const REFRESH_KINDS: ReadonlySet<string> = new Set(['claimed', 'submitted', 'released', 'verified', 'verify_blocked', 'integrated', 'escalated', 'lease_reaped', 'epic_closed', 'task_planned', 'merge_bead_repaired', 'remote']);
+/** The console pushes `task_update` frames for task changes; the client re-lists only for the
+ * inbox-membership kinds it cannot patch from a frame. */
+export const REFRESH_KINDS: ReadonlySet<string> = new Set(['escalated', 'remote']);
 
 export const onFrame = (frame: Parameters<typeof push>[0]): void => {
+  if (frame.record.kind === 'task_update') {
+    const task = Schema.decodeUnknownEither(Task)(frame.record['task']);
+    if (task._tag === 'Right') upsertTask(frame.rig, task.right);
+    return;
+  }
   push(frame);
   if (frame.replay) return;
   if (REFRESH_KINDS.has(frame.record.kind)) scheduleRefresh(frame.rig);
