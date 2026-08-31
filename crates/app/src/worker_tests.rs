@@ -118,6 +118,38 @@ async fn a_long_session_reports_worktree_drift_on_each_heartbeat() {
 }
 
 #[tokio::test]
+async fn a_resumed_branch_with_no_new_commits_is_submitted_not_released() {
+    let store = seeded().await;
+    store
+        .note(&id("fac-e.1"), "resume-from: task/fac-e.1")
+        .await
+        .unwrap();
+    // commit_all reports the same head the session started from: nothing new was committed.
+    let repo = FakeRepo {
+        commit_head: Some(sha('a')),
+        ..FakeRepo::default()
+    };
+    let log = MemorySink::default();
+    let report = work_once(
+        &store,
+        &repo,
+        &harness_text("already done on the branch"),
+        &FixedClock(Timestamp::from_unix_seconds(100)),
+        &log,
+        &cfg(),
+    )
+    .await
+    .unwrap();
+    assert!(report.is_some(), "submitted for verification");
+    let task = load_task(&store, &id("fac-e.1")).await.unwrap();
+    assert!(
+        matches!(task.state, TaskState::InVerify { .. }),
+        "{:?}",
+        task.state
+    );
+}
+
+#[tokio::test]
 async fn two_workers_racing_one_task_claim_it_exactly_once() {
     let store = std::sync::Arc::new(seeded().await);
     let repo = FakeRepo {

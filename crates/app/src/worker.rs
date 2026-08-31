@@ -125,7 +125,8 @@ pub async fn work_once(
         detail: e.to_string(),
     })?;
     // An operator may ask to continue from the task's existing branch (environment incidents).
-    let base = resume_branch(bead.notes.as_deref()).unwrap_or_else(|| cfg.main.clone());
+    let resume = resume_branch(bead.notes.as_deref());
+    let base = resume.clone().unwrap_or_else(|| cfg.main.clone());
     let from = repo.head_of(&base).await?;
     let worktree = repo.branch_worktree(&branch, &from).await?;
 
@@ -169,8 +170,10 @@ pub async fn work_once(
     let now = clock.now();
     // A session that changed nothing has nothing to verify — whether it errored or merely talked —
     // and a session that declared itself blocked must not be verified either. Give the task back
-    // (an attempt) and keep the reason so the incident is legible.
-    if head == from || blocked.is_some() {
+    // (an attempt) and keep the reason so the incident is legible. The exception: a session
+    // resumed from the task's own branch may find the work already committed there; an unchanged
+    // head still goes to verification, or the task loops released forever.
+    if (head == from && resume.is_none()) || blocked.is_some() {
         let why = match (&blocked, outcome.is_error) {
             (Some(_), _) => "blocked",
             (None, true) => "harness error",
