@@ -47,6 +47,8 @@ export class ThroughputPage extends SignalWatcher(LitElement) {
     .seg.verify { background: oklch(65% 0.17 150); }
     .seg.integrate_wait { background: oklch(84% 0.05 60); }
     .seg.integrate { background: oklch(68% 0.16 60); }
+    .gantt-card { display: grid; gap: var(--space-3); }
+    .gantt-card .footnote { font-size: .8rem; margin: 0; }
     .legend { display: flex; flex-wrap: wrap; gap: var(--space-3); font-size: 0.85em; }
     .legend span::before { content: ''; display: inline-block; inline-size: 0.9em; block-size: 0.9em; border-radius: 2px; margin-inline-end: 0.35em; vertical-align: -0.1em; }
     .legend .queue_wait::before { background: oklch(80% 0.02 260); }
@@ -110,13 +112,15 @@ export class ThroughputPage extends SignalWatcher(LitElement) {
       </section>
       <section aria-labelledby="gantt-h">
         <h2 id="gantt-h">Every attempt, by stage <help-tip text=${SECTION_HELP.gantt} label="About this chart"></help-tip></h2>
-        <div class="legend">${STAGES.map((s) => html`<span class=${s}>${STAGE_LABEL[s]}</span>`)}</div>
-        <div class="gantt" role="list">
-          ${repeat(l.rows, (r) => r.task, (r) => html`
-            <div class="task" role="listitem" title=${r.task}>${r.task}</div>
-            <div class="lane">${r.segments.map((s) => html`<div class="seg ${s.stage} ${s.landed ? '' : 'retry'}" style="left:${pct(s.start)};width:${pct(Math.max(s.end - s.start, l.span / 400))}" title="${STAGE_LABEL[s.stage]} · attempt ${s.attempt + 1} · ${mmss(s.end - s.start)}"></div>`)}</div>`)}
+        <div class="surface gantt-card">
+          <div class="legend">${STAGES.map((s) => html`<span class=${s}>${STAGE_LABEL[s]}</span>`)}</div>
+          <div class="gantt" role="list">
+            ${repeat(l.rows, (r) => r.task, (r) => html`
+              <div class="task" role="listitem" title=${r.task}>${r.task}</div>
+              <div class="lane">${r.segments.map((s) => html`<div class="seg ${s.stage} ${s.landed ? '' : 'retry'}" style="left:${pct(s.start)};width:${pct(Math.max(s.end - s.start, l.span / 400))}" title="${STAGE_LABEL[s.stage]} · attempt ${s.attempt + 1} · ${mmss(s.end - s.start)}"></div>`)}</div>`)}
+          </div>
+          <p class="muted footnote">${mmss(l.span)} across; faded segments are attempts that did not land.</p>
         </div>
-        <p class="muted">${mmss(l.span)} across; faded segments are attempts that did not land.</p>
       </section>
       <section aria-labelledby="stages-h">
         <h2 id="stages-h">Stages <help-tip text=${SECTION_HELP.stages} label="About stage times"></help-tip></h2>

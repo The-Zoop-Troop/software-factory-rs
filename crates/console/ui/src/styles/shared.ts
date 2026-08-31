@@ -51,7 +51,13 @@ export const controls = css`
   label { display: grid; gap: var(--space-1); font-size: 0.9rem; color: var(--fg-muted); }
   .muted { color: var(--fg-muted); }
   .mono { font-family: var(--mono); font-size: 0.85em; }
-  .page-desc { color: var(--fg-muted); max-inline-size: 70ch; text-wrap: pretty; font-size: 0.9rem; }
+  .page-desc {
+    color: var(--fg-muted); max-inline-size: 70ch; text-wrap: pretty; font-size: 0.9rem;
+    padding: var(--space-2) var(--space-3);
+    border-inline-start: 3px solid color-mix(in oklch, var(--accent) 45%, transparent);
+    background: color-mix(in oklch, var(--accent) 5%, transparent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
   .empty { color: var(--fg-muted); font-size: 0.95rem; text-wrap: pretty; padding: var(--space-4); border: 1px dashed var(--line); border-radius: var(--radius); }
 `;
 
