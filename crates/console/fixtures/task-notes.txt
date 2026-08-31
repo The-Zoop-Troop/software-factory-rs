@@ -1,0 +1,399 @@
+verify FAILED
+$ test -n "${DATABASE_URL:-}"
+[exit 0]
+
+$ cargo test --manifest-path backend-rs/Cargo.toml --test balance_buckets_migration
+[exit 101]
+
+--- stderr ---
+error: manifest path `backend-rs/Cargo.toml` does not exist
+
+lease held by worker-72c82f8186ef expired at 1788094619
+verify FAILED
+$ test -n "${DATABASE_URL:-}"
+[exit 0]
+
+$ cargo test --manifest-path backend-rs/Cargo.toml --test balance_buckets_migration
+[exit 101]
+
+--- stderr ---
+5.7
+   Compiling dotenvy v0.15.7
+   Compiling petgraph v0.7.1
+   Compiling rustls-native-certs v0.8.3
+   Compiling sqlx-core v0.8.6
+   Compiling darling_core v0.20.11
+   Compiling tempfile v3.27.0
+   Compiling hkdf v0.12.4
+   Compiling prost-types v0.13.5
+   Compiling regex v1.12.3
+   Compiling serde_urlencoded v0.7.1
+   Compiling rand_chacha v0.9.0
+   Compiling raw-cpuid v11.6.0
+   Compiling md-5 v0.10.6
+   Compiling rand v0.8.5
+   Compiling indexmap v1.9.3
+   Compiling multimap v0.10.1
+   Compiling prost-build v0.13.5
+   Compiling quanta v0.12.6
+   Compiling sqlx-postgres v0.8.6
+   Compiling rand v0.9.2
+   Compiling metrics v0.24.3
+   Compiling darling_macro v0.20.11
+   Compiling rand_xoshiro v0.7.0
+   Compiling axum-core v0.5.6
+   Compiling crossbeam-epoch v0.9.18
+   Compiling async-trait v0.1.89
+   Compiling axum-macros v0.5.0
+   Compiling pin-project-internal v1.1.12
+   Compiling serde_path_to_error v0.1.20
+   Compiling proc-macro-error-attr2 v2.0.0
+   Compiling sketches-ddsketch v0.3.1
+   Compiling hashbrown v0.12.3
+   Compiling metrics-exporter-prometheus v0.18.1
+   Compiling matchit v0.8.4
+   Compiling iri-string v0.7.10
+   Compiling axum v0.8.8
+   Compiling metrics-util v0.20.1
+   Compiling proc-macro-error2 v2.0.1
+   Compiling tower-http v0.6.8
+   Compiling pin-project v1.1.12
+   Compiling axum-core v0.4.5
+   Compiling sqlx-macros-core v0.8.6
+   Compiling darling v0.20.11
+   Compiling tonic-build v0.12.3
+   Compiling sha1 v0.10.6
+   Compiling headers-core v0.3.0
+   Compiling async-stream-impl v0.3.6
+   Compiling multer v3.1.0
+   Compiling matchit v0.7.3
+   Compiling thiserror v1.0.69
+   Compiling lazy_static v1.5.0
+   Compiling async-stream v0.3.6
+   Compiling sharded-slab v0.1.7
+   Compiling axum v0.7.9
+   Compiling blueclaw-api v0.1.0 (/work/rig/.factory/worktrees/task__be-45c.3/backend-rs)
+   Compiling headers v0.4.1
+   Compiling validator_derive v0.19.0
+   Compiling sqlx-macros v0.8.6
+   Compiling tower v0.4.13
+   Compiling matchers v0.2.0
+   Compiling hyper-timeout v0.5.2
+   Compiling futures-executor v0.3.32
+   Compiling thiserror-impl v1.0.69
+   Compiling tracing-log v0.2.0
+   Compiling csv-core v0.1.13
+   Compiling socket2 v0.5.10
+   Compiling encoding_rs v0.8.35
+   Compiling thread_local v1.1.9
+   Compiling spin v0.9.8
+   Compiling nu-ansi-term v0.50.3
+   Compiling tracing-subscriber v0.3.22
+   Compiling tonic v0.12.3
+   Compiling csv v1.4.0
+   Compiling futures v0.3.32
+   Compiling validator v0.19.0
+   Compiling axum-extra v0.10.3
+error: failed to run custom build command for `blueclaw-api v0.1.0 (/work/rig/.factory/worktrees/task__be-45c.3/backend-rs)`
+
+Caused by:
+  process didn't exit successfully: `/work/rig/.factory/worktrees/task__be-45c.3/backend-rs/target/debug/build/blueclaw-api-56f77ba1f1098172/build-script-build` (exit status: 101)
+  --- stdout
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/resolver.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/payer_daemon.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/resolver.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/payer_daemon.proto
+  cargo:rerun-if-changed=proto
+
+  --- stderr
+
+  thread 'main' (7532) panicked at build.rs:20:10:
+  compile vendored protos: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+warning: build failed, waiting for other jobs to finish...
+
+operator: the verify commands were corrected — the repository root is the crate (Cargo.toml at the top level); do not create a backend-rs/ directory or symlink, and remove one if an earlier attempt added it
+verify FAILED
+$ test -n "${DATABASE_URL:-}"
+[exit 0]
+
+$ cargo test --test balance_buckets_migration
+[exit 101]
+
+--- stderr ---
+dotenvy v0.15.7
+   Compiling whoami v1.6.1
+   Compiling byteorder v1.5.0
+   Compiling hex v0.4.3
+   Compiling sqlx-core v0.8.6
+   Compiling darling_core v0.20.11
+   Compiling tempfile v3.27.0
+   Compiling petgraph v0.7.1
+   Compiling rustls-native-certs v0.8.3
+   Compiling prost-types v0.13.5
+   Compiling hkdf v0.12.4
+   Compiling regex v1.12.3
+   Compiling serde_urlencoded v0.7.1
+   Compiling rand_chacha v0.9.0
+   Compiling raw-cpuid v11.6.0
+   Compiling md-5 v0.10.6
+   Compiling rand v0.8.5
+   Compiling indexmap v1.9.3
+   Compiling multimap v0.10.1
+   Compiling quanta v0.12.6
+   Compiling prost-build v0.13.5
+   Compiling sqlx-postgres v0.8.6
+   Compiling rand v0.9.2
+   Compiling metrics v0.24.3
+   Compiling darling_macro v0.20.11
+   Compiling rand_xoshiro v0.7.0
+   Compiling axum-core v0.5.6
+   Compiling crossbeam-epoch v0.9.18
+   Compiling async-trait v0.1.89
+   Compiling pin-project-internal v1.1.12
+   Compiling axum-macros v0.5.0
+   Compiling serde_path_to_error v0.1.20
+   Compiling proc-macro-error-attr2 v2.0.0
+   Compiling iri-string v0.7.10
+   Compiling sketches-ddsketch v0.3.1
+   Compiling hashbrown v0.12.3
+   Compiling metrics-exporter-prometheus v0.18.1
+   Compiling matchit v0.8.4
+   Compiling axum v0.8.8
+   Compiling tower-http v0.6.8
+   Compiling metrics-util v0.20.1
+   Compiling proc-macro-error2 v2.0.1
+   Compiling pin-project v1.1.12
+   Compiling axum-core v0.4.5
+   Compiling sqlx-macros-core v0.8.6
+   Compiling darling v0.20.11
+   Compiling tonic-build v0.12.3
+   Compiling sha1 v0.10.6
+   Compiling headers-core v0.3.0
+   Compiling async-stream-impl v0.3.6
+   Compiling multer v3.1.0
+   Compiling matchit v0.7.3
+   Compiling thiserror v1.0.69
+   Compiling lazy_static v1.5.0
+   Compiling sharded-slab v0.1.7
+   Compiling async-stream v0.3.6
+   Compiling axum v0.7.9
+   Compiling headers v0.4.1
+   Compiling blueclaw-api v0.1.0 (/work/rig/.factory/worktrees/task__be-45c.3)
+   Compiling validator_derive v0.19.0
+   Compiling sqlx-macros v0.8.6
+   Compiling tower v0.4.13
+   Compiling matchers v0.2.0
+   Compiling hyper-timeout v0.5.2
+   Compiling futures-executor v0.3.32
+   Compiling thiserror-impl v1.0.69
+   Compiling tracing-log v0.2.0
+   Compiling csv-core v0.1.13
+   Compiling socket2 v0.5.10
+   Compiling thread_local v1.1.9
+   Compiling encoding_rs v0.8.35
+   Compiling spin v0.9.8
+   Compiling nu-ansi-term v0.50.3
+   Compiling tonic v0.12.3
+   Compiling tracing-subscriber v0.3.22
+   Compiling csv v1.4.0
+   Compiling futures v0.3.32
+   Compiling validator v0.19.0
+error: failed to run custom build command for `blueclaw-api v0.1.0 (/work/rig/.factory/worktrees/task__be-45c.3)`
+
+Caused by:
+  process didn't exit successfully: `/work/rig/.factory/worktrees/task__be-45c.3/target/debug/build/blueclaw-api-56f77ba1f1098172/build-script-build` (exit status: 101)
+  --- stdout
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/resolver.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/payer_daemon.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/resolver.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/payer_daemon.proto
+  cargo:rerun-if-changed=proto
+
+  --- stderr
+
+  thread 'main' (14363) panicked at build.rs:20:10:
+  compile vendored protos: Custom { kind: NotFound, error: "Could not find `protoc`. If `protoc` is installed, try setting the `PROTOC` environment variable to the path of the `protoc` binary. To install it on Debian, run `apt-get install protobuf-compiler`. It is also available at https://github.com/protocolbuffers/protobuf/releases  For more information: https://docs.rs/prost-build/#sourcing-protoc" }
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+warning: build failed, waiting for other jobs to finish...
+
+resume-from: task/be-45c.3
+incident resolved by operator: rig fixed: protoc is now installed (rust runtime image); continue from task/be-45c.3 (resume marker set) and run the corrected verify commands from the repository root
+verify FAILED
+$ test -n "${DATABASE_URL:-}"
+[exit 0]
+
+$ cargo test --test balance_buckets_migration
+[exit 101]
+
+--- stderr ---
+macro v0.20.11
+   Compiling rand_xoshiro v0.7.0
+   Compiling axum-core v0.5.6
+   Compiling crossbeam-epoch v0.9.18
+   Compiling pin-project-internal v1.1.12
+   Compiling async-trait v0.1.89
+   Compiling axum-macros v0.5.0
+   Compiling serde_path_to_error v0.1.20
+   Compiling proc-macro-error-attr2 v2.0.0
+   Compiling hashbrown v0.12.3
+   Compiling sketches-ddsketch v0.3.1
+   Compiling matchit v0.8.4
+   Compiling iri-string v0.7.10
+   Compiling metrics-exporter-prometheus v0.18.1
+   Compiling axum v0.8.8
+   Compiling metrics-util v0.20.1
+   Compiling proc-macro-error2 v2.0.1
+   Compiling tower-http v0.6.8
+   Compiling pin-project v1.1.12
+   Compiling axum-core v0.4.5
+   Compiling sqlx-macros-core v0.8.6
+   Compiling darling v0.20.11
+   Compiling tonic-build v0.12.3
+   Compiling sha1 v0.10.6
+   Compiling headers-core v0.3.0
+   Compiling async-stream-impl v0.3.6
+   Compiling multer v3.1.0
+   Compiling thiserror v1.0.69
+   Compiling matchit v0.7.3
+   Compiling lazy_static v1.5.0
+   Compiling sharded-slab v0.1.7
+   Compiling async-stream v0.3.6
+   Compiling axum v0.7.9
+   Compiling blueclaw-api v0.1.0 (/work/rig/.factory/worktrees/task__be-45c.3)
+   Compiling headers v0.4.1
+   Compiling sqlx-macros v0.8.6
+   Compiling validator_derive v0.19.0
+   Compiling tower v0.4.13
+   Compiling matchers v0.2.0
+   Compiling hyper-timeout v0.5.2
+   Compiling futures-executor v0.3.32
+   Compiling thiserror-impl v1.0.69
+   Compiling tracing-log v0.2.0
+   Compiling csv-core v0.1.13
+   Compiling socket2 v0.5.10
+   Compiling thread_local v1.1.9
+   Compiling encoding_rs v0.8.35
+   Compiling spin v0.9.8
+   Compiling nu-ansi-term v0.50.3
+   Compiling tonic v0.12.3
+   Compiling tracing-subscriber v0.3.22
+   Compiling csv v1.4.0
+   Compiling futures v0.3.32
+   Compiling validator v0.19.0
+   Compiling axum-extra v0.10.3
+error: failed to run custom build command for `blueclaw-api v0.1.0 (/work/rig/.factory/worktrees/task__be-45c.3)`
+
+Caused by:
+  process didn't exit successfully: `/work/rig/.factory/worktrees/task__be-45c.3/target/debug/build/blueclaw-api-56f77ba1f1098172/build-script-build` (exit status: 101)
+  --- stdout
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/resolver.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/payer_daemon.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/resolver.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/payer_daemon.proto
+  cargo:rerun-if-changed=proto
+
+  --- stderr
+
+  thread 'main' (5623) panicked at build.rs:20:10:
+  compile vendored protos: Custom { kind: Other, error: "protoc failed: google/protobuf/empty.proto: File not found.\ngoogle/protobuf/timestamp.proto: File not found.\nlivepeer/registry/v1/resolver.proto:5:1: Import \"google/protobuf/empty.proto\" was not found or had errors.\nlivepeer/registry/v1/resolver.proto:6:1: Import \"google/protobuf/timestamp.proto\" was not found or had errors.\nlivepeer/registry/v1/resolver.proto:34:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:35:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:80:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:90:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:99:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:111:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:16:40: \"google.protobuf.Empty\" is not defined.\nlivepeer/registry/v1/resolver.proto:18:14: \"google.protobuf.Empty\" is not defined.\n" }
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+warning: build failed, waiting for other jobs to finish...
+
+verify FAILED
+$ test -n "${DATABASE_URL:-}"
+[exit 0]
+
+$ cargo test --test balance_buckets_migration
+[exit 101]
+
+--- stderr ---
+acro v0.20.11
+   Compiling rand_xoshiro v0.7.0
+   Compiling axum-core v0.5.6
+   Compiling crossbeam-epoch v0.9.18
+   Compiling async-trait v0.1.89
+   Compiling axum-macros v0.5.0
+   Compiling pin-project-internal v1.1.12
+   Compiling serde_path_to_error v0.1.20
+   Compiling proc-macro-error-attr2 v2.0.0
+   Compiling sketches-ddsketch v0.3.1
+   Compiling iri-string v0.7.10
+   Compiling hashbrown v0.12.3
+   Compiling metrics-exporter-prometheus v0.18.1
+   Compiling matchit v0.8.4
+   Compiling axum v0.8.8
+   Compiling metrics-util v0.20.1
+   Compiling tower-http v0.6.8
+   Compiling proc-macro-error2 v2.0.1
+   Compiling pin-project v1.1.12
+   Compiling axum-core v0.4.5
+   Compiling sqlx-macros-core v0.8.6
+   Compiling darling v0.20.11
+   Compiling tonic-build v0.12.3
+   Compiling sha1 v0.10.6
+   Compiling headers-core v0.3.0
+   Compiling async-stream-impl v0.3.6
+   Compiling multer v3.1.0
+   Compiling matchit v0.7.3
+   Compiling lazy_static v1.5.0
+   Compiling thiserror v1.0.69
+   Compiling sharded-slab v0.1.7
+   Compiling async-stream v0.3.6
+   Compiling blueclaw-api v0.1.0 (/work/rig/.factory/worktrees/task__be-45c.3)
+   Compiling axum v0.7.9
+   Compiling headers v0.4.1
+   Compiling sqlx-macros v0.8.6
+   Compiling validator_derive v0.19.0
+   Compiling tower v0.4.13
+   Compiling matchers v0.2.0
+   Compiling hyper-timeout v0.5.2
+   Compiling futures-executor v0.3.32
+   Compiling thiserror-impl v1.0.69
+   Compiling tracing-log v0.2.0
+   Compiling csv-core v0.1.13
+   Compiling socket2 v0.5.10
+   Compiling thread_local v1.1.9
+   Compiling encoding_rs v0.8.35
+   Compiling spin v0.9.8
+   Compiling nu-ansi-term v0.50.3
+   Compiling tracing-subscriber v0.3.22
+   Compiling tonic v0.12.3
+   Compiling csv v1.4.0
+   Compiling futures v0.3.32
+   Compiling validator v0.19.0
+   Compiling axum-extra v0.10.3
+error: failed to run custom build command for `blueclaw-api v0.1.0 (/work/rig/.factory/worktrees/task__be-45c.3)`
+
+Caused by:
+  process didn't exit successfully: `/work/rig/.factory/worktrees/task__be-45c.3/target/debug/build/blueclaw-api-56f77ba1f1098172/build-script-build` (exit status: 101)
+  --- stdout
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/resolver.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/payer_daemon.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/registry/v1/resolver.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/types.proto
+  cargo:rerun-if-changed=proto/livepeer/payments/v1/payer_daemon.proto
+  cargo:rerun-if-changed=proto
+
+  --- stderr
+
+  thread 'main' (11597) panicked at build.rs:20:10:
+  compile vendored protos: Custom { kind: Other, error: "protoc failed: google/protobuf/empty.proto: File not found.\ngoogle/protobuf/timestamp.proto: File not found.\nlivepeer/registry/v1/resolver.proto:5:1: Import \"google/protobuf/empty.proto\" was not found or had errors.\nlivepeer/registry/v1/resolver.proto:6:1: Import \"google/protobuf/timestamp.proto\" was not found or had errors.\nlivepeer/registry/v1/resolver.proto:34:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:35:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:80:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:90:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:99:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:111:3: \"google.protobuf.Timestamp\" is not defined.\nlivepeer/registry/v1/resolver.proto:16:40: \"google.protobuf.Empty\" is not defined.\nlivepeer/registry/v1/resolver.proto:18:14: \"google.protobuf.Empty\" is not defined.\n" }
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+warning: build failed, waiting for other jobs to finish...
+

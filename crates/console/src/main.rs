@@ -22,6 +22,7 @@ mod alerts;
 mod auth;
 mod config;
 mod deps;
+mod detail;
 #[cfg(feature = "fake")]
 mod fake;
 mod rpc;

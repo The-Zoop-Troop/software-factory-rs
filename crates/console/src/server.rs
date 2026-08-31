@@ -52,6 +52,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/rigs/{rig}/events", get(rig_events))
         .route("/rigs/{rig}/epics/{id}/events", get(rigs::epic_events))
         .route("/rigs/{rig}/metrics", get(rigs::metrics))
+        .route("/rigs/{rig}/beads/{id}", get(rigs::bead_detail))
         .route("/rigs/{rig}/.well-known/agent-card.json", get(rig_card))
         .route("/rigs/{rig}/a2a", post(a2a))
         .merge(crate::ui::routes())

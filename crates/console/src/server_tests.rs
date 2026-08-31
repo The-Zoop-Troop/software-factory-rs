@@ -537,3 +537,30 @@ async fn state_changing_events_carry_a_task_update_frame_and_noise_does_not() {
             .is_none()
     );
 }
+
+#[tokio::test]
+async fn bead_detail_returns_task_fields_verify_commands_and_parsed_notes() {
+    let (s, store, _tail) = state().await;
+    store
+        .seed_verify(id("v-1"), id("ep-1.1"), &["sh tests/run.sh"])
+        .await;
+    store
+        .note(
+            &id("ep-1.1"),
+            "verify FAILED\n$ sh tests/run.sh\n[exit 1]\nboom\nguidance: fix it",
+        )
+        .await
+        .expect("note");
+    let (st, body) = get(&s, "/rigs/toy/beads/ep-1.1", Some("watcher")).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(body["kind"], "task");
+    assert_eq!(body["task"]["branch"], "task/ep-1.1");
+    assert_eq!(body["verify"]["commands"][0], "sh tests/run.sh");
+    assert_eq!(body["notes"][0]["kind"], "verify_block");
+    assert_eq!(body["notes"][0]["passed"], false);
+    assert_eq!(body["notes"][1]["kind"], "guidance");
+    let (st, _) = get(&s, "/rigs/toy/beads/nope-1", Some("watcher")).await;
+    assert_eq!(st, StatusCode::NOT_FOUND);
+    let (st, _) = get(&s, "/rigs/toy/beads/ep-1.1", Some("stranger")).await;
+    assert_eq!(st, StatusCode::FORBIDDEN);
+}
