@@ -7,7 +7,7 @@ import { ConsoleApi } from './core/api.js';
 import { run, withApi } from './core/runtime.js';
 import { notify } from './state/notices.js';
 import { historyByRig, markUnavailable, rigs, setHistory, setTasks, taskById } from './state/rigs.js';
-import { setBeadDetail, setDetail, setEpicMetrics } from './state/detail.js';
+import { setBeadDetail, setConsumers, setDetail, setEpicMetrics } from './state/detail.js';
 import { setEpicHistory } from './state/events.js';
 import { connection, identity, lastError } from './state/session.js';
 import { signal } from '@lit-labs/signals';
@@ -104,6 +104,15 @@ export const loadEpicMetrics = (rig: RigName, epic: string): Promise<boolean> =>
   run(
     withApi((api) => api.metrics(rig, epic)).pipe(
       Effect.map((m) => { if (m !== null) setEpicMetrics(`${rig}/${epic}`, m); return true as const; }),
+      Effect.catchAll(() => Effect.succeed(false as const)),
+    ),
+  ).catch(() => false);
+
+/** Who builds on this epic, across rigs. Best-effort. */
+export const loadEpicConsumers = (rig: RigName, epic: string): Promise<boolean> =>
+  run(
+    withApi((api) => api.consumers(rig, epic)).pipe(
+      Effect.map((c) => { setConsumers(`${rig}/${epic}`, c); return true as const; }),
       Effect.catchAll(() => Effect.succeed(false as const)),
     ),
   ).catch(() => false);

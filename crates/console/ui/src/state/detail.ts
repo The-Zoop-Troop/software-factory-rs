@@ -1,6 +1,6 @@
 // Rig detail: host facts, posture, and lifetime totals from `GET /rigs/<rig>/detail`.
 import { signal } from '@lit-labs/signals';
-import type { BeadDetail, EpicMetrics, RigDetail } from '../core/schema.js';
+import type { BeadDetail, Consumer, EpicMetrics, RigDetail } from '../core/schema.js';
 
 export const detailByRig = signal<Readonly<Record<string, RigDetail>>>({});
 export const setDetail = (rig: string, d: RigDetail): void => {
@@ -18,6 +18,12 @@ export const setEpicMetrics = (key: string, m: EpicMetrics): void => {
   metricsByEpic.set({ ...metricsByEpic.get(), [key]: m });
 };
 
+/** Consumers per `rig/epic`: plan requests elsewhere that build on this epic. */
+export const consumersByEpic = signal<Readonly<Record<string, ReadonlyArray<Consumer>>>>({});
+export const setConsumers = (key: string, c: ReadonlyArray<Consumer>): void => {
+  consumersByEpic.set({ ...consumersByEpic.get(), [key]: c });
+};
+
 /** Bumped when a `task_update` frame lands for `rig/task`; drawers refetch on it. */
 export const taskTouched = signal<Readonly<Record<string, number>>>({});
 export const touchTask = (rig: string, id: string): void => {
@@ -28,6 +34,7 @@ export const resetDetail = (): void => {
   detailByRig.set({});
   beadDetails.set({});
   metricsByEpic.set({});
+  consumersByEpic.set({});
   taskTouched.set({});
 };
 

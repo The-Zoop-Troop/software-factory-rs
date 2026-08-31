@@ -3,7 +3,7 @@ import { Context, Effect, Layer, Schema } from 'effect';
 import type { ApiError } from './errors.js';
 import { Unauthorized, Forbidden, TaskNotFound } from './errors.js';
 import { decode, fetchJson, rejectIfError } from './interop.js';
-import { AgentCard, BeadDetail, MetricsReply, RigDetail, RigList, RpcReply, Task, TaskList, Whoami, type AttentionOption, type BeadDetail as BeadDetailT, type EpicMetrics, type RigDetail as RigDetailT, type RigName, type Task as TaskT } from './schema.js';
+import { AgentCard, BeadDetail, ConsumersReply, MetricsReply, RigDetail, RigList, RpcReply, Task, TaskList, Whoami, type AttentionOption, type BeadDetail as BeadDetailT, type Consumer, type EpicMetrics, type RigDetail as RigDetailT, type RigName, type Task as TaskT } from './schema.js';
 
 export interface RigListT { readonly names: ReadonlyArray<RigName>; readonly unavailable: Readonly<Record<string, string>> }
 import { EventRecord } from './events.js';
@@ -32,6 +32,8 @@ export interface ConsoleApiShape {
   readonly detail: (rig: RigName) => Effect.Effect<RigDetailT, ApiError>;
   /** One bead in depth: meta, verify commands, parsed notes (`GET /rigs/<rig>/beads/<id>`). */
   readonly beadDetail: (rig: RigName, id: string) => Effect.Effect<BeadDetailT, ApiError>;
+  /** Plan requests on any rig whose needs name this epic (`GET .../epics/<id>/consumers`). */
+  readonly consumers: (rig: RigName, epic: string) => Effect.Effect<ReadonlyArray<Consumer>, ApiError>;
 }
 
 export class ConsoleApi extends Context.Tag('ConsoleApi')<ConsoleApi, ConsoleApiShape>() {}
@@ -118,6 +120,14 @@ export const ConsoleApiLive = (session: Session): Layer.Layer<ConsoleApi> =>
         Effect.flatMap(rejectIfError),
         Effect.flatMap((b) => decode(BeadDetail, b)),
       ),
+    consumers: (rig, epic) =>
+      fetchJson(`${session.baseUrl}/rigs/${rig}/epics/${encodeURIComponent(epic)}/consumers`, {
+        headers: { authorization: `Bearer ${session.token}` },
+      }).pipe(
+        Effect.flatMap(rejectIfError),
+        Effect.flatMap((b) => decode(ConsumersReply, b)),
+        Effect.map((r) => r.consumers),
+      ),
     // Non-blocking: the console returns the queued request as a SUBMITTED task; the event
     // stream and refreshes carry it to COMPLETED (epic created) or FAILED.
     plan: (rig, text, needs = []) =>
@@ -158,6 +168,8 @@ export interface FakeWorld {
   details?: Record<string, RigDetailT>;
   /** Bead detail per `rig/bead`. */
   beads?: Record<string, BeadDetailT>;
+  /** Consumers per `rig/epic`. */
+  consumers?: Record<string, ReadonlyArray<Consumer>>;
   /** Rigs the console reports as unable to answer, with the reason. */
   unavailable?: Record<string, string>;
   /** Needs passed to `plan`, per call. */
@@ -207,6 +219,7 @@ export const ConsoleApiFake = (world: FakeWorld, token: string): Layer.Layer<Con
         const d = world.beads?.[`${rig}/${id}`];
         return d === undefined ? Effect.fail(new TaskNotFound({ id })) : Effect.succeed(d);
       }),
+    consumers: (rig, epic) => auth(() => Effect.succeed(world.consumers?.[`${rig}/${epic}`] ?? [])),
     applyOption: (rig, id, option, note) =>
       auth(() => {
         world.applied = [...(world.applied ?? []), { id, option, note }];

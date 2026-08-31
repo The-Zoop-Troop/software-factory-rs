@@ -2,13 +2,13 @@ import { LitElement, html, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { repeat } from 'lit/directives/repeat.js';
-import { applyOption, loadEpicMetrics, pending, refreshRig, stopEpic, loadEpicHistory } from '../actions.js';
+import { applyOption, loadBeadDetail, loadEpicConsumers, loadEpicMetrics, pending, refreshRig, stopEpic, loadEpicHistory } from '../actions.js';
 import type { AttentionOption, Child, RigName } from '../core/schema.js';
 import { attentionOf } from '../core/schema.js';
 import { describe, forEpic, latestProgress, recordDate } from '../state/events.js';
 import { currentRig, taskById, tasksByRig } from '../state/rigs.js';
-import { metricsByEpic } from '../state/detail.js';
-import { layout } from '../state/gantt.js';
+import { beadDetails, consumersByEpic, fmtTokens, metricsByEpic } from '../state/detail.js';
+import { layout, mmss } from '../state/gantt.js';
 import { can, whyNot } from '../state/session.js';
 import { badges, controls, surface } from '../styles/shared.js';
 import '../components/epic-card.js';
@@ -39,6 +39,13 @@ export class EpicPage extends SignalWatcher(LitElement) {
     .success { --tone: var(--ok); } .warning { --tone: var(--warn); } .danger { --tone: var(--danger); } .info { --tone: var(--info); }
     .timeline time { color: var(--fg-muted); font-family: var(--mono); font-size: .75rem; margin-inline-start: .5rem; }
     .empty { color: var(--fg-muted); }
+    .rollup { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); font-variant-numeric: tabular-nums; color: var(--fg-muted); font-size: .9rem; }
+    .rollup b { color: var(--fg); font-family: var(--mono); }
+    .stamps { color: var(--fg-muted); font-size: .85rem; font-family: var(--mono); }
+    details.plan { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); }
+    details.plan summary { cursor: pointer; font-weight: 700; }
+    details.plan pre { margin: var(--space-2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; }
+    ul.consumers { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
     tbody tr { cursor: pointer; }
     tbody tr:hover { background: color-mix(in oklch, var(--accent) 6%, transparent); }
     .tasklink { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: start; }
@@ -53,6 +60,9 @@ export class EpicPage extends SignalWatcher(LitElement) {
     currentRig.set(this.rig as RigName);
     if (taskById(this.rig, this.id) === undefined) void refreshRig(this.rig as RigName);
     void loadEpicHistory(this.rig as RigName, this.id);
+    void loadBeadDetail(this.rig as RigName, this.id);
+    void loadEpicMetrics(this.rig as RigName, this.id);
+    void loadEpicConsumers(this.rig as RigName, this.id);
   }
 
   override disconnectedCallback(): void {
@@ -70,6 +80,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
       <header><a href="/">Rigs</a><span class="muted">/</span><a href="/rigs/${this.rig}">${this.rig}</a><span class="muted">/</span><h1>${this.id}</h1><a class="throughput" href="/rigs/${this.rig}/epics/${this.id}/throughput">throughput →</a></header>
       ${epic === undefined ? html`<p class="empty">Loading ${this.id}…</p>` : html`
         <epic-card .task=${epic} .pending=${pending.get().has(epic.id)} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @stop-epic=${this.onStop}></epic-card>
+        ${this.renderRollup(all)}
         <div class="layout">
           <section aria-labelledby="tasks-h">
             <h2 id="tasks-h">Tasks</h2>
@@ -87,6 +98,8 @@ export class EpicPage extends SignalWatcher(LitElement) {
             </table></div>`}
             ${inbox.length === 0 ? nothing : html`<h2 style="margin-block-start: var(--space-6)">Needs you</h2>
               <div style="display:grid; gap: var(--space-4)">${repeat(inbox, (t) => t.id, (t) => html`<inbox-item .task=${t} .pending=${pending.get().has(t.id)} .allowed=${can(this.rig, 'resolve')} .reason=${whyNot(this.rig, 'resolve')} @apply-option=${this.onOption}></inbox-item>`)}</div>`}
+            ${this.renderPlan()}
+            ${this.renderProvenance()}
           </section>
           <section aria-labelledby="tl-h">
             <h2 id="tl-h">Timeline</h2>
@@ -98,6 +111,58 @@ export class EpicPage extends SignalWatcher(LitElement) {
           </section>
         </div>
         ${this.selected === null ? nothing : this.renderDrawer(this.selected)}`}`;
+  }
+
+  /** Wall-clock, work, parallelism, first-pass, retry tax, tokens — plus lifecycle stamps. */
+  private renderRollup(all: ReadonlyArray<{ readonly record: { readonly kind: string; readonly at: string | number } }>) {
+    const m = metricsByEpic.get()[`${this.rig}/${this.id}`];
+    const planned = all.find((f) => f.record.kind === 'task_planned');
+    const closed = all.find((f) => f.record.kind === 'epic_closed');
+    const stamp = (label: string, at: string | number | undefined): string =>
+      at === undefined ? '' : `${label} ${recordDate(at).toLocaleString()}`;
+    const stamps = [stamp('planned', planned?.record.at), stamp('closed', closed?.record.at)].filter((x) => x !== '').join(' · ');
+    return html`<div style="display:grid; gap: var(--space-2)">
+      ${m === undefined ? nothing : html`<div class="rollup">
+        <span>wall-clock <b>${mmss(m.wall_clock)}</b></span>
+        <span>work <b>${mmss(m.work)}</b></span>
+        <span>parallelism <b>${String(m.parallelism_pct)}%</b></span>
+        <span>first pass <b>${String(m.first_pass)}/${String(m.landed)}</b></span>
+        <span>retry tax <b>${mmss(m.retry_tax)}</b></span>
+        <span>tokens <b>${fmtTokens(m.tokens)}</b></span>
+      </div>`}
+      ${stamps === '' ? nothing : html`<p class="stamps">${stamps}</p>`}
+    </div>`;
+  }
+
+  /** The plan triptych: what was asked (description), what to know (references), what landed. */
+  private renderPlan() {
+    const d = beadDetails.get()[`${this.rig}/${this.id}`];
+    if (d === undefined) return nothing;
+    const refs = (d.context ?? []).filter((c) => c.kind === 'reference');
+    const contracts = (d.context ?? []).filter((c) => c.kind === 'contract');
+    if (d.description === '' && refs.length === 0 && contracts.length === 0) return nothing;
+    return html`<h2 style="margin-block-start: var(--space-6)">Plan</h2>
+      <div style="display:grid; gap: var(--space-2)">
+        ${d.description === '' ? nothing : html`<details class="plan" open><summary>Plan text</summary><pre>${d.description}</pre></details>`}
+        ${refs.map((c) => html`<details class="plan"><summary>Reference — ${c.title}</summary><pre>${c.text}</pre></details>`)}
+        ${contracts.map((c) => html`<details class="plan"><summary>Contract — what this epic landed</summary><pre>${c.text}</pre></details>`)}
+      </div>`;
+  }
+
+  /** Where the epic came from, and who builds on it. */
+  private renderProvenance() {
+    const d = beadDetails.get()[`${this.rig}/${this.id}`];
+    const consumers = consumersByEpic.get()[`${this.rig}/${this.id}`] ?? [];
+    const origin = d?.origin ?? null;
+    if (origin === null && consumers.length === 0) return nothing;
+    return html`<h2 style="margin-block-start: var(--space-6)">Provenance</h2>
+      <div style="display:grid; gap: var(--space-2)">
+        ${origin === null ? nothing : html`<details class="plan"><summary>From plan request — ${origin.title}</summary><pre>${origin.text}</pre></details>`}
+        ${consumers.length === 0 ? nothing : html`<div>
+          <p class="muted" style="margin: 0 0 var(--space-1)">Built on by</p>
+          <ul class="consumers">${consumers.map((c) => html`<li><a href="/rigs/${c.rig}">${c.rig}</a> — ${c.title} <span class="muted mono">(${c.id}, ${c.status})</span></li>`)}</ul>
+        </div>`}
+      </div>`;
   }
 
   private renderDrawer(id: string) {

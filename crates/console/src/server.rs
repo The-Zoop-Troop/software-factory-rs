@@ -21,6 +21,8 @@ use crate::rpc::{self, Call, RpcError, obj, val};
 
 #[path = "server_rigs.rs"]
 mod rigs;
+#[path = "server_rigs_detail.rs"]
+mod rigs_detail;
 use rigs::list_rigs;
 #[cfg(test)]
 pub(crate) use rigs::task_update_frame as server_rigs_test_hook_inner;
@@ -54,8 +56,12 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/rigs/{rig}/events", get(rig_events))
         .route("/rigs/{rig}/epics/{id}/events", get(rigs::epic_events))
         .route("/rigs/{rig}/metrics", get(rigs::metrics))
-        .route("/rigs/{rig}/beads/{id}", get(rigs::bead_detail))
-        .route("/rigs/{rig}/detail", get(rigs::rig_detail))
+        .route("/rigs/{rig}/beads/{id}", get(rigs_detail::bead_detail))
+        .route("/rigs/{rig}/detail", get(rigs_detail::rig_detail))
+        .route(
+            "/rigs/{rig}/epics/{id}/consumers",
+            get(rigs_detail::epic_consumers),
+        )
         .route("/rigs/{rig}/.well-known/agent-card.json", get(rig_card))
         .route("/rigs/{rig}/a2a", post(a2a))
         .merge(crate::ui::routes())

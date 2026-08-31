@@ -156,3 +156,41 @@ describe('attention drawer, epic page, alerts log', () => {
     expect((log.shadowRoot as ShadowRoot).querySelectorAll('li').length).toBe(1);
   });
 });
+
+describe('epic-page detail sections', () => {
+  it('renders the rollup header, plan triptych, and provenance', async () => {
+    await import('./pages/epic-page.js');
+    const detail = {
+      id: 'ep-1', kind: 'epic', title: 'Build it', status: 'open', parent: null,
+      description: 'Ship the passthrough.', acceptance: null, task: null, verify: null, notes: [], needs: null,
+      context: [
+        { id: 'ep-1.0', kind: 'reference', title: 'reference', text: 'Use POSIX sh.' },
+        { id: 'c-1', kind: 'contract', title: 'contract: Build it', text: 'range abc..def' },
+      ],
+      origin: { id: 'pr-1', title: 'Build the passthrough', text: 'Please build it.' },
+    };
+    const report = {
+      epic: 'ep-1', wall_clock: 120, work: 90, parallelism_pct: 75, critical_path: 90, retry_tax: 10,
+      first_pass: 1, landed: 2, tokens: 42_000, stages: [], concurrency: [] as Array<[number, number]>, tasks: [],
+    };
+    connectFake({
+      token: 'ok', rigs: [rig], tasks: { toy: [epic] },
+      beads: { 'toy/ep-1': detail as never },
+      metrics: { 'toy/ep-1': report as never },
+      consumers: { 'toy/ep-1': [{ rig: 'portal', id: 'pr-9', title: 'Portal after backend', status: 'open' }] },
+    }, 'ok');
+    const page = await fixture<HTMLElement>(html`<epic-page rig="toy" id="ep-1"></epic-page>`);
+    const root = page.shadowRoot as ShadowRoot;
+    await until(() => root.querySelector('.rollup'));
+    expect(root.querySelector('.rollup')?.textContent).toContain('75%');
+    expect(root.querySelector('.rollup')?.textContent).toContain('42k');
+    const plans = await until(() => { const p = root.querySelectorAll('details.plan'); return p.length >= 4 ? p : null; });
+    const summaries = [...plans].map((d) => d.querySelector('summary')?.textContent ?? '');
+    expect(summaries.some((t) => t.includes('Plan text'))).toBe(true);
+    expect(summaries.some((t) => t.includes('Reference'))).toBe(true);
+    expect(summaries.some((t) => t.includes('Contract'))).toBe(true);
+    expect(summaries.some((t) => t.includes('From plan request'))).toBe(true);
+    await until(() => root.querySelector('.consumers'));
+    expect(root.querySelector('.consumers')?.textContent).toContain('Portal after backend');
+  });
+});

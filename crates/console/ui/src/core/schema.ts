@@ -200,8 +200,21 @@ export const BeadDetail = Schema.Struct({
   verify: Schema.NullOr(Schema.Struct({ commands: Schema.Array(Schema.String), timeout_seconds: Schema.Number })),
   notes: Schema.Array(NoteSegment),
   needs: Schema.NullOr(Schema.Array(Schema.String)),
+  /** Epics only: reference/contract children, and the plan request that created it. */
+  context: Schema.optionalWith(
+    Schema.NullOr(Schema.Array(Schema.Struct({ id: Schema.String, kind: Schema.NullOr(Schema.String), title: Schema.String, text: Schema.String }))),
+    { default: () => null },
+  ),
+  origin: Schema.optionalWith(
+    Schema.NullOr(Schema.Struct({ id: Schema.String, title: Schema.String, text: Schema.String })),
+    { default: () => null },
+  ),
 });
 export type BeadDetail = typeof BeadDetail.Type;
+
+export const Consumer = Schema.Struct({ rig: Schema.String, id: Schema.String, title: Schema.String, status: Schema.String });
+export type Consumer = typeof Consumer.Type;
+export const ConsumersReply = Schema.Struct({ epic: Schema.String, consumers: Schema.Array(Consumer) });
 
 export const Whoami = Schema.Struct({
   client: Schema.String,
