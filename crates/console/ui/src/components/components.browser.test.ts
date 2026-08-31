@@ -1,8 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { html } from 'lit';
 import { fixture, oneEvent } from '@open-wc/testing-helpers';
 import { Schema } from 'effect';
-import { Task } from '../core/schema.js';
+import { RigName, Task } from '../core/schema.js';
+import { connectFake, disconnect } from '../core/runtime.js';
+import { resetDetail } from '../state/detail.js';
 import { notify, reset as resetNotices } from '../state/notices.js';
 import { lastError } from '../state/session.js';
 import './epic-card.js';
@@ -16,6 +18,21 @@ import type { PlanForm } from './plan-form.js';
 import type { InboxItem } from './inbox-item.js';
 import type { ToastStack } from './toast-stack.js';
 import type { ErrorPanel } from './error-panel.js';
+
+const rig = Schema.decodeSync(RigName)('toy');
+const settle = () => new Promise((r) => setTimeout(r, 30));
+/** Poll until `probe` returns a value; lazy modules and fetch roundtrips need a beat. */
+const until = async <T>(probe: () => T | null | undefined, ms = 3000): Promise<T> => {
+  const deadline = Date.now() + ms;
+  for (;;) {
+    const v = probe();
+    if (v !== null && v !== undefined) return v;
+    if (Date.now() > deadline) throw new Error('timed out waiting');
+    await settle();
+  }
+};
+
+beforeEach(() => { disconnect(); resetDetail(); });
 
 const epic = Schema.decodeSync(Task)({ id: 'ep-1', contextId: 'ep-1', status: { state: 'TASK_STATE_WORKING', timestamp: 't' }, metadata: { factory: { kind: 'epic', title: 'Build it', tasks: 4, closed: 1, incidents: 1 } } });
 const done = { ...epic, status: { ...epic.status, state: 'TASK_STATE_COMPLETED' as const } };
@@ -177,5 +194,60 @@ describe('rig-facts', () => {
     await import('./rig-facts.js');
     const el = await fixture<HTMLElement>(html`<rig-facts></rig-facts>`);
     expect((el.shadowRoot as ShadowRoot).textContent.trim()).toBe('');
+  });
+});
+
+describe('task-drawer', () => {
+  const bead = {
+    id: 'ep-1.2', kind: 'task', title: 'Wire the API', status: 'open', parent: 'ep-1',
+    description: 'Add the passthrough route.', acceptance: 'GET /x returns 200.',
+    task: {
+      state: 'leased', base: 'abc123def456', branch: 'task/ep-1.2', landed: null,
+      lease: { holder: 'worker-1', expires: Math.floor(Date.now() / 1000) + 600 },
+      budget: { tokens: 1_000_000, attempts: 3, wall_clock_seconds: 3600 },
+      usage: { tokens: 250_000, attempts: 1, wall_clock_seconds: 900 },
+    },
+    verify: { commands: ['npm test', 'npm run lint'], timeout_seconds: 900 },
+    notes: [
+      { kind: 'verify_block', passed: false, commands: [{ command: 'npm test', status: 'exit 1', tail: '2 failing' }] },
+      { kind: 'guidance', text: 'Mock the clock in that test.' },
+      { kind: 'plain', text: 'claimed by worker-1' },
+    ],
+    needs: ['backend/be-1'],
+  };
+
+  it('shows meta, meters, verify commands, and the notes biography', async () => {
+    await import('./task-drawer.js');
+    connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [] }, beads: { 'toy/ep-1.2': bead as never } }, 'ok');
+    const el = await fixture<HTMLElement>(html`<task-drawer rig="toy" .taskId=${'ep-1.2'}></task-drawer>`);
+    const root = el.shadowRoot as ShadowRoot;
+    await until(() => root.querySelector('dl.meta'));
+    expect(root.querySelector('h2')?.textContent).toBe('Wire the API');
+    const dds = [...root.querySelectorAll('dl.meta dd')].map((n) => n.textContent ?? '');
+    expect(dds.some((t) => t.includes('task/ep-1.2'))).toBe(true);
+    expect(dds.some((t) => t.includes('worker-1'))).toBe(true);
+    expect(dds.some((t) => t.includes('backend/be-1'))).toBe(true);
+    const meterLabels = [...root.querySelectorAll('.meter .lbl')].map((n) => n.textContent ?? '');
+    expect(meterLabels.some((t) => t.includes('250k / 1.0M'))).toBe(true);
+    expect([...root.querySelectorAll('.cmds li')].map((n) => n.textContent)).toEqual(['$ npm test', '$ npm run lint']);
+    const fail = root.querySelector('details.note.fail');
+    expect(fail?.hasAttribute('open')).toBe(true);
+    expect(fail?.querySelector('pre')?.textContent).toContain('[exit 1]');
+    expect(root.querySelector('.note-line.guidance')?.textContent).toContain('Mock the clock');
+    expect(root.textContent).toContain('Add the passthrough route.');
+    expect(root.textContent).toContain('GET /x returns 200.');
+  });
+
+  it('refetches its bead when a task_update touches it', async () => {
+    await import('./task-drawer.js');
+    const { touchTask } = await import('../state/detail.js');
+    const world = { token: 'ok', rigs: [rig], tasks: { toy: [] }, beads: { 'toy/ep-1.2': bead as never } };
+    connectFake(world, 'ok');
+    const el = await fixture<HTMLElement>(html`<task-drawer rig="toy" .taskId=${'ep-1.2'}></task-drawer>`);
+    const root = el.shadowRoot as ShadowRoot;
+    await until(() => root.querySelector('dl.meta'));
+    world.beads['toy/ep-1.2'] = { ...bead, title: 'Wire the API v2' } as never;
+    touchTask('toy', 'ep-1.2');
+    await until(() => (root.querySelector('h2')?.textContent === 'Wire the API v2' ? true : null));
   });
 });

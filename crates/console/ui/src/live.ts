@@ -3,6 +3,7 @@
 import { Effect, Fiber, Stream } from 'effect';
 import { refreshRig } from './actions.js';
 import { upsertTask } from './state/rigs.js';
+import { touchTask } from './state/detail.js';
 import { Task } from './core/schema.js';
 import { eventStream, type EventSourceFactory } from './core/events.js';
 import { RigName } from './core/schema.js';
@@ -33,7 +34,7 @@ export const REFRESH_KINDS: ReadonlySet<string> = new Set(['escalated', 'remote'
 export const onFrame = (frame: Parameters<typeof push>[0]): void => {
   if (frame.record.kind === 'task_update') {
     const task = Schema.decodeUnknownEither(Task)(frame.record['task']);
-    if (task._tag === 'Right') upsertTask(frame.rig, task.right);
+    if (task._tag === 'Right') { upsertTask(frame.rig, task.right); touchTask(frame.rig, task.right.id); }
     return;
   }
   push(frame);

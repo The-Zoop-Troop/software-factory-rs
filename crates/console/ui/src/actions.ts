@@ -7,7 +7,7 @@ import { ConsoleApi } from './core/api.js';
 import { run, withApi } from './core/runtime.js';
 import { notify } from './state/notices.js';
 import { historyByRig, markUnavailable, rigs, setHistory, setTasks, taskById } from './state/rigs.js';
-import { setDetail } from './state/detail.js';
+import { setBeadDetail, setDetail, setEpicMetrics } from './state/detail.js';
 import { setEpicHistory } from './state/events.js';
 import { connection, identity, lastError } from './state/session.js';
 import { signal } from '@lit-labs/signals';
@@ -89,6 +89,24 @@ export const inFlightCount = (): number => inFlight.size;
 export const lastRefreshAt = signal<number>(0);
 
 const historyOf = (rig: RigName) => historyByRig.get()[rig] ?? [];
+
+/** One bead in depth for the drawer. Best-effort: a missing bead just leaves it empty. */
+export const loadBeadDetail = (rig: RigName, id: string): Promise<boolean> =>
+  run(
+    withApi((api) => api.beadDetail(rig, id)).pipe(
+      Effect.map((d) => { setBeadDetail(`${rig}/${id}`, d); return true as const; }),
+      Effect.catchAll(() => Effect.succeed(false as const)),
+    ),
+  ).catch(() => false);
+
+/** The epic's throughput report, cached for the drawer's attempt strip. */
+export const loadEpicMetrics = (rig: RigName, epic: string): Promise<boolean> =>
+  run(
+    withApi((api) => api.metrics(rig, epic)).pipe(
+      Effect.map((m) => { if (m !== null) setEpicMetrics(`${rig}/${epic}`, m); return true as const; }),
+      Effect.catchAll(() => Effect.succeed(false as const)),
+    ),
+  ).catch(() => false);
 
 /** Rig facts + lifetime rollup. Best-effort: a rig without detail keeps its page, quietly. */
 export const loadRigDetail = (rig: RigName): Promise<boolean> =>

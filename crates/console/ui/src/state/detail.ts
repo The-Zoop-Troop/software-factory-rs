@@ -1,13 +1,34 @@
 // Rig detail: host facts, posture, and lifetime totals from `GET /rigs/<rig>/detail`.
 import { signal } from '@lit-labs/signals';
-import type { RigDetail } from '../core/schema.js';
+import type { BeadDetail, EpicMetrics, RigDetail } from '../core/schema.js';
 
 export const detailByRig = signal<Readonly<Record<string, RigDetail>>>({});
 export const setDetail = (rig: string, d: RigDetail): void => {
   detailByRig.set({ ...detailByRig.get(), [rig]: d });
 };
+/** Bead detail per `rig/bead`, loaded when a drawer opens. */
+export const beadDetails = signal<Readonly<Record<string, BeadDetail>>>({});
+export const setBeadDetail = (key: string, d: BeadDetail): void => {
+  beadDetails.set({ ...beadDetails.get(), [key]: d });
+};
+
+/** Throughput reports per `rig/epic`, for the drawer's attempt strip. */
+export const metricsByEpic = signal<Readonly<Record<string, EpicMetrics>>>({});
+export const setEpicMetrics = (key: string, m: EpicMetrics): void => {
+  metricsByEpic.set({ ...metricsByEpic.get(), [key]: m });
+};
+
+/** Bumped when a `task_update` frame lands for `rig/task`; drawers refetch on it. */
+export const taskTouched = signal<Readonly<Record<string, number>>>({});
+export const touchTask = (rig: string, id: string): void => {
+  taskTouched.set({ ...taskTouched.get(), [`${rig}/${id}`]: Date.now() });
+};
+
 export const resetDetail = (): void => {
   detailByRig.set({});
+  beadDetails.set({});
+  metricsByEpic.set({});
+  taskTouched.set({});
 };
 
 export interface PostureBadge {

@@ -167,6 +167,42 @@ export const RigDetail = Schema.Struct({
 });
 export type RigDetail = typeof RigDetail.Type;
 
+const NoteText = Schema.Struct({ text: Schema.String });
+export const VerifyLine = Schema.Struct({ command: Schema.String, status: Schema.String, tail: Schema.String });
+export type VerifyLine = typeof VerifyLine.Type;
+export const NoteSegment = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal('verify_block'), passed: Schema.Boolean, commands: Schema.Array(VerifyLine) }),
+  Schema.Struct({ kind: Schema.Literal('guidance'), ...NoteText.fields }),
+  Schema.Struct({ kind: Schema.Literal('released'), ...NoteText.fields }),
+  Schema.Struct({ kind: Schema.Literal('operator'), ...NoteText.fields }),
+  Schema.Struct({ kind: Schema.Literal('plain'), ...NoteText.fields }),
+);
+export type NoteSegment = typeof NoteSegment.Type;
+const Spend = Schema.Struct({ tokens: Schema.Number, attempts: Schema.Number, wall_clock_seconds: Schema.Number });
+export const BeadTaskMeta = Schema.Struct({
+  state: Schema.String,
+  base: Schema.String,
+  branch: Schema.String,
+  landed: Schema.NullOr(Schema.String),
+  lease: Schema.NullOr(Schema.Struct({ holder: Schema.String, expires: Schema.Number })),
+  budget: Spend,
+  usage: Spend,
+});
+export const BeadDetail = Schema.Struct({
+  id: Schema.String,
+  kind: Schema.NullOr(Schema.String),
+  title: Schema.String,
+  status: Schema.String,
+  parent: Schema.NullOr(Schema.String),
+  description: Schema.String,
+  acceptance: Schema.NullOr(Schema.String),
+  task: Schema.NullOr(BeadTaskMeta),
+  verify: Schema.NullOr(Schema.Struct({ commands: Schema.Array(Schema.String), timeout_seconds: Schema.Number })),
+  notes: Schema.Array(NoteSegment),
+  needs: Schema.NullOr(Schema.Array(Schema.String)),
+});
+export type BeadDetail = typeof BeadDetail.Type;
+
 export const Whoami = Schema.Struct({
   client: Schema.String,
   grants: Schema.Array(Schema.Struct({ rig: Schema.String, scopes: Schema.Array(Scope) })),

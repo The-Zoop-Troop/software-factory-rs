@@ -1,16 +1,19 @@
 import { LitElement, html, css, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { repeat } from 'lit/directives/repeat.js';
-import { applyOption, pending, refreshRig, stopEpic, loadEpicHistory } from '../actions.js';
+import { applyOption, loadEpicMetrics, pending, refreshRig, stopEpic, loadEpicHistory } from '../actions.js';
 import type { AttentionOption, Child, RigName } from '../core/schema.js';
 import { attentionOf } from '../core/schema.js';
 import { describe, forEpic, latestProgress, recordDate } from '../state/events.js';
 import { currentRig, taskById, tasksByRig } from '../state/rigs.js';
+import { metricsByEpic } from '../state/detail.js';
+import { layout } from '../state/gantt.js';
 import { can, whyNot } from '../state/session.js';
 import { badges, controls, surface } from '../styles/shared.js';
 import '../components/epic-card.js';
 import '../components/inbox-item.js';
+import '../components/task-drawer.js';
 
 const stateTone = (s: string): string =>
   s === 'closed' ? 'ok' : s === 'incident' ? 'danger' : s === 'open' ? 'info' : 'working';
@@ -36,10 +39,14 @@ export class EpicPage extends SignalWatcher(LitElement) {
     .success { --tone: var(--ok); } .warning { --tone: var(--warn); } .danger { --tone: var(--danger); } .info { --tone: var(--info); }
     .timeline time { color: var(--fg-muted); font-family: var(--mono); font-size: .75rem; margin-inline-start: .5rem; }
     .empty { color: var(--fg-muted); }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover { background: color-mix(in oklch, var(--accent) 6%, transparent); }
+    .tasklink { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: start; }
   `];
 
   @property() rig = '';
   @property() id = '';
+  @state() private selected: string | null = null;
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -69,8 +76,8 @@ export class EpicPage extends SignalWatcher(LitElement) {
             ${epic.metadata.factory.children.length === 0 ? html`<p class="empty">No tasks yet — the planner is still working, or the epic is empty.</p>` : html`
             <div class="surface"><table>
               <thead><tr><th>Task</th><th>State</th><th class="num">Attempts</th><th class="num">Tokens</th><th>Branch</th><th>Working</th></tr></thead>
-              <tbody>${repeat(epic.metadata.factory.children, (c: Child) => c.id, (c: Child) => html`<tr>
-                <td><strong>${c.title}</strong><br><span class="mono muted">${c.id}</span></td>
+              <tbody>${repeat(epic.metadata.factory.children, (c: Child) => c.id, (c: Child) => html`<tr @click=${() => { this.openTask(c.id); }}>
+                <td><button class="tasklink" @click=${(e: Event) => { e.stopPropagation(); this.openTask(c.id); }}><strong>${c.title}</strong></button><br><span class="mono muted">${c.id}</span></td>
                 <td><span class="badge ${stateTone(c.state)}">${c.state.replace('_', ' ')}</span></td>
                 <td class="num">${c.attempts}/${c.attemptLimit}</td>
                 <td class="num">${Math.round(c.tokens / 1000)}k</td>
@@ -89,7 +96,20 @@ export class EpicPage extends SignalWatcher(LitElement) {
               return html`<li class=${line.tone}><span>${line.title}<time datetime=${at.toISOString()}>${at.toLocaleTimeString()}</time></span></li>`;
             })}</ol>`}
           </section>
-        </div>`}`;
+        </div>
+        ${this.selected === null ? nothing : this.renderDrawer(this.selected)}`}`;
+  }
+
+  private renderDrawer(id: string) {
+    const m = metricsByEpic.get()[`${this.rig}/${this.id}`];
+    const l = m === undefined ? null : layout(m);
+    const row = l?.rows.find((r) => r.task === id) ?? null;
+    return html`<task-drawer .rig=${this.rig} .taskId=${id} .row=${row} .span=${l?.span ?? 1} @close=${() => { this.selected = null; }}></task-drawer>`;
+  }
+
+  private openTask(id: string): void {
+    this.selected = id;
+    void loadEpicMetrics(this.rig as RigName, this.id);
   }
 
   private readonly onStop = async (e: CustomEvent<{ id: string }>): Promise<void> => { await stopEpic(this.rig as RigName, e.detail.id); };
