@@ -223,11 +223,11 @@ describe('task-drawer', () => {
     const root = el.shadowRoot as ShadowRoot;
     await until(() => root.querySelector('dl.meta'));
     expect(root.querySelector('h2')?.textContent).toBe('Wire the API');
-    const dds = [...root.querySelectorAll('dl.meta dd')].map((n) => n.textContent ?? '');
+    const dds = [...root.querySelectorAll('dl.meta dd')].map((n) => n.textContent);
     expect(dds.some((t) => t.includes('task/ep-1.2'))).toBe(true);
     expect(dds.some((t) => t.includes('worker-1'))).toBe(true);
     expect(dds.some((t) => t.includes('backend/be-1'))).toBe(true);
-    const meterLabels = [...root.querySelectorAll('.meter .lbl')].map((n) => n.textContent ?? '');
+    const meterLabels = [...root.querySelectorAll('.meter .lbl')].map((n) => n.textContent);
     expect(meterLabels.some((t) => t.includes('250k / 1.0M'))).toBe(true);
     expect([...root.querySelectorAll('.cmds li')].map((n) => n.textContent)).toEqual(['$ npm test', '$ npm run lint']);
     const fail = root.querySelector('details.note.fail');
@@ -268,5 +268,39 @@ describe('request-card expansion', () => {
     const plan = await until(() => root.querySelector('.plan pre'));
     expect(plan.textContent).toBe('Build the portal.');
     expect(root.querySelector('details.contract summary')?.textContent).toContain('backend/be-1');
+  });
+});
+
+describe('help-tip and help-drawer', () => {
+  it('help-tip toggles an anchored popover with the explainer text', async () => {
+    await import('./help-tip.js');
+    const el = await fixture<HTMLElement>(html`<help-tip text="Explains a widget." label="About widgets"></help-tip>`);
+    const root = el.shadowRoot as ShadowRoot;
+    const btn = root.querySelector('button') as HTMLButtonElement;
+    expect(btn.getAttribute('aria-label')).toBe('About widgets');
+    const pop = root.querySelector('[popover]') as HTMLElement;
+    expect(pop.textContent).toContain('Explains a widget.');
+    btn.click();
+    await settle();
+    expect(pop.matches(':popover-open')).toBe(true);
+    btn.click();
+    await settle();
+    expect(pop.matches(':popover-open')).toBe(false);
+  });
+
+  it('help-drawer opens a glossary dialog with every term', async () => {
+    await import('./help-drawer.js');
+    const { GLOSSARY } = await import('../copy.js');
+    const el = await fixture<HTMLElement>(html`<help-drawer></help-drawer>`);
+    const root = el.shadowRoot as ShadowRoot;
+    expect(root.querySelector('button')?.getAttribute('aria-label')).toBe('Help and glossary');
+    (root.querySelector('button') as HTMLButtonElement).click();
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect((root.querySelector('dialog') as HTMLDialogElement).open).toBe(true);
+    expect(root.querySelectorAll('dt').length).toBe(GLOSSARY.length);
+    expect(root.textContent).toContain('Epic');
+    (root.querySelectorAll('button')[1] as HTMLButtonElement).click();
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect((root.querySelector('dialog') as HTMLDialogElement).open).toBe(false);
   });
 });

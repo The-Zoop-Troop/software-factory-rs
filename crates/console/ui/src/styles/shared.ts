@@ -12,7 +12,9 @@ export const surface = css`
     transition: box-shadow 300ms var(--ease-out), translate 300ms var(--ease-out);
     @starting-style { opacity: 0; translate: 0 8px; }
   }
-  .surface:hover { box-shadow: var(--shadow), var(--glow); }
+  @media (hover: hover) {
+    .surface:hover { box-shadow: var(--shadow-raised); }
+  }
 `;
 
 export const controls = css`
@@ -26,25 +28,30 @@ export const controls = css`
     cursor: pointer;
     font-weight: 600;
     display: inline-flex; align-items: center; gap: var(--space-2);
+    touch-action: manipulation;
     transition: background 200ms var(--ease-out), translate 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
   }
-  button:hover:not(:disabled) { translate: 0 -1px; box-shadow: var(--glow); }
+  @media (hover: hover) {
+    button:hover:not(:disabled) { translate: 0 -1px; box-shadow: var(--shadow); }
+    button.primary:hover:not(:disabled) { background: var(--accent-strong); }
+  }
   button:active:not(:disabled) { translate: 0 0; }
   button:disabled { opacity: 0.55; cursor: not-allowed; }
-  button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-strong)); color: white; border-color: transparent; }
+  button.primary { background: var(--accent); color: white; border-color: transparent; }
   button.danger { color: var(--danger); border-color: color-mix(in oklch, var(--danger) 40%, transparent); }
   input, textarea {
     inline-size: 100%;
     padding: 0.6rem 0.8rem;
     border-radius: var(--radius-sm);
     border: 1px solid var(--line);
-    background: light-dark(white, oklch(14% 0.02 var(--hue)));
+    background: light-dark(white, oklch(14% 0.008 var(--hue)));
     color: var(--fg);
   }
   input:user-invalid, textarea:user-invalid { border-color: var(--danger); }
   label { display: grid; gap: var(--space-1); font-size: 0.9rem; color: var(--fg-muted); }
   .muted { color: var(--fg-muted); }
   .mono { font-family: var(--mono); font-size: 0.85em; }
+  .page-desc { color: var(--fg-muted); max-inline-size: 70ch; text-wrap: pretty; font-size: 0.95rem; }
 `;
 
 export const badges = css`

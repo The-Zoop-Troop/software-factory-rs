@@ -7,7 +7,7 @@ import { dismiss, notices } from '../state/notices.js';
 @customElement('toast-stack')
 export class ToastStack extends SignalWatcher(LitElement) {
   static override styles = css`
-    :host { position: fixed; inset-inline-end: 1rem; inset-block-end: 1rem; display: grid; gap: .5rem; z-index: 50; max-inline-size: min(28rem, 90vw); }
+    :host { position: fixed; inset-inline-end: 1rem; inset-block-end: calc(1rem + env(safe-area-inset-bottom, 0px)); display: grid; gap: .5rem; z-index: 50; max-inline-size: min(28rem, 90vw); }
     .toast {
       display: grid; grid-template-columns: 1fr auto; grid-template-areas: "title close" "detail close"; gap: .25rem .75rem; align-items: start;
       padding: .75rem 1rem; border-radius: var(--radius); border: 1px solid var(--line);

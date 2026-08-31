@@ -10,6 +10,8 @@ import { fmtDuration, fmtTokens } from '../state/detail.js';
 import { beadDetails, taskTouched } from '../state/detail.js';
 import { STAGE_LABEL, mmss, type Row } from '../state/gantt.js';
 import { badges, controls, surface } from '../styles/shared.js';
+import { SECTION_HELP } from '../copy.js';
+import './help-tip.js';
 
 interface Meter {
   readonly label: string;
@@ -45,14 +47,14 @@ export class TaskDrawer extends SignalWatcher(LitElement) {
     header { display: flex; align-items: start; gap: var(--space-3); }
     header .titles { display: grid; gap: 2px; flex: 1; min-inline-size: 0; }
     h2 { font-size: 1.1rem; font-weight: 800; margin: 0; }
-    h3 { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-muted); margin: 0 0 var(--space-2); }
-    .close { border: none; background: none; font-size: 1.2rem; cursor: pointer; color: var(--fg-muted); }
+    h3 { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-muted); margin: 0 0 var(--space-2); display: flex; gap: var(--space-2); align-items: center; }
+    .close { border: none; background: none; font-size: 1.2rem; cursor: pointer; color: var(--fg-muted); inline-size: 2.25rem; block-size: 2.25rem; display: grid; place-content: center; border-radius: 50%; touch-action: manipulation; }
     dl.meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-2) var(--space-3); margin: 0; }
     dl.meta dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); }
     dl.meta dd { margin: 0; overflow-wrap: anywhere; }
     .meter { display: grid; gap: 2px; }
     .meter .bar { block-size: 6px; border-radius: 999px; background: color-mix(in oklch, var(--fg-muted) 12%, transparent); overflow: hidden; }
-    .meter .fill { block-size: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--accent-strong)); }
+    .meter .fill { block-size: 100%; border-radius: inherit; background: var(--accent); }
     .meter .fill.hot { background: var(--danger); }
     .meter .lbl { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--fg-muted); }
     ul.cmds { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
@@ -144,7 +146,7 @@ export class TaskDrawer extends SignalWatcher(LitElement) {
 
   private renderMeters(t: NonNullable<BeadDetail['task']>) {
     const rows = meters(t);
-    return rows.length === 0 ? nothing : html`<section><h3>Budget</h3>
+    return rows.length === 0 ? nothing : html`<section><h3>Budget <help-tip text=${SECTION_HELP.budget} label="About budgets"></help-tip></h3>
       <div style="display:grid; gap: var(--space-2)">${rows.map((m) => html`<div class="meter">
         <span class="lbl"><span>${m.label}</span><span>${m.used}</span></span>
         <span class="bar"><span class="fill ${m.pct >= 90 ? 'hot' : ''}" style="inline-size:${String(m.pct)}%"></span></span>

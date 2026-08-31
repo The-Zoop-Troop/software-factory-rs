@@ -5,6 +5,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { attentionOf } from '../core/schema.js';
 import { attentionItems } from '../state/rigs.js';
 import { controls, badges } from '../styles/shared.js';
+import { EMPTY, SECTION_HELP } from '../copy.js';
 
 /** The badge in the header and the drawer it opens: every item that needs a human, all rigs. */
 @customElement('attention-drawer')
@@ -27,6 +28,7 @@ export class AttentionDrawer extends SignalWatcher(LitElement) {
     li a:hover { text-decoration: underline; }
     .meta { font-size: .85rem; color: var(--fg-muted); display: flex; gap: .5rem; flex-wrap: wrap; }
     .empty { color: var(--fg-muted); }
+    .hint { color: var(--fg-muted); font-size: .85rem; margin-block-end: var(--space-3); text-wrap: pretty; }
   `];
 
   @query('dialog') private dialog?: HTMLDialogElement;
@@ -40,7 +42,8 @@ export class AttentionDrawer extends SignalWatcher(LitElement) {
       </button>
       <dialog aria-labelledby="att-h" @click=${this.onBackdrop}>
         <header><h2 id="att-h">Needs you</h2><button type="button" @click=${() => this.dialog?.close()}>Close</button></header>
-        ${n === 0 ? html`<p class="empty">Nothing right now.</p>` : html`<ol>
+        <p class="hint">${SECTION_HELP.attention}</p>
+        ${n === 0 ? html`<p class="empty">${EMPTY.attention}</p>` : html`<ol>
           ${repeat(items, (i) => `${i.rig}/${i.task.id}`, (i) => {
             const a = attentionOf(i.task.status.message);
             const epic = a?.epicId ?? i.task.contextId;

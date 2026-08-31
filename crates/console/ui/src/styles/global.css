@@ -13,30 +13,37 @@
 @layer tokens {
   :root {
     color-scheme: light dark;
-    /* One hue in, a whole palette out (oklch). Accent = electric violet, signal = amber, ok = mint. */
-    --hue: 285;
-    --accent: oklch(62% 0.24 var(--hue));
-    --accent-strong: oklch(52% 0.26 var(--hue));
+    /* One hue in, a whole palette out (oklch). System-blue accent over near-neutral
+       surfaces; signal colors follow platform conventions: green / amber / red / teal. */
+    --hue: 252;
+    --accent: light-dark(oklch(58% 0.195 var(--hue)), oklch(64% 0.17 var(--hue)));
+    --accent-strong: light-dark(oklch(48% 0.2 var(--hue)), oklch(72% 0.15 var(--hue)));
     --accent-soft: oklch(from var(--accent) l c h / 0.14);
-    --ok: oklch(72% 0.17 160);
-    --warn: oklch(78% 0.16 80);
-    --danger: oklch(62% 0.22 25);
-    --info: oklch(70% 0.14 230);
+    --ok: oklch(70% 0.17 155);
+    --warn: oklch(75% 0.15 70);
+    --danger: oklch(60% 0.21 27);
+    --info: oklch(65% 0.12 230);
 
-    --bg: light-dark(oklch(98% 0.005 var(--hue)), oklch(16% 0.02 var(--hue)));
-    --bg-elev: light-dark(oklch(100% 0 0 / 0.75), oklch(22% 0.02 var(--hue) / 0.7));
-    --fg: light-dark(oklch(22% 0.02 var(--hue)), oklch(94% 0.01 var(--hue)));
-    --fg-muted: light-dark(oklch(45% 0.02 var(--hue)), oklch(72% 0.02 var(--hue)));
-    --line: light-dark(oklch(88% 0.01 var(--hue)), oklch(32% 0.02 var(--hue)));
+    /* Near-neutral surfaces with only a faint cool cast — clean gray, not colored gray. */
+    --bg: light-dark(oklch(97.5% 0.003 var(--hue)), oklch(17% 0.008 var(--hue)));
+    --bg-elev: light-dark(oklch(100% 0 0 / 0.8), oklch(23% 0.01 var(--hue) / 0.75));
+    --fg: light-dark(oklch(21% 0.01 var(--hue)), oklch(93% 0.005 var(--hue)));
+    --fg-muted: light-dark(oklch(46% 0.012 var(--hue)), oklch(71% 0.01 var(--hue)));
+    --line: light-dark(oklch(90% 0.005 var(--hue)), oklch(31% 0.01 var(--hue)));
 
     --radius: 14px;
     --radius-sm: 8px;
-    --shadow: 0 1px 2px oklch(0% 0 0 / 0.08), 0 12px 32px -16px oklch(0% 0 0 / 0.35);
-    --glow: 0 0 0 1px var(--accent-soft), 0 0 32px -4px oklch(from var(--accent) l c h / 0.45);
+    /* Two quiet layers: contact + ambient. Nothing glows. */
+    --shadow: 0 1px 2px oklch(0% 0 0 / 0.06), 0 8px 24px -12px oklch(0% 0 0 / 0.18);
+    --shadow-raised: 0 2px 4px oklch(0% 0 0 / 0.07), 0 16px 40px -16px oklch(0% 0 0 / 0.28);
+    /* A soft accent ring for chosen/selected states (kept under the old name). */
+    --glow: 0 0 0 3px var(--accent-soft);
     --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --font: ui-sans-serif, system-ui, "Inter", "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
-    --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem; --space-6: 1.5rem; --space-8: 2rem;
+    --space-1: 0.25rem; --space-2: 0.5rem; --space-3: 0.75rem; --space-4: 1rem; --space-5: 1.25rem; --space-6: 1.5rem; --space-8: 2rem;
+    /* Fluid page padding: tight on phones, generous on desktop. */
+    --page-pad: clamp(0.75rem, 3vw, 1.5rem);
   }
   @media (prefers-reduced-motion: reduce) {
     :root { --ease-out: linear; }
@@ -49,13 +56,10 @@
     font-family: var(--font);
     line-height: 1.5;
     color: var(--fg);
-    background:
-      radial-gradient(1200px 600px at 10% -10%, oklch(from var(--accent) l c h / 0.18), transparent 60%),
-      radial-gradient(900px 500px at 110% 10%, oklch(from var(--info) l c h / 0.12), transparent 60%),
-      var(--bg);
-    background-attachment: fixed;
+    background: var(--bg);
   }
-  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-sm); }
+  ::selection { background: var(--accent-soft); }
   .skip { position: absolute; inset-inline-start: 1rem; inset-block-start: -3rem; padding: .5rem 1rem; background: var(--accent); color: white; border-radius: var(--radius-sm); }
   .skip:focus { inset-block-start: 1rem; z-index: 100; }
   app-shell:not(:defined) { visibility: hidden; }

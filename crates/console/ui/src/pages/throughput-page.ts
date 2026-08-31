@@ -4,12 +4,14 @@ import { SignalWatcher } from '@lit-labs/signals';
 import { repeat } from 'lit/directives/repeat.js';
 import { Effect } from 'effect';
 import type { EpicMetrics, RigName } from '../core/schema.js';
+import { PAGE, SECTION_HELP } from '../copy.js';
 import { run, withApi } from '../core/runtime.js';
 import { explain } from '../core/errors.js';
 import { lastError } from '../state/session.js';
 import { currentRig } from '../state/rigs.js';
 import { layout, mmss, STAGE_LABEL, type Stage } from '../state/gantt.js';
-import { controls } from '../styles/shared.js';
+import { controls, surface } from '../styles/shared.js';
+import '../components/help-tip.js';
 
 const STAGES: ReadonlyArray<Stage> = ['queue_wait', 'session', 'verify_wait', 'verify', 'integrate_wait', 'integrate'];
 const isStage = (s: string): s is Stage => (STAGES as ReadonlyArray<string>).includes(s);
@@ -18,16 +20,22 @@ const stageLabel = (s: string): string => (isStage(s) ? STAGE_LABEL[s] : s);
 /** One epic's throughput: a Gantt of every attempt by stage, the stage table, and the totals. */
 @customElement('throughput-page')
 export class ThroughputPage extends SignalWatcher(LitElement) {
-  static override styles = [controls, css`
+  static override styles = [controls, surface, css`
     :host { display: grid; gap: var(--space-6); }
+    .intro { display: grid; gap: var(--space-2); }
     header { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
-    h1 { font-size: 1.6rem; font-weight: 800; font-family: var(--mono); }
-    h2 { font-size: 1.1rem; font-weight: 700; color: var(--fg-muted); margin-block-end: var(--space-3); }
+    h1 { font-size: 1.6rem; font-weight: 800; font-family: var(--mono); overflow-wrap: anywhere; }
+    h2 { font-size: 1.1rem; font-weight: 700; color: var(--fg-muted); margin-block-end: var(--space-3); display: flex; gap: var(--space-2); align-items: center; }
+    section { container-type: inline-size; }
     .muted { color: var(--fg-muted); }
     .totals { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); font-variant-numeric: tabular-nums; }
     .totals b { font-family: var(--mono); }
     .gantt { display: grid; grid-template-columns: minmax(8rem, 14rem) 1fr; gap: var(--space-2) var(--space-3); align-items: center; }
     .gantt .task { font-family: var(--mono); font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @container (max-width: 40rem) {
+      .gantt { grid-template-columns: 1fr; row-gap: var(--space-1); }
+      .gantt .task { margin-block-start: var(--space-2); }
+    }
     .lane { position: relative; height: 1.4rem; background: color-mix(in oklch, var(--fg-muted) 8%, transparent); border-radius: var(--radius-s, 4px); }
     .seg { position: absolute; top: 0; bottom: 0; min-width: 2px; border-radius: 3px; opacity: 0.95; }
     .seg.retry { opacity: 0.45; }
@@ -45,6 +53,7 @@ export class ThroughputPage extends SignalWatcher(LitElement) {
     .legend .verify::before { background: oklch(65% 0.17 150); }
     .legend .integrate_wait::before { background: oklch(84% 0.05 60); }
     .legend .integrate::before { background: oklch(68% 0.16 60); }
+    .surface:has(> table) { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: var(--space-2) var(--space-3); border-block-end: 1px solid var(--line); }
     .num { text-align: right; font-variant-numeric: tabular-nums; }
@@ -84,18 +93,21 @@ export class ThroughputPage extends SignalWatcher(LitElement) {
     const peak = m.concurrency.reduce((p, [, n]) => Math.max(p, n), 0);
     return html`
       ${this.header()}
-      <section aria-label="Totals" class="totals">
-        <span>wall-clock <b>${mmss(m.wall_clock)}</b></span>
-        <span>work <b>${mmss(m.work)}</b></span>
-        <span>parallelism <b>${m.parallelism_pct}%</b></span>
-        <span>critical path <b>${mmss(m.critical_path)}</b></span>
-        <span>retry tax <b>${mmss(m.retry_tax)}</b></span>
-        <span>first-pass <b>${m.first_pass}/${m.tasks.length}</b></span>
-        <span>peak live sessions <b>${peak}</b></span>
-        <span>more workers could save up to <b>${mmss(Math.max(0, m.wall_clock - m.critical_path))}</b></span>
+      <section aria-labelledby="totals-h">
+        <h2 id="totals-h">Totals <help-tip text=${SECTION_HELP.totals} label="About these metrics"></help-tip></h2>
+        <div class="totals">
+          <span>wall-clock <b>${mmss(m.wall_clock)}</b></span>
+          <span>work <b>${mmss(m.work)}</b></span>
+          <span>parallelism <b>${m.parallelism_pct}%</b></span>
+          <span>critical path <b>${mmss(m.critical_path)}</b></span>
+          <span>retry tax <b>${mmss(m.retry_tax)}</b></span>
+          <span>first-pass <b>${m.first_pass}/${m.tasks.length}</b></span>
+          <span>peak live sessions <b>${peak}</b></span>
+          <span>more workers could save up to <b>${mmss(Math.max(0, m.wall_clock - m.critical_path))}</b></span>
+        </div>
       </section>
       <section aria-labelledby="gantt-h">
-        <h2 id="gantt-h">Every attempt, by stage</h2>
+        <h2 id="gantt-h">Every attempt, by stage <help-tip text=${SECTION_HELP.gantt} label="About this chart"></help-tip></h2>
         <div class="legend">${STAGES.map((s) => html`<span class=${s}>${STAGE_LABEL[s]}</span>`)}</div>
         <div class="gantt" role="list">
           ${repeat(l.rows, (r) => r.task, (r) => html`
@@ -105,7 +117,7 @@ export class ThroughputPage extends SignalWatcher(LitElement) {
         <p class="muted">${mmss(l.span)} across; faded segments are attempts that did not land.</p>
       </section>
       <section aria-labelledby="stages-h">
-        <h2 id="stages-h">Stages</h2>
+        <h2 id="stages-h">Stages <help-tip text=${SECTION_HELP.stages} label="About stage times"></help-tip></h2>
         <div class="surface"><table>
           <thead><tr><th>Stage</th><th class="num">n</th><th class="num">p50</th><th class="num">max</th><th class="num">total</th></tr></thead>
           <tbody>${repeat(m.stages, (s) => s.stage, (s) => html`<tr><td>${stageLabel(s.stage)}</td><td class="num">${s.samples}</td><td class="num">${mmss(s.p50)}</td><td class="num">${mmss(s.max)}</td><td class="num">${mmss(s.total)}</td></tr>`)}</tbody>
@@ -115,7 +127,10 @@ export class ThroughputPage extends SignalWatcher(LitElement) {
   }
 
   private header() {
-    return html`<header><a href="/">Rigs</a><span class="muted">/</span><a href="/rigs/${this.rig}">${this.rig}</a><span class="muted">/</span><a href="/rigs/${this.rig}/epics/${this.id}">${this.id}</a><span class="muted">/</span><h1>throughput</h1></header>`;
+    return html`<div class="intro">
+      <header><a href="/">Rigs</a><span class="muted">/</span><a href="/rigs/${this.rig}">${this.rig}</a><span class="muted">/</span><a href="/rigs/${this.rig}/epics/${this.id}">${this.id}</a><span class="muted">/</span><h1>throughput</h1></header>
+      <p class="page-desc">${PAGE.throughput.desc}</p>
+    </div>`;
   }
 }
 

@@ -14,7 +14,7 @@ export class EpicCard extends LitElement {
     .id { color: var(--fg-muted); font-family: var(--mono); font-size: .8rem; }
     .progress { display: grid; gap: var(--space-1); }
     .bar { block-size: .5rem; border-radius: 999px; background: var(--line); overflow: clip; }
-    .bar > span { display: block; block-size: 100%; inline-size: var(--pct); background: linear-gradient(90deg, var(--accent), var(--ok)); transition: inline-size 600ms var(--ease-out); }
+    .bar > span { display: block; block-size: 100%; inline-size: var(--pct); background: var(--accent); transition: inline-size 600ms var(--ease-out); }
     output { font-variant-numeric: tabular-nums; color: var(--fg-muted); font-size: .85rem; }
     footer { display: flex; gap: var(--space-2); justify-content: end; align-items: center; }
     .why { font-size: .8rem; color: var(--fg-muted); }

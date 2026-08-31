@@ -5,6 +5,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { applyOption, loadBeadDetail, loadEpicConsumers, loadEpicMetrics, pending, refreshRig, stopEpic, loadEpicHistory } from '../actions.js';
 import type { AttentionOption, Child, RigName } from '../core/schema.js';
 import { attentionOf } from '../core/schema.js';
+import { PAGE, SECTION_HELP } from '../copy.js';
 import { describe, forEpic, latestProgress, recordDate } from '../state/events.js';
 import { currentRig, taskById, tasksByRig } from '../state/rigs.js';
 import { beadDetails, consumersByEpic, fmtTokens, metricsByEpic } from '../state/detail.js';
@@ -12,6 +13,7 @@ import { layout, mmss } from '../state/gantt.js';
 import { can, whyNot } from '../state/session.js';
 import { badges, controls, surface } from '../styles/shared.js';
 import '../components/epic-card.js';
+import '../components/help-tip.js';
 import '../components/inbox-item.js';
 import '../components/task-drawer.js';
 
@@ -22,12 +24,14 @@ const stateTone = (s: string): string =>
 export class EpicPage extends SignalWatcher(LitElement) {
   static override styles = [surface, controls, badges, css`
     :host { display: grid; gap: var(--space-6); }
+    .intro { display: grid; gap: var(--space-2); }
     header { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
     header a { color: inherit; }
-    h1 { font-size: 1.5rem; font-weight: 800; font-family: var(--mono); }
-    h2 { font-size: 1.1rem; font-weight: 700; color: var(--fg-muted); margin-block-end: var(--space-3); }
+    h1 { font-size: 1.5rem; font-weight: 800; font-family: var(--mono); overflow-wrap: anywhere; }
+    h2 { font-size: 1.1rem; font-weight: 700; color: var(--fg-muted); margin-block-end: var(--space-3); display: flex; gap: var(--space-2); align-items: center; }
     .layout { display: grid; gap: var(--space-6); grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
     @media (max-width: 60rem) { .layout { grid-template-columns: 1fr; } }
+    .surface:has(> table) { overflow-x: auto; }
     table { inline-size: 100%; border-collapse: collapse; font-size: .92rem; }
     th, td { text-align: start; padding: .5rem .6rem; border-block-end: 1px solid var(--line); vertical-align: top; }
     th { color: var(--fg-muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
@@ -38,8 +42,8 @@ export class EpicPage extends SignalWatcher(LitElement) {
     .timeline li::before { content: ''; inline-size: .6rem; block-size: .6rem; border-radius: 50%; background: var(--tone, var(--fg-muted)); border: 2px solid var(--bg); box-shadow: 0 0 0 2px var(--tone, var(--line)); z-index: 1; }
     .success { --tone: var(--ok); } .warning { --tone: var(--warn); } .danger { --tone: var(--danger); } .info { --tone: var(--info); }
     .timeline time { color: var(--fg-muted); font-family: var(--mono); font-size: .75rem; margin-inline-start: .5rem; }
-    .empty { color: var(--fg-muted); }
-    .rollup { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); font-variant-numeric: tabular-nums; color: var(--fg-muted); font-size: .9rem; }
+    .empty { color: var(--fg-muted); max-inline-size: 70ch; text-wrap: pretty; }
+    .rollup { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); font-variant-numeric: tabular-nums; color: var(--fg-muted); font-size: .9rem; align-items: center; }
     .rollup b { color: var(--fg); font-family: var(--mono); }
     .stamps { color: var(--fg-muted); font-size: .85rem; font-family: var(--mono); }
     details.plan { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); }
@@ -47,7 +51,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
     details.plan pre { margin: var(--space-2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; }
     ul.consumers { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
     tbody tr { cursor: pointer; }
-    tbody tr:hover { background: color-mix(in oklch, var(--accent) 6%, transparent); }
+    @media (hover: hover) { tbody tr:hover { background: color-mix(in oklch, var(--accent) 6%, transparent); } }
     .tasklink { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: start; }
   `];
 
@@ -77,13 +81,16 @@ export class EpicPage extends SignalWatcher(LitElement) {
     const working = latestProgress(all);
     const events = all.slice(-80).reverse();
     return html`
-      <header><a href="/">Rigs</a><span class="muted">/</span><a href="/rigs/${this.rig}">${this.rig}</a><span class="muted">/</span><h1>${this.id}</h1><a class="throughput" href="/rigs/${this.rig}/epics/${this.id}/throughput">throughput →</a></header>
+      <div class="intro">
+        <header><a href="/">Rigs</a><span class="muted">/</span><a href="/rigs/${this.rig}">${this.rig}</a><span class="muted">/</span><h1>${this.id}</h1><a class="throughput" href="/rigs/${this.rig}/epics/${this.id}/throughput">throughput →</a></header>
+        <p class="page-desc">${PAGE.epic.desc}</p>
+      </div>
       ${epic === undefined ? html`<p class="empty">Loading ${this.id}…</p>` : html`
         <epic-card .task=${epic} .pending=${pending.get().has(epic.id)} .allowed=${can(this.rig, 'plan')} .reason=${whyNot(this.rig, 'plan')} @stop-epic=${this.onStop}></epic-card>
         ${this.renderRollup(all)}
         <div class="layout">
           <section aria-labelledby="tasks-h">
-            <h2 id="tasks-h">Tasks</h2>
+            <h2 id="tasks-h">Tasks <help-tip text=${SECTION_HELP.tasks} label="About tasks"></help-tip></h2>
             ${epic.metadata.factory.children.length === 0 ? html`<p class="empty">No tasks yet — the planner is still working, or the epic is empty.</p>` : html`
             <div class="surface"><table>
               <thead><tr><th>Task</th><th>State</th><th class="num">Attempts</th><th class="num">Tokens</th><th>Branch</th><th>Working</th></tr></thead>
@@ -96,13 +103,13 @@ export class EpicPage extends SignalWatcher(LitElement) {
                 <td class="muted">${c.state === 'in_progress' ? (working.get(c.id)?.title ?? 'session starting') : ''}</td>
               </tr>`)}</tbody>
             </table></div>`}
-            ${inbox.length === 0 ? nothing : html`<h2 style="margin-block-start: var(--space-6)">Needs you</h2>
+            ${inbox.length === 0 ? nothing : html`<h2 style="margin-block-start: var(--space-6)">Needs you <help-tip text=${SECTION_HELP.needsYou} label="About this section"></help-tip></h2>
               <div style="display:grid; gap: var(--space-4)">${repeat(inbox, (t) => t.id, (t) => html`<inbox-item .task=${t} .pending=${pending.get().has(t.id)} .allowed=${can(this.rig, 'resolve')} .reason=${whyNot(this.rig, 'resolve')} @apply-option=${this.onOption}></inbox-item>`)}</div>`}
             ${this.renderPlan()}
             ${this.renderProvenance()}
           </section>
           <section aria-labelledby="tl-h">
-            <h2 id="tl-h">Timeline</h2>
+            <h2 id="tl-h">Timeline <help-tip text=${SECTION_HELP.timeline} label="About the timeline"></help-tip></h2>
             ${events.length === 0 ? html`<p class="empty">No events for this epic in the current session.</p>` : html`<ol class="timeline">${repeat(events, (f) => `${String(f.cursor)}:${String(f.record.at)}:${f.record.kind}`, (f) => {
               const line = describe(f) ?? { title: `${f.record.actor}: ${f.record.kind}`, tone: 'info' as const };
               const at = recordDate(f.record.at);
@@ -129,6 +136,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
         <span>first pass <b>${String(m.first_pass)}/${String(m.landed)}</b></span>
         <span>retry tax <b>${mmss(m.retry_tax)}</b></span>
         <span>tokens <b>${fmtTokens(m.tokens)}</b></span>
+        <help-tip text=${SECTION_HELP.rollup} label="About these metrics"></help-tip>
       </div>`}
       ${stamps === '' ? nothing : html`<p class="stamps">${stamps}</p>`}
     </div>`;
@@ -141,7 +149,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
     const refs = (d.context ?? []).filter((c) => c.kind === 'reference');
     const contracts = (d.context ?? []).filter((c) => c.kind === 'contract');
     if (d.description === '' && refs.length === 0 && contracts.length === 0) return nothing;
-    return html`<h2 style="margin-block-start: var(--space-6)">Plan</h2>
+    return html`<h2 style="margin-block-start: var(--space-6)">Plan <help-tip text=${SECTION_HELP.plan} label="About the plan"></help-tip></h2>
       <div style="display:grid; gap: var(--space-2)">
         ${d.description === '' ? nothing : html`<details class="plan" open><summary>Plan text</summary><pre>${d.description}</pre></details>`}
         ${refs.map((c) => html`<details class="plan"><summary>Reference — ${c.title}</summary><pre>${c.text}</pre></details>`)}
@@ -155,7 +163,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
     const consumers = consumersByEpic.get()[`${this.rig}/${this.id}`] ?? [];
     const origin = d?.origin ?? null;
     if (origin === null && consumers.length === 0) return nothing;
-    return html`<h2 style="margin-block-start: var(--space-6)">Provenance</h2>
+    return html`<h2 style="margin-block-start: var(--space-6)">Provenance <help-tip text=${SECTION_HELP.provenance} label="About provenance"></help-tip></h2>
       <div style="display:grid; gap: var(--space-2)">
         ${origin === null ? nothing : html`<details class="plan"><summary>From plan request — ${origin.title}</summary><pre>${origin.text}</pre></details>`}
         ${consumers.length === 0 ? nothing : html`<div>

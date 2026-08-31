@@ -11,6 +11,9 @@ export const backstopDue = (stream: StreamStatus, last: number, now: number): bo
 import { connect, disconnect } from './core/runtime.js';
 import { Router } from './router.js';
 import './components/attention-drawer.js';
+import './components/help-drawer.js';
+import './components/help-tip.js';
+import { SECTION_HELP } from './copy.js';
 import { baseUrl, connection, loadToken, saveToken, token } from './state/session.js';
 import { controls, badges } from './styles/shared.js';
 import './components/toast-stack.js';
@@ -23,11 +26,11 @@ export class AppShell extends SignalWatcher(LitElement) {
     header {
       position: sticky; inset-block-start: 0; z-index: 10;
       display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
-      padding: var(--space-3) var(--space-6);
+      padding: var(--space-3) var(--page-pad);
       background: var(--bg-elev); backdrop-filter: blur(16px) saturate(1.4); border-block-end: 1px solid var(--line);
     }
     .brand { font-weight: 900; letter-spacing: -0.02em; font-size: 1.15rem; text-decoration: none; color: inherit; display: inline-flex; gap: .4rem; align-items: center; }
-    .brand::before { content: ''; inline-size: .8rem; block-size: .8rem; border-radius: 3px; background: linear-gradient(135deg, var(--accent), var(--ok)); rotate: 45deg; }
+    .brand::before { content: ''; inline-size: .8rem; block-size: .8rem; border-radius: 3px; background: var(--accent); rotate: 45deg; }
     form { display: flex; gap: var(--space-2); align-items: center; margin-inline-start: auto; }
     form input { inline-size: 16rem; }
     .dot { inline-size: .6rem; block-size: .6rem; border-radius: 50%; background: var(--fg-muted); }
@@ -36,7 +39,13 @@ export class AppShell extends SignalWatcher(LitElement) {
     .offline .dot { background: var(--danger); }
     .status { display: inline-flex; gap: .5rem; align-items: center; font-size: .85rem; color: var(--fg-muted); }
     .stream.live { color: var(--ok); font-weight: 700; } .stream.reconnecting, .stream.connecting { color: var(--warn); }
-    main { padding: var(--space-6); max-inline-size: 80rem; inline-size: 100%; margin-inline: auto; }
+    main { padding: var(--space-6) var(--page-pad) calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); max-inline-size: 80rem; inline-size: 100%; margin-inline: auto; }
+    @media (max-width: 40rem) {
+      header { gap: var(--space-2); }
+      form { flex: 1 1 100%; }
+      form label { flex: 1; }
+      form input { inline-size: 100%; }
+    }
     @keyframes pulse { 50% { opacity: .4; } }
   `];
 
@@ -80,10 +89,12 @@ export class AppShell extends SignalWatcher(LitElement) {
       <header class=${conn}>
         <a class="brand" href="/">factory</a>
         <attention-drawer></attention-drawer>
+        <help-drawer></help-drawer>
         <span class="status" aria-live="polite"><span class="dot" aria-hidden="true"></span>${conn}${conn === 'online' ? html` · <span class="stream ${streamStatus.get()}">${streamStatus.get() === 'live' ? 'live' : streamStatus.get()}</span>` : ''}</span>
         <form @submit=${this.onConnect}>
           ${token.get() === '' || conn === 'idle'
             ? html`<label>Token <input name="token" type="password" autocomplete="off" required .value=${this.draft} @input=${(e: Event) => { this.draft = (e.target as HTMLInputElement).value; }}></label>
+                   <help-tip text=${SECTION_HELP.accessToken} label="About signing in"></help-tip>
                    <button type="submit" class="primary">Connect</button>`
             : html`<button type="button" @click=${() => { this.stop(); }}>Disconnect</button>`}
         </form>

@@ -175,8 +175,8 @@ describe('epic-page detail sections', () => {
     };
     connectFake({
       token: 'ok', rigs: [rig], tasks: { toy: [epic] },
-      beads: { 'toy/ep-1': detail as never },
-      metrics: { 'toy/ep-1': report as never },
+      beads: { 'toy/ep-1': detail },
+      metrics: { 'toy/ep-1': report },
       consumers: { 'toy/ep-1': [{ rig: 'portal', id: 'pr-9', title: 'Portal after backend', status: 'open' }] },
     }, 'ok');
     const page = await fixture<HTMLElement>(html`<epic-page rig="toy" id="ep-1"></epic-page>`);
