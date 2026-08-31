@@ -1,0 +1,13 @@
+# Weekly sweep: back up every registered rig (with retention) and check git-token expiry.
+# Wants the `factory` binary on PATH (cargo build --release -p factory; link into ~/.local/bin).
+[Unit]
+Description=Factory maintenance: rig backups, retention, credential expiry check
+After=docker.service
+
+[Service]
+Type=oneshot
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=FACTORY_COMPOSE=%h/git-repos/software-factory-rs/compose.yaml
+WorkingDirectory=%h/git-repos/software-factory-rs
+ExecStart=%h/git-repos/software-factory-rs/docker/maintenance.sh
+TimeoutStartSec=1800

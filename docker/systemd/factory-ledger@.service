@@ -1,0 +1,19 @@
+# A stopped rig's ledger only: history stays readable in the console after a reboot without
+# resurrecting the rig's roles. Enable this OR factory-rig@<name>, never both.
+#   systemctl --user enable --now factory-ledger@toy
+[Unit]
+Description=Factory rig %i ledger only (roles stay down)
+After=network-online.target docker.service
+Wants=network-online.target
+Conflicts=factory-rig@%i.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=FACTORY_COMPOSE=%h/git-repos/software-factory-rs/compose.yaml
+ExecStart=/usr/bin/docker compose -p factory-%i --env-file %h/.factory/%i/compose.env -f ${FACTORY_COMPOSE} up -d ledger
+ExecStop=/usr/bin/docker compose -p factory-%i --env-file %h/.factory/%i/compose.env -f ${FACTORY_COMPOSE} stop ledger
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

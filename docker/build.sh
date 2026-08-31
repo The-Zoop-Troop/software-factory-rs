@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 # Build the rig images: the base, then the selected runtime (default: rust), and assemble the
 # egress allowlist from base + runtime + project fragments.
-#   docker/build.sh [runtime] [--project <dir>] [--conformance]
+#   docker/build.sh [runtime] [--project <dir>] [--conformance] [--pull]
+# --pull refreshes the FROM images (CVE fixes); use it for the monthly image-hygiene rebuild.
 # A project may carry .factory/Dockerfile (FROM the runtime image) and .factory/allowlist.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-RUNTIME=rust; PROJECT=""; CONFORMANCE=0
+RUNTIME=rust; PROJECT=""; CONFORMANCE=0; PULL=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --project) PROJECT=$2; shift ;;
     --conformance) CONFORMANCE=1 ;;
+    --pull) PULL=(--pull) ;;
     *) RUNTIME=$1 ;;
   esac; shift
 done
 echo "==> base"
-docker build -q -f docker/base/Dockerfile -t factory-rig:base . >/dev/null
+docker build -q "${PULL[@]}" -f docker/base/Dockerfile -t factory-rig:base . >/dev/null
 IMAGE=factory-rig:base
 # A runtime layers on the image named by its Dockerfile's `ARG BASE=factory-rig:<x>` default;
 # build that parent first (web-e2e sits on node, polyglot on rust).
@@ -24,7 +26,7 @@ build_runtime() {
   parent=$(sed -nE 's/^ARG BASE=factory-rig:([a-z0-9-]+)$/\1/p' "docker/runtimes/$rt/Dockerfile" | head -1)
   [ "${parent:-base}" = base ] || build_runtime "$parent"
   echo "==> runtime $rt (from ${parent:-base})"
-  docker build -q -f "docker/runtimes/$rt/Dockerfile" --build-arg BASE="factory-rig:${parent:-base}" -t "factory-rig:$rt" docker/runtimes >/dev/null
+  docker build -q "${PULL[@]}" -f "docker/runtimes/$rt/Dockerfile" --build-arg BASE="factory-rig:${parent:-base}" -t "factory-rig:$rt" docker/runtimes >/dev/null
   # Smoke: every runtime image must still carry the harness CLIs and the ledger tools; a PATH
   # change that drops them fails here, not in a rig's first plan.
   docker run --rm --entrypoint sh "factory-rig:$rt" -c 'for b in bd git dolt codex claude opencode; do command -v "$b" >/dev/null 2>&1 || { echo "smoke: $b missing from PATH ($PATH)"; exit 1; }; done' \

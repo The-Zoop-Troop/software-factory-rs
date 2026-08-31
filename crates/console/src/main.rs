@@ -74,7 +74,7 @@ enum Command {
         #[arg(long, env = "CONSOLE_ALERT_URL")]
         alert_url: Option<String>,
         /// Seconds between alert sweeps.
-        #[arg(long, default_value_t = 30)]
+        #[arg(long, env = "CONSOLE_ALERT_INTERVAL", default_value_t = 30)]
         alert_interval: u64,
         /// Serve an in-memory rig `toy` with token `fake` (UI development and e2e tests).
         #[cfg(feature = "fake")]
@@ -173,7 +173,8 @@ async fn main() -> anyhow::Result<()> {
                 state.clock.clone(),
                 domain::Duration::from_seconds(30),
             ));
-            if let Some(url) = alert_url {
+            // An empty URL means "unset" (the generated compose passes ${CONSOLE_ALERT_URL:-}).
+            if let Some(url) = alert_url.filter(|u| !u.is_empty()) {
                 tokio::spawn(alerts::run(
                     state.registry.clone(),
                     state.clock.clone(),

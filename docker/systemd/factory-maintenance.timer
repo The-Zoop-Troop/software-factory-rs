@@ -1,0 +1,10 @@
+[Unit]
+Description=Weekly factory maintenance (backups, retention, credential expiry)
+
+[Timer]
+OnCalendar=weekly
+Persistent=true
+RandomizedDelaySec=1h
+
+[Install]
+WantedBy=timers.target
