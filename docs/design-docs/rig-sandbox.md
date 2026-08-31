@@ -24,7 +24,8 @@ Rust). `prepare = []` disables it. Its output lands in the task's note like any 
 then the roles: `steward`, `verifier`, `integrator`, `worker`, `planner`; optional profiles add
 a rig-local `console`, `postgres`, `redis`, an OpenCode worker, and a chat bridge. Roles wait
 for `ledger` to be healthy. `factory rig stop` takes the roles and egress down and leaves
-`ledger` up, so a stopped rig's history stays readable; only `rig destroy` takes it down. `RIG_WORKERS=N` (compose env) runs N worker replicas; leases keep them
-from claiming the same task, worktrees are per task branch, and the shared cache volume is
+`ledger` up, so a stopped rig's history stays readable; only `rig destroy` takes it down. `RIG_WORKERS=N` (compose env) runs N worker replicas; the ledger's atomic claim keeps them
+from taking the same task (the lease write alone is last-writer-wins and once raced two
+workers onto one task), worktrees are per task branch, and the shared cache volume is
 safe under cargo's own locking. The throughput report says whether a second worker pays:
 wall-clock minus critical path is the most it can save. See `ledger.md` for why the server exists.

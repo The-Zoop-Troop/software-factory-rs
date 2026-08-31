@@ -95,6 +95,10 @@ pub async fn work_once(
         return Ok(None);
     };
     let id = bead.id.clone();
+    // The only atomic step: whoever wins this writes the lease; everyone else walks away.
+    if !store.try_claim(&id).await? {
+        return Ok(None);
+    }
     let now = clock.now();
     let tr = apply_event(
         store,

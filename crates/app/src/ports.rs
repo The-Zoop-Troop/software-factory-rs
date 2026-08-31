@@ -34,6 +34,21 @@ pub trait BeadStore: Send + Sync {
     /// Transport/decode failures.
     async fn list_active(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError>;
 
+    /// Atomically claim `id` in the ledger (assignee + in-progress). `false`: someone else won;
+    /// pick another bead. This is the only race-safe step of taking a task — the lease metadata
+    /// write that follows is last-writer-wins and must happen only for the winner.
+    ///
+    /// # Errors
+    /// `NotFound` or transport failures (a lost race is `Ok(false)`, not an error).
+    async fn try_claim(&self, id: &BeadId) -> Result<bool, StoreError>;
+
+    /// Give a claimed bead back: open, unassigned. Called whenever a task's state returns to
+    /// `Open` (release, reap, failed verify, integration conflict, operator retry).
+    ///
+    /// # Errors
+    /// `NotFound` or transport failures.
+    async fn unclaim(&self, id: &BeadId) -> Result<(), StoreError>;
+
     /// Deferred beads of `kind` (plan requests waiting on other rigs).
     ///
     /// # Errors

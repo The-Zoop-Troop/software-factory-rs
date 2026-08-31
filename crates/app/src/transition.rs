@@ -6,7 +6,7 @@
 use domain::task::Effect;
 use domain::{
     BeadId, BeadKind, BeadMeta, Event, FactoryMeta, IllegalTransition, MergeMeta, Priority, Task,
-    Title, Transition,
+    TaskState, Title, Transition,
 };
 
 use crate::bead::NewBead;
@@ -59,10 +59,15 @@ pub async fn apply_event(
     event: Event,
 ) -> Result<Transition, TransitionError> {
     let task = load_task(store, id).await?;
+    let was_open = matches!(task.state, TaskState::Open);
     let transition = task.apply(event)?;
     store
         .set_meta(id, &FactoryMeta::from(transition.task.clone()))
         .await?;
+    // The ledger's claim mirrors the lease: whenever the task is open again, anyone may take it.
+    if matches!(transition.task.state, TaskState::Open) && !was_open {
+        store.unclaim(id).await?;
+    }
     for effect in &transition.effects {
         run_effect(store, effect).await?;
     }

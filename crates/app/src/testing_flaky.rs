@@ -76,6 +76,14 @@ impl BeadStore for FlakyStore {
         self.write(crate::ports::StoreOp::Note)?;
         self.inner.note(id, text).await
     }
+    async fn try_claim(&self, id: &BeadId) -> Result<bool, StoreError> {
+        self.write(crate::ports::StoreOp::Update)?;
+        self.inner.try_claim(id).await
+    }
+    async fn unclaim(&self, id: &BeadId) -> Result<(), StoreError> {
+        self.write(crate::ports::StoreOp::Update)?;
+        self.inner.unclaim(id).await
+    }
     async fn list_deferred(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
         self.inner.list_deferred(kind).await
     }

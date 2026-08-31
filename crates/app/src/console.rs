@@ -99,6 +99,7 @@ pub async fn resolve(
             ..meta
         };
         store.set_meta(&task_id, &reopened).await?;
+        store.unclaim(&task_id).await?;
         store
             .note(&task_id, &format!("incident resolved by operator: {note}"))
             .await?;

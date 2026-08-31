@@ -118,6 +118,40 @@ async fn a_long_session_reports_worktree_drift_on_each_heartbeat() {
 }
 
 #[tokio::test]
+async fn two_workers_racing_one_task_claim_it_exactly_once() {
+    let store = std::sync::Arc::new(seeded().await);
+    let repo = FakeRepo {
+        commit_head: Some(sha('b')),
+        ..FakeRepo::default()
+    };
+    let log = MemorySink::default();
+    let clock = FixedClock(Timestamp::from_unix_seconds(100));
+    let mk = |n: &str| WorkerConfig {
+        agent: domain::AgentId::try_new(n).expect("agent"),
+        ..cfg()
+    };
+    let (cfg_a, cfg_b) = (mk("worker-a"), mk("worker-b"));
+    let (harness_a, harness_b) = (harness_text("done"), harness_text("done"));
+    let (a, b) = tokio::join!(
+        work_once(store.as_ref(), &repo, &harness_a, &clock, &log, &cfg_a),
+        work_once(store.as_ref(), &repo, &harness_b, &clock, &log, &cfg_b),
+    );
+    let reports = [a.unwrap(), b.unwrap()];
+    assert_eq!(
+        reports.iter().filter(|r| r.is_some()).count(),
+        1,
+        "exactly one wins: {reports:?}"
+    );
+    let claims = log
+        .events()
+        .await
+        .into_iter()
+        .filter(|e| matches!(e.kind, EventKind::Claimed { .. }))
+        .count();
+    assert_eq!(claims, 1, "one claimed event, not two");
+}
+
+#[tokio::test]
 async fn a_blocked_session_is_released_with_its_reason_and_the_file_never_lands() {
     let store = seeded().await;
     let root = std::env::temp_dir().join(format!("factory-blocked-{}", std::process::id()));

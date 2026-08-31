@@ -197,6 +197,27 @@ impl BeadStore for FakeStore {
             .collect())
     }
 
+    async fn try_claim(&self, id: &BeadId) -> Result<bool, StoreError> {
+        let mut beads = self.beads.lock().await;
+        let bead = beads
+            .get_mut(id)
+            .ok_or_else(|| StoreError::NotFound { id: id.clone() })?;
+        if bead.status == BeadStatus::InProgress {
+            return Ok(false);
+        }
+        bead.status = BeadStatus::InProgress;
+        Ok(true)
+    }
+
+    async fn unclaim(&self, id: &BeadId) -> Result<(), StoreError> {
+        let mut beads = self.beads.lock().await;
+        let bead = beads
+            .get_mut(id)
+            .ok_or_else(|| StoreError::NotFound { id: id.clone() })?;
+        bead.status = BeadStatus::Open;
+        Ok(())
+    }
+
     async fn list_deferred(&self, kind: BeadKind) -> Result<Vec<Bead>, StoreError> {
         self.readable()?;
         Ok(self
