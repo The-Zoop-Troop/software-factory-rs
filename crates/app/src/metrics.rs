@@ -1,5 +1,5 @@
 //! Throughput metrics: a pure fold of a rig's event log into per-task stage timings and
-//! per-epic totals (`docs/exec-plans/active/throughput-metrics.md`). No I/O; the console and
+//! per-epic totals (`docs/exec-plans/completed/throughput-metrics.md`). No I/O; the console and
 //! the CLI feed it `EventRecord`s read from `events.jsonl`.
 //!
 //! Stage edges per attempt: `claimed → submitted → verify_started → verified →
