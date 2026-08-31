@@ -9,6 +9,8 @@ use domain::{ClientId, MicroUsd, RigBudget, RigName, Scope, Tokens};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct RigSpec {
     pub name: RigName,
+    /// Host facts passed through by `factory rig` (absent in hand-written files).
+    pub facts: RigFacts,
     /// Directory holding `.beads/` (the ledger volume).
     pub ledger: PathBuf,
     /// The rig's `events.jsonl`.
@@ -16,6 +18,15 @@ pub(crate) struct RigSpec {
     /// How plans reach the rig: the ledger queue (default) or a command run here.
     pub planner: PlannerSpec,
     pub budget: RigBudget,
+}
+
+/// What the host registry knows about a rig, for the detail view. All optional.
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize)]
+pub(crate) struct RigFacts {
+    pub repo_url: Option<String>,
+    pub runtime: Option<String>,
+    pub harness: Option<String>,
+    pub main: Option<String>,
 }
 
 /// Where a submitted plan goes.
@@ -70,6 +81,14 @@ struct RawRig {
     max_tokens: Option<u64>,
     #[serde(default)]
     max_usd_micros: Option<u64>,
+    #[serde(default)]
+    repo_url: Option<String>,
+    #[serde(default)]
+    runtime: Option<String>,
+    #[serde(default)]
+    harness: Option<String>,
+    #[serde(default)]
+    main: Option<String>,
 }
 
 impl TryFrom<RawRig> for RigSpec {
@@ -90,6 +109,12 @@ impl TryFrom<RawRig> for RigSpec {
         };
         Ok(Self {
             name,
+            facts: RigFacts {
+                repo_url: raw.repo_url,
+                runtime: raw.runtime,
+                harness: raw.harness,
+                main: raw.main,
+            },
             ledger: raw.ledger,
             events: raw.events,
             planner,
@@ -206,6 +231,10 @@ mod tests {
             events = "/srv/toy/events.jsonl"
             plan_cmd = ["docker", "compose", "-p", "toy", "run", "--rm", "plan"]
             max_tokens = 5000
+            repo_url = "git@github.com:x/y.git"
+            runtime = "node"
+            harness = "claude"
+            main = "feat/z"
             "#,
         )
         .expect("toml");
@@ -214,6 +243,8 @@ mod tests {
         assert!(matches!(rigs[0].planner, PlannerSpec::Command { .. }));
         assert_eq!(rigs[0].budget.max_tokens, Some(Tokens::new(5000)));
         assert_eq!(rigs[0].budget.max_usd, None);
+        assert_eq!(rigs[0].facts.runtime.as_deref(), Some("node"));
+        assert_eq!(rigs[0].facts.main.as_deref(), Some("feat/z"));
 
         let bad: RawRegistry = toml::from_str(
             "[[rig]]\nname = \"Toy\"\nledger = \"a\"\nevents = \"b\"\nplan_cmd = [\"x\"]\n",
@@ -224,12 +255,14 @@ mod tests {
             "[[rig]]\nname = \"toy\"\nledger = \"a\"\nevents = \"b\"\nplan_timeout_secs = 5\n",
         )
         .expect("toml");
+        let queued = &parse_registry(queued).expect("ok")[0];
         assert_eq!(
-            parse_registry(queued).expect("ok")[0].planner,
+            queued.planner,
             PlannerSpec::Queue {
                 timeout: std::time::Duration::from_secs(5)
             }
         );
+        assert_eq!(queued.facts, RigFacts::default());
         let dup: RawRegistry = toml::from_str(
             "[[rig]]\nname = \"toy\"\nledger = \"a\"\nevents = \"b\"\nplan_cmd = [\"x\"]\n[[rig]]\nname = \"toy\"\nledger = \"a\"\nevents = \"b\"\nplan_cmd = [\"x\"]\n",
         )

@@ -33,6 +33,8 @@ pub(crate) struct AppState {
     pub public_url: String,
     /// How often SSE streams re-read the event log.
     pub poll: Duration,
+    /// Host facts per rig from the registry file (empty for hand-written registries).
+    pub facts: Arc<std::collections::BTreeMap<String, crate::config::RigFacts>>,
 }
 
 impl core::fmt::Debug for AppState {
@@ -53,6 +55,7 @@ pub(crate) fn router(state: AppState) -> Router {
         .route("/rigs/{rig}/epics/{id}/events", get(rigs::epic_events))
         .route("/rigs/{rig}/metrics", get(rigs::metrics))
         .route("/rigs/{rig}/beads/{id}", get(rigs::bead_detail))
+        .route("/rigs/{rig}/detail", get(rigs::rig_detail))
         .route("/rigs/{rig}/.well-known/agent-card.json", get(rig_card))
         .route("/rigs/{rig}/a2a", post(a2a))
         .merge(crate::ui::routes())

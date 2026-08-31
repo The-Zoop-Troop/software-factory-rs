@@ -166,8 +166,8 @@ impl HostRegistry {
         self.rig.iter().fold(String::new(), |mut s, r| {
             let _ = write!(
                 s,
-                "[[rig]]\nname = \"{}\"\nledger = \"/work/rigs/{}\"\nevents = \"/work/rigs/{}/.factory/events.jsonl\"\n\n",
-                r.name, r.name, r.name
+                "[[rig]]\nname = \"{}\"\nledger = \"/work/rigs/{}\"\nevents = \"/work/rigs/{}/.factory/events.jsonl\"\nrepo_url = \"{}\"\nruntime = \"{}\"\nharness = \"{}\"\nmain = \"{}\"\n\n",
+                r.name, r.name, r.name, r.repo_url, r.runtime, r.harness, r.main
             );
             s
         })

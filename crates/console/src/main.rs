@@ -119,30 +119,42 @@ async fn main() -> anyhow::Result<()> {
             fake,
         } => {
             #[cfg(feature = "fake")]
-            let (auth, registry): (
+            let (auth, registry, facts): (
                 Arc<dyn app::Authenticator>,
                 Arc<dyn app::RigRegistry>,
+                std::collections::BTreeMap<String, config::RigFacts>,
             ) = if fake {
                 let (a, r) = fake::world().await?;
-                (Arc::new(a), Arc::new(r))
+                (Arc::new(a), Arc::new(r), std::collections::BTreeMap::new())
             } else {
                 let rigs = config::load_registry(&registry)?;
+                let facts = rigs
+                    .iter()
+                    .map(|r| (r.name.to_string(), r.facts.clone()))
+                    .collect();
                 let auth = auth::TokenAuth::new(config::load_tokens(&tokens)?);
                 (
                     Arc::new(auth),
                     Arc::new(adapters::FileRegistry::build(&rigs)?),
+                    facts,
                 )
             };
             #[cfg(not(feature = "fake"))]
-            let (auth, registry): (
+            let (auth, registry, facts): (
                 Arc<dyn app::Authenticator>,
                 Arc<dyn app::RigRegistry>,
+                std::collections::BTreeMap<String, config::RigFacts>,
             ) = {
                 let rigs = config::load_registry(&registry)?;
+                let facts = rigs
+                    .iter()
+                    .map(|r| (r.name.to_string(), r.facts.clone()))
+                    .collect();
                 let auth = auth::TokenAuth::new(config::load_tokens(&tokens)?);
                 (
                     Arc::new(auth),
                     Arc::new(adapters::FileRegistry::build(&rigs)?),
+                    facts,
                 )
             };
             let state = server::AppState {
@@ -151,6 +163,7 @@ async fn main() -> anyhow::Result<()> {
                 clock: Arc::new(infra::SystemClock),
                 public_url,
                 poll: std::time::Duration::from_secs(1),
+                facts: std::sync::Arc::new(facts),
             };
             tracing::info!(ui = webapp::built(), "web console embedded");
             tokio::spawn(deps::run(

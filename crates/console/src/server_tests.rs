@@ -77,6 +77,7 @@ pub(crate) async fn state() -> (
         clock: Arc::new(FixedClock(Timestamp::from_unix_seconds(1_700_000_000))),
         public_url: "http://console.test".into(),
         poll: std::time::Duration::ZERO,
+        facts: std::sync::Arc::new(std::collections::BTreeMap::new()),
     };
     (s, store, tail)
 }
@@ -562,5 +563,30 @@ async fn bead_detail_returns_task_fields_verify_commands_and_parsed_notes() {
     let (st, _) = get(&s, "/rigs/toy/beads/nope-1", Some("watcher")).await;
     assert_eq!(st, StatusCode::NOT_FOUND);
     let (st, _) = get(&s, "/rigs/toy/beads/ep-1.1", Some("stranger")).await;
+    assert_eq!(st, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn rig_detail_reports_facts_posture_rollup_and_budget() {
+    let (mut s, _store, tail) = state().await;
+    s.facts = std::sync::Arc::new(std::collections::BTreeMap::from([(
+        "toy".to_owned(),
+        crate::config::RigFacts {
+            repo_url: Some("https://x/y.git".into()),
+            runtime: Some("web-e2e".into()),
+            harness: Some("codex".into()),
+            main: Some("feat/z".into()),
+        },
+    )]));
+    tail.push("planner", Some(id("ep-1.1")), "task_planned");
+    tail.push("worker", Some(id("ep-1.1")), "claimed");
+    let (st, body) = get(&s, "/rigs/toy/detail", Some("watcher")).await;
+    assert_eq!(st, StatusCode::OK);
+    assert_eq!(body["facts"]["runtime"], "web-e2e");
+    assert_eq!(body["posture"], "available");
+    assert_eq!(body["events"]["count"], 2);
+    assert_eq!(body["rollup"]["epics"], 1);
+    assert!(body["budget"].is_object());
+    let (st, _) = get(&s, "/rigs/toy/detail", Some("stranger")).await;
     assert_eq!(st, StatusCode::FORBIDDEN);
 }

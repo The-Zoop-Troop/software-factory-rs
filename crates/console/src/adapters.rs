@@ -438,6 +438,7 @@ mod tests {
     fn registry_builds_from_specs() {
         let dir = std::env::temp_dir().join(format!("console-reg-{}", std::process::id()));
         let spec = RigSpec {
+            facts: crate::config::RigFacts::default(),
             name: RigName::try_new("toy").expect("r"),
             ledger: dir.join("ledger"),
             events: dir.join("logs").join("events.jsonl"),
@@ -447,6 +448,7 @@ mod tests {
             budget: domain::RigBudget::default(),
         };
         let queued = RigSpec {
+            facts: crate::config::RigFacts::default(),
             name: RigName::try_new("q").expect("r"),
             planner: PlannerSpec::Queue {
                 timeout: std::time::Duration::from_secs(1),

@@ -393,3 +393,112 @@ fn task_meta_json(bead: &app::Bead) -> Option<Value> {
         ])
     })
 }
+
+/// Sum every epic's metrics fold into one lifetime rollup for the rig.
+fn lifetime_rollup(log: &[app::EventRecord]) -> Value {
+    let ids = app::metrics::epics_in(log);
+    let reports: Vec<_> = ids.iter().map(|e| app::metrics::epic(e, log)).collect();
+    obj([
+        ("epics", reports.len().into()),
+        (
+            "tasks_landed",
+            reports.iter().map(|m| m.landed).sum::<usize>().into(),
+        ),
+        (
+            "tasks_planned",
+            reports.iter().map(|m| m.tasks.len()).sum::<usize>().into(),
+        ),
+        (
+            "first_pass",
+            reports.iter().map(|m| m.first_pass).sum::<usize>().into(),
+        ),
+        (
+            "tokens",
+            reports.iter().map(|m| m.tokens).sum::<u64>().into(),
+        ),
+        (
+            "work_seconds",
+            reports.iter().map(|m| m.work).sum::<i64>().into(),
+        ),
+        (
+            "retry_tax_seconds",
+            reports.iter().map(|m| m.retry_tax).sum::<i64>().into(),
+        ),
+    ])
+}
+
+/// `GET /rigs/{rig}/detail`: host facts, posture (probe + ledger latency), event-log stats,
+/// budget, and a lifetime rollup folded from the whole log.
+pub(super) async fn rig_detail(
+    State(s): State<AppState>,
+    Path(rig): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    let who = match principal(&s, &headers) {
+        Err(r) => return *r,
+        Ok(p) => p,
+    };
+    let Some(r) = RigName::try_new(&rig).ok().and_then(|n| s.registry.rig(&n)) else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(obj([("error", "no such rig".into())])),
+        )
+            .into_response();
+    };
+    if let Err(e) = domain::require(&who, &r.name, domain::Scope::Watch) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(obj([("error", e.to_string().into())])),
+        )
+            .into_response();
+    }
+    let facts = s.facts.get(&rig).map_or(Value::Null, |f| {
+        serde_json::to_value(f).unwrap_or(Value::Null)
+    });
+    let posture = match r.probe.available() {
+        Ok(()) => "available",
+        Err(u) if u.reason.contains("never run") => "never-ran",
+        Err(_) => "stopped",
+    };
+    // Ledger latency: one timed read; only meaningful when the probe says available.
+    let started = std::time::Instant::now();
+    let ledger_ms = if posture == "available" {
+        match r.store.list_active(app::domain::BeadKind::Epic).await {
+            Ok(_) => u64::try_from(started.elapsed().as_millis()).ok(),
+            Err(_) => None,
+        }
+    } else {
+        None
+    };
+    let (log, _) = r.events.read_from(0).await.unwrap_or_default();
+    let last_at = log.iter().rev().find_map(|e| e.at.parse::<i64>().ok());
+    let rollup = lifetime_rollup(&log);
+    Json(obj([
+        ("rig", rig.clone().into()),
+        ("facts", facts),
+        ("posture", posture.into()),
+        ("ledger_ms", ledger_ms.map_or(Value::Null, Into::into)),
+        (
+            "events",
+            obj([
+                ("count", log.len().into()),
+                ("last_at", last_at.map_or(Value::Null, Into::into)),
+            ]),
+        ),
+        (
+            "budget",
+            obj([
+                (
+                    "max_tokens",
+                    r.budget.max_tokens.map_or(Value::Null, |t| t.get().into()),
+                ),
+                (
+                    "max_usd_micros",
+                    r.budget.max_usd.map_or(Value::Null, |u| u.get().into()),
+                ),
+            ]),
+        ),
+        ("rollup", rollup),
+    ]))
+    .into_response()
+}
