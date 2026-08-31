@@ -178,6 +178,10 @@ pub fn prepare_for(worktree: &std::path::Path) -> Vec<VerifyCommand> {
         .ok()
         .and_then(|t| toml::from_str::<Spec>(&t).ok())
         .and_then(|s| s.verify.prepare);
+    let submodules = worktree
+        .join(".gitmodules")
+        .exists()
+        .then(|| "git submodule update --init --recursive".to_owned());
     let defaults = || {
         [
             ("package-lock.json", "npm ci"),
@@ -191,10 +195,10 @@ pub fn prepare_for(worktree: &std::path::Path) -> Vec<VerifyCommand> {
         .take(1)
         .collect::<Vec<_>>()
     };
-    declared
-        .unwrap_or_else(defaults)
-        .iter()
-        .filter_map(|c| VerifyCommand::try_new(c).ok())
+    submodules
+        .into_iter()
+        .chain(declared.unwrap_or_else(defaults))
+        .filter_map(|c| VerifyCommand::try_new(&c).ok())
         .collect()
 }
 

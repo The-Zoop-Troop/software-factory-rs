@@ -294,6 +294,14 @@ mod prepare_tests {
             names(&declared),
             ["corepack enable", "pnpm install --frozen-lockfile"]
         );
+        let subs = dir("subs");
+        let _ = std::fs::write(subs.join(".gitmodules"), "[submodule \"a\"]");
+        let _ = std::fs::write(subs.join("package-lock.json"), "{}");
+        assert_eq!(
+            names(&subs),
+            ["git submodule update --init --recursive", "npm ci"],
+            "submodule init comes before the install"
+        );
         let empty = dir("empty");
         let _ = std::fs::write(empty.join("package-lock.json"), "{}");
         let _ = std::fs::write(

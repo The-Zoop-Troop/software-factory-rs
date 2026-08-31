@@ -14,7 +14,9 @@
 
 The Verifier checks a task's branch out fresh, so a project's dependencies are not there. Before
 the verify commands it runs `[verify] prepare = [...]` from `.factory/runtime.toml`, or — when
-that key is absent — one default chosen by the lockfile present: `npm ci`,
+that key is absent — `git submodule update --init --recursive` when `.gitmodules` exists (the
+platform sweep's pointer checks ran in empty submodule dirs until this), then one default
+chosen by the lockfile present: `npm ci`,
 `pnpm install --frozen-lockfile`, `yarn install --frozen-lockfile`, `go mod download` (nothing for
 Rust). `prepare = []` disables it. Its output lands in the task's note like any verify command.
 
