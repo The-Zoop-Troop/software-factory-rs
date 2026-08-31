@@ -50,6 +50,7 @@ ARG YQ_VERSION
 
 # OS layer: what agents shell out to regardless of language ("agent ergonomics"). Keep boring.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-minimal python3 \
         ca-certificates curl git git-lfs make jq openssl procps \
         ripgrep fd-find shellcheck shfmt sqlite3 unzip xz-utils bash \
     && ln -s /usr/bin/fdfind /usr/local/bin/fd \
