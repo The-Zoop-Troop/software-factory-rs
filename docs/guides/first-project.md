@@ -147,7 +147,7 @@ update, and constraints (language rules, what not to touch, what external system
 Say which verify command every task must leave passing. A good size is 300–600 words; the
 planner splits it into 3–8 tasks with acceptance criteria and verify commands.
 
-Submit from the console (Plan field on the rig page) or from the API:
+Submit from the console (Plan field on the rig page — paste, pick a file with **Load file…**, or drop a `.md` file onto the textarea) or from the API:
 
 ```sh
 curl -s -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \

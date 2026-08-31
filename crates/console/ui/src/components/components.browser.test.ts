@@ -73,6 +73,97 @@ describe('plan-form', () => {
   });
 });
 
+describe('plan-form file load', () => {
+  const settled = async (el: PlanForm, pred: () => boolean): Promise<void> => {
+    for (let i = 0; i < 50 && !pred(); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      await el.updateComplete;
+    }
+  };
+
+  it('fills the textarea from a picked file and still submits', async () => {
+    const el = await fixture<PlanForm>(html`<plan-form></plan-form>`);
+    const root = el.shadowRoot as ShadowRoot;
+    const picker = root.querySelector('input[type=file]') as HTMLInputElement;
+    const dt = new DataTransfer();
+    dt.items.add(new File(['# Feature\n\nbuild the thing from a file'], 'plan.md', { type: 'text/markdown' }));
+    picker.files = dt.files;
+    picker.dispatchEvent(new Event('change'));
+    const ta = root.querySelector('textarea') as HTMLTextAreaElement;
+    await settled(el, () => ta.value.length > 0);
+    expect(ta.value).toContain('build the thing from a file');
+    expect(root.textContent).toContain('Loaded plan.md');
+    expect((root.querySelector('button[type=submit]') as HTMLButtonElement).disabled).toBe(false);
+    setTimeout(() => root.querySelector('form')?.requestSubmit());
+    const ev = await oneEvent(el, 'submit-plan');
+    expect((ev as CustomEvent<{ text: string }>).detail.text).toContain('build the thing from a file');
+  });
+
+  it('accepts a file dropped on the textarea', async () => {
+    const el = await fixture<PlanForm>(html`<plan-form></plan-form>`);
+    const root = el.shadowRoot as ShadowRoot;
+    const ta = root.querySelector('textarea') as HTMLTextAreaElement;
+    const dt = new DataTransfer();
+    dt.items.add(new File(['dropped plan content, long enough'], 'other.md', { type: 'text/markdown' }));
+    ta.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+    await settled(el, () => ta.value.length > 0);
+    expect(ta.value).toBe('dropped plan content, long enough');
+    expect(root.textContent).toContain('Loaded other.md');
+  });
+
+  it('explains oversized and binary files instead of loading them', async () => {
+    const el = await fixture<PlanForm>(html`<plan-form></plan-form>`);
+    const root = el.shadowRoot as ShadowRoot;
+    const picker = root.querySelector('input[type=file]') as HTMLInputElement;
+    const big = new DataTransfer();
+    big.items.add(new File([new Uint8Array(513 * 1024)], 'huge.md'));
+    picker.files = big.files;
+    picker.dispatchEvent(new Event('change'));
+    await settled(el, () => root.textContent.includes('huge.md'));
+    expect(root.textContent).toContain('limit 512 KiB');
+    const bin = new DataTransfer();
+    bin.items.add(new File(['ab\u0000cd'], 'blob.bin'));
+    picker.files = bin.files;
+    picker.dispatchEvent(new Event('change'));
+    await settled(el, () => root.textContent.includes('blob.bin'));
+    expect(root.textContent).toContain('Could not read blob.bin as text');
+    expect((root.querySelector('textarea') as HTMLTextAreaElement).value).toBe('');
+    const ta = root.querySelector('textarea') as HTMLTextAreaElement;
+    ta.value = 'hand-typed';
+    ta.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+    expect(root.textContent).not.toContain('blob.bin');
+  });
+});
+
+describe('plan-form drop affordance', () => {
+  it('marks the textarea during dragover, opens the picker, and explains empty files', async () => {
+    const el = await fixture<PlanForm>(html`<plan-form></plan-form>`);
+    const root = el.shadowRoot as ShadowRoot;
+    const ta = root.querySelector('textarea') as HTMLTextAreaElement;
+    ta.dispatchEvent(new DragEvent('dragover', { cancelable: true }));
+    await el.updateComplete;
+    expect(ta.classList.contains('dropping')).toBe(true);
+    ta.dispatchEvent(new DragEvent('dragleave'));
+    await el.updateComplete;
+    expect(ta.classList.contains('dropping')).toBe(false);
+    const load = [...root.querySelectorAll('button')].find((b) => b.textContent.includes('Load file')) as HTMLButtonElement;
+    load.click();
+    await el.updateComplete;
+    const picker = root.querySelector('input[type=file]') as HTMLInputElement;
+    const dt = new DataTransfer();
+    dt.items.add(new File(['   '], 'empty.md'));
+    picker.files = dt.files;
+    picker.dispatchEvent(new Event('change'));
+    for (let i = 0; i < 50 && !root.textContent.includes('empty.md'); i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      await el.updateComplete;
+    }
+    expect(root.textContent).toContain('empty.md is empty');
+    expect(ta.value).toBe('');
+  });
+});
+
 describe('inbox-item', () => {
   it('shows the question and emits resolve with the note', async () => {
     const el = await fixture<InboxItem>(html`<inbox-item .task=${incident}></inbox-item>`);
