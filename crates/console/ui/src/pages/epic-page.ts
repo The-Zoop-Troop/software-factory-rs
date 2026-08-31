@@ -47,13 +47,24 @@ export class EpicPage extends SignalWatcher(LitElement) {
     .success { --tone: var(--ok); } .warning { --tone: var(--warn); } .danger { --tone: var(--danger); } .info { --tone: var(--info); }
     .timeline time { color: var(--fg-muted); font-family: var(--mono); font-size: .75rem; margin-inline-start: .5rem; }
     .empty { color: var(--fg-muted); max-inline-size: 70ch; text-wrap: pretty; }
-    .rollup { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); font-variant-numeric: tabular-nums; color: var(--fg-muted); font-size: .9rem; align-items: center; }
-    .rollup b { color: var(--fg); font-family: var(--mono); }
-    .stamps { color: var(--fg-muted); font-size: .85rem; font-family: var(--mono); }
+    /* Metrics as a stat-tile strip: big value over a small label, on its own card. */
+    .rollup-card { display: grid; gap: var(--space-3); }
+    .rollup { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-8); align-items: start; }
+    .rollup .stat { display: grid; gap: 2px; }
+    .rollup .stat b { font-size: 1.25rem; font-weight: 650; line-height: 1.1; color: var(--fg); }
+    .rollup .stat span { font-size: .72rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-muted); }
+    .rollup help-tip { margin-inline-start: auto; align-self: start; }
+    .stamps { color: var(--fg-muted); font-size: .8rem; font-family: var(--mono); margin: 0; border-block-start: 1px solid var(--line); padding-block-start: var(--space-3); }
+    .subhead { font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-muted); margin: 0 0 var(--space-2); }
     details.plan { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); }
     details.plan summary { cursor: pointer; font-weight: 700; }
     details.plan pre { margin: var(--space-2) 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; }
-    ul.consumers { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+    ul.consumers { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+    ul.consumers li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-sm); }
+    ul.consumers a.rig { font-weight: 700; font-family: var(--mono); color: var(--accent-strong); text-decoration: none; }
+    ul.consumers a.rig:hover { text-decoration: underline; }
+    ul.consumers .title { flex: 1 1 12rem; min-inline-size: 0; }
+    .page-desc { font-size: .9rem; }
     tbody tr { cursor: pointer; }
     @media (hover: hover) { tbody tr:hover { background: color-mix(in oklch, var(--accent) 6%, transparent); } }
     .tasklink { border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: start; }
@@ -114,11 +125,11 @@ export class EpicPage extends SignalWatcher(LitElement) {
           </section>
           <section aria-labelledby="tl-h">
             <h2 id="tl-h">Timeline <help-tip text=${SECTION_HELP.timeline} label="About the timeline"></help-tip></h2>
-            ${events.length === 0 ? html`<p class="empty">No events for this epic in the current session.</p>` : html`<ol class="timeline">${repeat(events, (f) => `${String(f.cursor)}:${String(f.record.at)}:${f.record.kind}`, (f) => {
+            ${events.length === 0 ? html`<p class="empty">No events for this epic in the current session.</p>` : html`<div class="surface"><ol class="timeline">${repeat(events, (f) => `${String(f.cursor)}:${String(f.record.at)}:${f.record.kind}`, (f) => {
               const line = describe(f) ?? { title: `${f.record.actor}: ${f.record.kind}`, tone: 'info' as const };
               const at = recordDate(f.record.at);
               return html`<li class=${line.tone}><span>${line.title}<time datetime=${at.toISOString()}>${at.toLocaleTimeString()}</time></span></li>`;
-            })}</ol>`}
+            })}</ol></div>`}
           </section>
         </div>
         ${this.selected === null ? nothing : this.renderDrawer(this.selected)}`}`;
@@ -132,18 +143,19 @@ export class EpicPage extends SignalWatcher(LitElement) {
     const stamp = (label: string, at: string | number | undefined): string =>
       at === undefined ? '' : `${label} ${recordDate(at).toLocaleString()}`;
     const stamps = [stamp('planned', planned?.record.at), stamp('closed', closed?.record.at)].filter((x) => x !== '').join(' · ');
-    return html`<div style="display:grid; gap: var(--space-2)">
+    if (m === undefined && stamps === '') return nothing;
+    return html`<section class="surface rollup-card" aria-label="Epic metrics">
       ${m === undefined ? nothing : html`<div class="rollup">
-        <span>wall-clock <b>${mmss(m.wall_clock)}</b></span>
-        <span>work <b>${mmss(m.work)}</b></span>
-        <span>parallelism <b>${String(m.parallelism_pct)}%</b></span>
-        <span>first pass <b>${String(m.first_pass)}/${String(m.landed)}</b></span>
-        <span>retry tax <b>${mmss(m.retry_tax)}</b></span>
-        <span>tokens <b>${fmtTokens(m.tokens)}</b></span>
+        <div class="stat"><b>${mmss(m.wall_clock)}</b><span>wall-clock</span></div>
+        <div class="stat"><b>${mmss(m.work)}</b><span>work</span></div>
+        <div class="stat"><b>${String(m.parallelism_pct)}%</b><span>parallelism</span></div>
+        <div class="stat"><b>${String(m.first_pass)}/${String(m.landed)}</b><span>first pass</span></div>
+        <div class="stat"><b>${mmss(m.retry_tax)}</b><span>retry tax</span></div>
+        <div class="stat"><b>${fmtTokens(m.tokens)}</b><span>tokens</span></div>
         <help-tip text=${SECTION_HELP.rollup} label="About these metrics"></help-tip>
       </div>`}
       ${stamps === '' ? nothing : html`<p class="stamps">${stamps}</p>`}
-    </div>`;
+    </section>`;
   }
 
   /** The plan triptych: what was asked (description), what to know (references), what landed. */
@@ -154,7 +166,7 @@ export class EpicPage extends SignalWatcher(LitElement) {
     const contracts = (d.context ?? []).filter((c) => c.kind === 'contract');
     if (d.description === '' && refs.length === 0 && contracts.length === 0) return nothing;
     return html`<h2 style="margin-block-start: var(--space-6)">Plan <help-tip text=${SECTION_HELP.plan} label="About the plan"></help-tip></h2>
-      <div style="display:grid; gap: var(--space-2)">
+      <div class="surface" style="display:grid; gap: var(--space-2)">
         ${d.description === '' ? nothing : html`<details class="plan" open><summary>Plan text</summary><pre>${d.description}</pre></details>`}
         ${refs.map((c) => html`<details class="plan"><summary>Reference — ${c.title}</summary><pre>${c.text}</pre></details>`)}
         ${contracts.map((c) => html`<details class="plan"><summary>Contract — what this epic landed</summary><pre>${c.text}</pre></details>`)}
@@ -168,11 +180,16 @@ export class EpicPage extends SignalWatcher(LitElement) {
     const origin = d?.origin ?? null;
     if (origin === null && consumers.length === 0) return nothing;
     return html`<h2 style="margin-block-start: var(--space-6)">Provenance <help-tip text=${SECTION_HELP.provenance} label="About provenance"></help-tip></h2>
-      <div style="display:grid; gap: var(--space-2)">
+      <div class="surface" style="display:grid; gap: var(--space-2)">
         ${origin === null ? nothing : html`<details class="plan"><summary>From plan request — ${origin.title}</summary><pre>${origin.text}</pre></details>`}
         ${consumers.length === 0 ? nothing : html`<div>
-          <p class="muted" style="margin: 0 0 var(--space-1)">Built on by</p>
-          <ul class="consumers">${consumers.map((c) => html`<li><a href="/rigs/${c.rig}">${c.rig}</a> — ${c.title} <span class="muted mono">(${c.id}, ${c.status})</span></li>`)}</ul>
+          <p class="subhead">Built on by</p>
+          <ul class="consumers">${consumers.map((c) => html`<li>
+            <a class="rig" href="/rigs/${c.rig}">${c.rig}</a>
+            <span class="title">${c.title}</span>
+            <span class="badge ${c.status === 'closed' ? 'ok' : 'info'}">${c.status}</span>
+            <span class="muted mono">${c.id}</span>
+          </li>`)}</ul>
         </div>`}
       </div>`;
   }
