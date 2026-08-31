@@ -84,7 +84,7 @@ export class RigPage extends SignalWatcher(LitElement) {
       </section>`}
       ${requests.length === 0 ? '' : html`<section aria-labelledby="req-h">
         <h2 id="req-h">Planning <span class="count">${requests.length}</span></h2>
-        <div class="grid">${repeat(requests, (t) => t.id, (t) => html`<request-card .task=${t}></request-card>`)}</div>
+        <div class="grid">${repeat(requests, (t) => t.id, (t) => html`<request-card .task=${t} rig=${this.rig}></request-card>`)}</div>
       </section>`}
       <section aria-labelledby="epics-h">
         <h2 id="epics-h">Epics <span class="count">${epics.length}</span></h2>

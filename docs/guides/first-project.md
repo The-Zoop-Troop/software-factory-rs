@@ -181,6 +181,25 @@ $R exec steward sh -c 'cd /work/rig && factory watch'                           
 Landed work is on `<feature-branch>` at the remote after every `integrated` event (one squash
 commit per task, message from the task title). `main` is untouched.
 
+Every surface above has a deeper view one click away:
+
+- **Rig page header** — a facts card: repo, feature branch, runtime, harness, budget caps,
+  ledger latency, last activity, and lifetime totals (epics, tasks landed, first-pass rate,
+  tokens, work, retry tax). Backed by `GET /rigs/<rig>/detail`; a stopped rig shows
+  "stopped — history only" and still answers from its ledger.
+- **Task drawer** — click any row in an epic's Tasks table: branch, base, landed sha, lease
+  holder, budget-vs-used meters, verify commands, a per-attempt stage strip, and the task's
+  notes parsed into collapsible verify pass/fail panels (per-command exit and output tail)
+  with guidance and operator interventions highlighted. Backed by
+  `GET /rigs/<rig>/beads/<id>` (`?full=1` for untruncated notes). Esc closes it.
+- **Epic page** — a rollup header (wall-clock, work, parallelism, first-pass, retry tax,
+  tokens) with planned/closed stamps; a **Plan** section (submitted plan text, reference
+  beads, and the epic's contract once closed); and **Provenance** — the plan request it came
+  from, and every rig whose queued plans build on it
+  (`GET /rigs/<rig>/epics/<id>/consumers`).
+- **Request card** — "show plan text" expands to the full submitted text, with any injected
+  upstream contracts as collapsible sections.
+
 How long each stop took — and whether more workers would have helped — comes from the event
 log, not from watching:
 

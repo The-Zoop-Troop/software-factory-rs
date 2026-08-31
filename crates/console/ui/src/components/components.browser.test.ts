@@ -251,3 +251,22 @@ describe('task-drawer', () => {
     await until(() => (root.querySelector('h2')?.textContent === 'Wire the API v2' ? true : null));
   });
 });
+
+describe('request-card expansion', () => {
+  it('expands to the full plan text with contract sections', async () => {
+    await import('./request-card.js');
+    const request = Schema.decodeSync(Task)({ id: 'pr-1', contextId: 'pr-1', status: { state: 'TASK_STATE_SUBMITTED', timestamp: 't' }, metadata: { factory: { kind: 'plan_request', title: 'Portal after backend' } } });
+    const bead = {
+      id: 'pr-1', kind: 'plan_request', title: 'Portal after backend', status: 'open', parent: null,
+      description: 'Build the portal.\n\n## Upstream contracts (landed; build on these)\n\n### backend/be-1\nrange abc..def\n',
+      acceptance: null, task: null, verify: null, notes: [], needs: ['backend/be-1'],
+    };
+    connectFake({ token: 'ok', rigs: [rig], tasks: { toy: [request] }, beads: { 'toy/pr-1': bead as never } }, 'ok');
+    const el = await fixture<HTMLElement>(html`<request-card .task=${request} rig="toy"></request-card>`);
+    const root = el.shadowRoot as ShadowRoot;
+    (root.querySelector('button.expand') as HTMLButtonElement).click();
+    const plan = await until(() => root.querySelector('.plan pre'));
+    expect(plan.textContent).toBe('Build the portal.');
+    expect(root.querySelector('details.contract summary')?.textContent).toContain('backend/be-1');
+  });
+});

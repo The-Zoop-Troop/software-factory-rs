@@ -84,9 +84,23 @@ export class TaskDrawer extends SignalWatcher(LitElement) {
 
   private seenTouch = 0;
 
+  override connectedCallback(): void {
+    super.connectedCallback();
+    document.addEventListener('keydown', this.onKey);
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    document.removeEventListener('keydown', this.onKey);
+  }
+
   override updated(changed: PropertyValues): void {
     if (changed.has('taskId') && this.taskId !== '') void loadBeadDetail(this.rig as RigName, this.taskId);
   }
+
+  private readonly onKey = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') this.onClose();
+  };
 
   private key(): string { return `${this.rig}/${this.taskId}`; }
 
