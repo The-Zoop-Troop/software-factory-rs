@@ -2,7 +2,7 @@
 // meta (branch, base, landed, lease), budget-vs-used meters, verify commands,
 // the attempt strip, and the structured notes biography.
 import { LitElement, html, css, nothing, type PropertyValues } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, query } from 'lit/decorators.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { loadBeadDetail } from '../actions.js';
 import type { BeadDetail, NoteSegment, RigName } from '../core/schema.js';
@@ -42,8 +42,18 @@ export const leaseLeft = (nowMs: number, expiresUnix: number): string => {
 @customElement('task-drawer')
 export class TaskDrawer extends SignalWatcher(LitElement) {
   static override styles = [surface, controls, badges, css`
-    :host { position: fixed; inset-block: 0; inset-inline-end: 0; inline-size: min(36rem, 94vw); z-index: 40; display: block; }
-    .panel { block-size: 100%; overflow: auto; background: var(--bg-elev); border-inline-start: 1px solid var(--line); box-shadow: var(--shadow); padding: var(--space-5); display: grid; gap: var(--space-4); align-content: start; }
+    :host { display: contents; }
+    dialog {
+      inset-inline: auto 0; inset-block: 0; margin: 0; padding: 0;
+      inline-size: min(36rem, 94vw); block-size: 100dvh; max-block-size: 100dvh; max-inline-size: none;
+      border: 0; border-inline-start: 1px solid var(--line);
+      background: var(--bg); color: var(--fg); box-shadow: var(--shadow-raised);
+      transition: translate 250ms var(--ease-out), overlay 250ms allow-discrete, display 250ms allow-discrete;
+    }
+    dialog[open] { translate: 0 0; @starting-style { translate: 100% 0; } }
+    dialog:not([open]) { translate: 100% 0; }
+    dialog::backdrop { background: oklch(0% 0 0 / 0.35); backdrop-filter: blur(3px); }
+    .panel { block-size: 100%; overflow: auto; overscroll-behavior: contain; padding: var(--space-5); display: grid; gap: var(--space-4); align-content: start; }
     header { display: flex; align-items: start; gap: var(--space-3); }
     header .titles { display: grid; gap: 2px; flex: 1; min-inline-size: 0; }
     h2 { font-size: 1.1rem; font-weight: 800; margin: 0; }
@@ -85,24 +95,15 @@ export class TaskDrawer extends SignalWatcher(LitElement) {
   @property({ attribute: false }) span = 1;
 
   private seenTouch = 0;
+  @query('dialog') private dialog?: HTMLDialogElement;
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    document.addEventListener('keydown', this.onKey);
-  }
-
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    document.removeEventListener('keydown', this.onKey);
+  override firstUpdated(): void {
+    this.dialog?.showModal();
   }
 
   override updated(changed: PropertyValues): void {
     if (changed.has('taskId') && this.taskId !== '') void loadBeadDetail(this.rig as RigName, this.taskId);
   }
-
-  private readonly onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') this.onClose();
-  };
 
   private key(): string { return `${this.rig}/${this.taskId}`; }
 
@@ -114,7 +115,8 @@ export class TaskDrawer extends SignalWatcher(LitElement) {
       if (touched !== 0) void loadBeadDetail(this.rig as RigName, this.taskId);
     }
     const d = beadDetails.get()[this.key()];
-    return html`<aside class="panel" aria-label="Task detail">
+    return html`<dialog aria-label="Task detail" @click=${this.onBackdrop} @close=${this.onClosed}>
+      <div class="panel">
       <header>
         <div class="titles">
           <h2>${d?.title ?? this.taskId}</h2>
@@ -130,7 +132,8 @@ export class TaskDrawer extends SignalWatcher(LitElement) {
         ${d.description === '' ? nothing : html`<section><h3>Description</h3><p class="prose">${d.description}</p></section>`}
         ${d.acceptance === null ? nothing : html`<section><h3>Acceptance</h3><p class="prose">${d.acceptance}</p></section>`}
         ${this.renderNotes(d)}`}
-    </aside>`;
+      </div>
+    </dialog>`;
   }
 
   private renderMeta(d: BeadDetail) {
@@ -184,6 +187,14 @@ export class TaskDrawer extends SignalWatcher(LitElement) {
   }
 
   private readonly onClose = (): void => {
+    this.dialog?.close();
+  };
+
+  private readonly onBackdrop = (e: MouseEvent): void => {
+    if (e.target === this.dialog) this.dialog.close();
+  };
+
+  private readonly onClosed = (): void => {
     this.dispatchEvent(new CustomEvent('close'));
   };
 }
