@@ -19,6 +19,8 @@ merged code out). This file is a table of contents, not a manual. Read what the 
 | The Rust standard (railway-oriented FP) | `skills/rust-fp-skill/SKILL.md` — read it before touching Rust; walk `references/code-review.md` before declaring done |
 | Detailed design per pillar | `docs/design-docs/index.md` |
 | Running / deploying a rig | `docs/DEPLOYMENT.md` |
+| Standing up a factory or new rig (agent workflow) | `skills/factory-bootstrap/SKILL.md` |
+| Operating a factory: plans, incidents, scaling, upgrades | `skills/factory-operator/SKILL.md` |
 | Threat model and sandbox rules | `docs/SECURITY.md` |
 | Failure modes and budgets | `docs/RELIABILITY.md` |
 | How good each part is right now | `docs/QUALITY_SCORE.md` |

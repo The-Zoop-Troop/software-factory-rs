@@ -74,9 +74,9 @@ factory rig destroy toy [--volumes]
 
 ## Production posture
 - **TLS.** `CONSOLE_DOMAIN=console.example.com docker compose --profile tls up -d caddy` puts Caddy (automatic Let's Encrypt, or its internal CA for `localhost`) in front of the console; then set `CONSOLE_URL=https://console.example.com` so the Agent Card advertises the right address, and stop publishing `CONSOLE_PORT` on anything but loopback. The multi-rig console (`~/.factory/console/compose.yaml`) takes the same `caddy` service; copy `docker/caddy/Caddyfile` next to it.
-- **Service units.** `docker/systemd/factory-rig@.service` and `factory-console.service` are user units: `mkdir -p ~/.config/systemd/user && cp docker/systemd/*.service ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now factory-rig@toy factory-console` (`loginctl enable-linger $USER` so they survive logout). Edit `FACTORY_COMPOSE` in the rig unit to this repository's `compose.yaml`.
+- **Service units.** `docker/systemd/` ships user units — `factory-rig@.service` (full rig), `factory-ledger@.service` (ledger only, for deliberately stopped rigs whose history should stay readable after a reboot), `factory-console.service`, and `factory-maintenance.timer` (weekly backups + retention + git-token expiry warnings via `docker/maintenance.sh`): `mkdir -p ~/.config/systemd/user && cp docker/systemd/*.service ~/.config/systemd/user/ && systemctl --user daemon-reload && systemctl --user enable --now factory-rig@toy factory-console` (`loginctl enable-linger $USER` so they survive logout). Edit `FACTORY_COMPOSE` in the rig unit to this repository's `compose.yaml`.
 - **Telemetry.** Every binary logs via `tracing` (`FACTORY_LOG_FORMAT=json` for one object per line). Set `OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4318` on any service and its spans (worker sessions, verify runs, integrations, console requests) are exported over OTLP/HTTP with `service.name` = `factory` / `stewardd` / `console`; add the collector's host to the egress allowlist.
-- **Alerts.** `console serve --alert-url https://hooks.example/… --alert-interval 30` (or `CONSOLE_ALERT_URL`) posts `{"rig","text"}` whenever a task needs a human or finishes — Slack incoming webhooks, ntfy, PagerDuty Events via a relay. The Telegram bot pushes the same events to its chats.
+- **Alerts.** `console serve --alert-url https://hooks.example/… --alert-interval 30` (env: `CONSOLE_ALERT_URL`, `CONSOLE_ALERT_INTERVAL`) posts `{"rig","text"}` whenever a task needs a human or finishes — Slack incoming webhooks, ntfy, PagerDuty Events via a relay. The Telegram bot pushes the same events to its chats. Multi-rig hosts: add `CONSOLE_ALERT_URL=…` to `~/.factory/console/compose.env` and re-run `factory rig console` — the generated compose forwards it.
 
 ## Logs
 Every role logs via `tracing` to stderr (`RUST_LOG=info` by default). Set `FACTORY_LOG_FORMAT=json` for one JSON object per line (`docker compose logs --no-log-prefix steward | jq`). State transitions are additionally appended to `.factory/events.jsonl` in the `ledger` volume.
@@ -85,10 +85,54 @@ Every role logs via `tracing` to stderr (`RUST_LOG=info` by default). Set `FACTO
 One image per language toolchain layered on `factory-rig:base`: `docker/build.sh python|node|go|rust`, then `RIG_IMAGE=factory-rig:<runtime> docker compose up -d`. A project can ship `.factory/Dockerfile` (`FROM` the runtime) and `.factory/allowlist`; `docker/build.sh <runtime> --project <dir>` builds it. `factory doctor` reads `.factory/runtime.toml` and says which runtime the project needs.
 
 ## Upgrade
-`git pull && docker/build.sh <runtime> && docker compose up -d --force-recreate`. Ledger and repo volumes persist; the image is stateless.
+The binaries and the web console UI are baked into the images at build time, so an upgrade is
+always **rebuild, then recreate** — a restart without a rebuild changes nothing, and a rebuild
+without recreating containers changes nothing visible.
+
+Single rig: `git pull && docker/build.sh <runtime> && docker compose up -d --force-recreate`.
+Ledger and repo volumes persist; the image is stateless.
+
+Multi-rig hosts (`factory rig`): rebuild every runtime in use (`docker/build.sh <rt>` per
+runtime — each run rebuilds base first, and the **last** run's fragment decides
+`docker/egress/allowlist`), then recreate exactly what was running, per compose project:
+
+```sh
+docker compose -p factory-console --env-file ~/.factory/console/compose.env \
+  -f ~/.factory/console/compose.yaml up -d --remove-orphans          # console
+docker compose -p factory-<rig> --env-file ~/.factory/<rig>/compose.env \
+  -f compose.yaml up -d ledger                                       # stopped rig: ledger only
+docker compose -p factory-<rig> --env-file ~/.factory/<rig>/compose.env \
+  -f compose.yaml up -d                                              # running rig: all roles
+```
+
+A stopped rig must stay stopped through an upgrade — `up -d` on its project would start its
+workers, so use `up -d ledger` there. `docker compose restart` never picks up a new image.
+Verify: `factory rig doctor` (all ok), and the console's `assets/index-*.css` hash changed.
+On systemd hosts `systemctl --user restart factory-rig@<name> factory-console` performs the
+compose calls. The agent-facing runbook for all of this is
+[`skills/factory-operator`](../skills/factory-operator/SKILL.md)
+(`references/operations.md`).
 
 ## Backup / restore
 `factory rig backup <name>` / `factory rig restore <name> --ledger <tgz> [--repo <tgz>]` (the rig must be stopped to restore). Without the rig registry: Volumes `ledger` and `repo` are the state: `docker run --rm -v <project>_ledger:/v -v $PWD:/b alpine tar czf /b/ledger.tgz -C /v .` (same for `repo`). Restore by extracting into a fresh volume before `up`.
+
+## Move a rig to another host
+Verified 2026-08-31 by restoring a live rig's backup under a fresh rig name. On the old host:
+`factory rig backup <rig> --to backups/` (and `factory rig stop <rig>` if you want a quiescent
+ledger). On the new host — factory repo cloned, images built, secrets file copied over:
+
+```sh
+factory rig create <rig> --repo-url <same-url> --runtime <rt> --harness <h> \
+  --main <branch> --secrets <secrets-file> --no-start
+factory rig restore <rig> --ledger <rig>-ledger-<ts>.tgz [--repo <rig>-repo-<ts>.tgz]
+docker compose -p factory-<rig> --env-file ~/.factory/<rig>/compose.env -f compose.yaml up -d
+factory rig doctor          # ledger=yes; history, epics, and metrics all travel with the volume
+```
+
+Notes from the drill: restore before the first `up` works (the volume is created by the
+restore; compose warns it "was not created by Docker Compose" — harmless); skipping `--repo`
+is fine when `RIG_REPO_URL` is set (fresh clone on first start); the console config
+regenerates to include the rig, and `factory rig console` picks it up.
 
 ## Troubleshooting
 - A role logs `nothing ready` forever → `bd ready` in the rig; check `blocked` and incidents.

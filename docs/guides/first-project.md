@@ -1,10 +1,19 @@
 # Guide: your first project through the factory
 
-- **Status:** draft · **Verified:** in progress (a multi-repo feature run, 2026-08-30)
+- **Status:** accepted · **Verified:** multi-repo feature run completed 2026-08-31 (six phases landed; incidents and timings below are from that run)
 
 This walks one real change through the factory end to end: several repositories, a feature
 branch that must never touch `main`, tests as the definition of done, and an operator who only
 uses the browser console. Every command is copy-pasteable; placeholders are in `<angle brackets>`.
+
+**Where this fits:** the [README quick start](../../README.md#quick-start) is the five-minute
+single-rig path; [`docs/DEPLOYMENT.md`](../DEPLOYMENT.md) is the operational runbook; this
+guide is the worked end-to-end example. The same workflows are packaged for agents as skills
+— [`skills/factory-bootstrap`](../../skills/factory-bootstrap/SKILL.md) (host → running rigs,
+with a verification gate per step) and
+[`skills/factory-operator`](../../skills/factory-operator/SKILL.md) (plans, incidents,
+scaling, upgrades, troubleshooting) — so a Claude/Codex/OpenCode session on the host can run
+this guide instead of you.
 
 ## 0. What you need before you start
 
@@ -296,3 +305,27 @@ the console can list a rig's history (`ListTasks` with `history: true`) and repl
 timeline (`GET /rigs/<rig>/epics/<id>/events`) — even for a stopped rig, because the console
 reads the volumes directly. History lives exactly as long as the ledger volume: `factory rig
 backup` before `factory rig destroy --volumes`.
+
+The sweep, before calling the feature done:
+
+1. **Branch review complete** (§7) on every repository, and the review notes either resolved
+   or queued as a follow-up plan slice.
+2. **Docs sweep** — the parent repo's exec plan updated to `completed`, its progress list
+   checked off, and the per-repo docs the epics touched read against the code one last time.
+3. **Metrics snapshot** — `factory --rig … metrics --json > runs/<feature>-metrics.json` per
+   rig; the retry-tax and first-pass numbers are the input to the next run's plan quality.
+4. **Backups** — `factory rig backup <rig> --to backups/` per rig while the ledgers are still up.
+5. **Stop or destroy** — `factory rig stop <rig>` keeps history browsable in the console for
+   the next phase; `factory rig destroy <rig> --volumes` (after the backup) forgets it.
+6. **Rotate** anything that leaked scope during the run: fine-grained git tokens you widened,
+   console tokens you shared.
+
+```sh
+for r in <rig> <rig> …; do factory rig backup "$r" --to backups/ && factory rig stop "$r"; done
+factory rig doctor        # every rig: ledger=yes running=[ledger]
+```
+
+The feature branch is now the deliverable: one squash commit per task, verified twice (task
+verify + the Integrator's project checks), `main` untouched, and the entire decision trail —
+plans, incidents, guidance, timings — replayable from the console for as long as the ledger
+volumes exist.

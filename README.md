@@ -167,6 +167,7 @@ telemetry, alerts, upgrade, backup/restore, logs, and troubleshooting — is
 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md). The sandbox model (non-root,
 `cap_drop: ALL`, internal network, allowlisted egress, no host mounts) is
 [`docs/design-docs/rig-sandbox.md`](docs/design-docs/rig-sandbox.md).
+Both jobs are also packaged as agent skills — [`skills/factory-bootstrap`](skills/factory-bootstrap/SKILL.md) and [`skills/factory-operator`](skills/factory-operator/SKILL.md) — so a harness session on the host (Claude Code, Codex, OpenCode) can bootstrap and operate rigs itself.
 
 ## Operating a rig
 
