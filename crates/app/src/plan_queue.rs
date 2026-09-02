@@ -45,6 +45,36 @@ pub fn plan_request_with_needs(
     }
 }
 
+/// Why a local plan submission was refused.
+#[derive(Debug, thiserror::Error)]
+pub enum SubmitLocalError {
+    #[error("the plan text is empty")]
+    EmptyText,
+    #[error(transparent)]
+    Store(#[from] StoreError),
+}
+
+/// Queue a plan on this rig's ledger: the same `plan_request` bead a remote submission
+/// creates, written locally so an operator inside the rig needs no console token. The
+/// planner's `--queue` service picks it up; a request with cross-rig needs is created
+/// deferred and waits for the console's dependency sweep to inject contracts.
+///
+/// # Errors
+/// Empty plan text, or a ledger failure.
+pub async fn submit_plan_request(
+    store: &dyn BeadStore,
+    text: &str,
+    client: &str,
+    needs: Vec<domain::CrossRigNeed>,
+) -> Result<BeadId, SubmitLocalError> {
+    if text.trim().is_empty() {
+        return Err(SubmitLocalError::EmptyText);
+    }
+    Ok(store
+        .create(plan_request_with_needs(text, client, needs))
+        .await?)
+}
+
 /// Read a request's outcome back: `None` while open; `Ok(epic)` or `Rejected` once closed.
 #[must_use]
 pub fn plan_outcome(bead: &Bead) -> Option<Result<BeadId, SubmitError>> {
@@ -178,6 +208,34 @@ mod tests {
 
     fn id(s: &str) -> BeadId {
         BeadId::try_new(s).expect("id")
+    }
+
+    #[tokio::test]
+    async fn submit_local_creates_the_request_bead() {
+        let store = FakeStore::default();
+        let created = submit_plan_request(&store, "Build the thing", "cli", Vec::new())
+            .await
+            .expect("submit");
+        let bead = store.show(&created).await.expect("show");
+        assert_eq!(bead.kind, Some(BeadKind::PlanRequest));
+        assert_eq!(bead.status, BeadStatus::Open);
+
+        let need = domain::CrossRigNeed {
+            rig: domain::RigName::try_new("backend").expect("rig"),
+            epic: id("be-1"),
+        };
+        let gated = submit_plan_request(&store, "After the backend", "cli", vec![need])
+            .await
+            .expect("submit gated");
+        let bead = store.show(&gated).await.expect("show gated");
+        assert_eq!(bead.status, BeadStatus::Deferred);
+    }
+
+    #[tokio::test]
+    async fn submit_local_rejects_empty_text() {
+        let store = FakeStore::default();
+        let out = submit_plan_request(&store, "  \n", "cli", Vec::new()).await;
+        assert!(matches!(out, Err(SubmitLocalError::EmptyText)));
     }
 
     #[test]

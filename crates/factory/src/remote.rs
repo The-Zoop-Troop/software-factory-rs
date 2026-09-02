@@ -76,8 +76,17 @@ pub(crate) fn remote_command(cmd: Command) -> Result<RemoteCommand, RemoteUnsupp
         }),
         Command::Plan(args) => {
             let crate::plan_cmd::PlanArgs {
-                file, text, after, ..
+                file,
+                text,
+                after,
+                queued,
+                ..
             } = args;
+            if queued {
+                return Err(RemoteUnsupported::LocalOnly {
+                    name: "plan --queued",
+                });
+            }
             let text = match (file, text) {
                 (Some(f), _) => {
                     std::fs::read_to_string(f).map_err(|e| RemoteUnsupported::PlanFile {
@@ -179,7 +188,7 @@ pub(crate) async fn run_remote(api: &infra::A2aHttp, cmd: Command) -> anyhow::Re
 }
 
 /// `rig:epic` → a cross-rig need.
-fn parse_need(s: &str) -> Result<domain::CrossRigNeed, RemoteUnsupported> {
+pub(crate) fn parse_need(s: &str) -> Result<domain::CrossRigNeed, RemoteUnsupported> {
     let bad = || RemoteUnsupported::BadNeed {
         given: s.to_owned(),
     };

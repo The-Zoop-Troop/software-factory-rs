@@ -68,6 +68,7 @@ fn commands_map_or_are_refused() {
         task_tokens: None,
         max_budget_usd: 1.0,
         queue: false,
+        queued: false,
         interval: None,
         events: "e".into(),
         after: vec![],
@@ -327,6 +328,7 @@ fn plan_after_parses_cross_rig_needs_and_rejects_junk() {
         task_tokens: None,
         max_budget_usd: 1.0,
         queue: false,
+        queued: false,
         interval: None,
         events: "e".into(),
         after,
@@ -346,5 +348,29 @@ fn plan_after_parses_cross_rig_needs_and_rejects_junk() {
     assert!(matches!(
         remote_command(plan(vec!["nocolon".into()])),
         Err(RemoteUnsupported::BadNeed { .. })
+    ));
+}
+
+#[test]
+fn plan_queued_is_local_only() {
+    let cmd = Command::Plan(crate::plan_cmd::PlanArgs {
+        repo: "r".into(),
+        main: "main".into(),
+        file: None,
+        text: Some("x".into()),
+        harness: crate::cli::HarnessKind::Claude,
+        model: None,
+        effort: None,
+        task_tokens: None,
+        max_budget_usd: 1.0,
+        queue: false,
+        queued: true,
+        interval: None,
+        events: "e".into(),
+        after: vec![],
+    });
+    assert!(matches!(
+        remote_command(cmd),
+        Err(RemoteUnsupported::LocalOnly { .. })
     ));
 }

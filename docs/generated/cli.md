@@ -122,7 +122,7 @@ Options:
           The plan, inline
 
       --after <AFTER>
-          `rig:epic` this plan waits for (with --rig only)
+          `rig:epic` this plan waits for (with --rig or --queued)
 
       --harness <HARNESS>
           LLM harness behind the Planner
@@ -154,6 +154,9 @@ Options:
 
       --queue
           Serve the plan queue instead: plan each open `plan_request` bead (from the console)
+
+      --queued
+          Queue the plan as a `plan_request` bead on this rig's ledger instead of planning inline: the planner service (`--queue`) picks it up, and the console shows it as a request card. With `--after`, the request waits for those epics first
 
       --interval <INTERVAL>
           With --queue: keep polling every N seconds (one sweep when omitted)

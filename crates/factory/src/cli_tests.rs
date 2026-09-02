@@ -202,3 +202,13 @@ fn tilde_expands_to_home() {
         PathBuf::from("rel")
     );
 }
+
+#[test]
+fn plan_queued_conflicts_with_queue() {
+    assert!(Cli::try_parse_from(["factory", "plan", "--queued", "--queue"]).is_err());
+    let c = Cli::parse_from(["factory", "plan", "--queued", "--text", "hi"]);
+    assert!(matches!(
+        c.command,
+        Command::Plan(crate::plan_cmd::PlanArgs { queued: true, .. })
+    ));
+}

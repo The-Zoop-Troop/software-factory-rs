@@ -32,7 +32,7 @@ pub(crate) struct PlanArgs {
     /// The plan, inline.
     #[arg(long)]
     pub(crate) text: Option<String>,
-    /// `rig:epic` this plan waits for (with --rig only).
+    /// `rig:epic` this plan waits for (with --rig or --queued).
     #[arg(long = "after")]
     pub(crate) after: Vec<String>,
     /// LLM harness behind the Planner.
@@ -53,6 +53,11 @@ pub(crate) struct PlanArgs {
     /// Serve the plan queue instead: plan each open `plan_request` bead (from the console).
     #[arg(long, conflicts_with_all = ["text", "file"])]
     pub(crate) queue: bool,
+    /// Queue the plan as a `plan_request` bead on this rig's ledger instead of planning
+    /// inline: the planner service (`--queue`) picks it up, and the console shows it as a
+    /// request card. With `--after`, the request waits for those epics first.
+    #[arg(long, conflicts_with = "queue")]
+    pub(crate) queued: bool,
     /// With --queue: keep polling every N seconds (one sweep when omitted).
     #[arg(long)]
     pub(crate) interval: Option<u64>,
@@ -67,16 +72,36 @@ pub(crate) async fn run(workdir: &Path, args: PlanArgs) -> anyhow::Result<()> {
         main,
         file,
         text,
-        after: _,
+        after,
         harness,
         model,
         effort,
         task_tokens,
         max_budget_usd,
         queue,
+        queued,
         interval,
         events,
     } = args;
+    if queued {
+        let plan_text = read_plan_text(file, text)?;
+        let needs = after
+            .iter()
+            .map(|s| crate::remote::parse_need(s))
+            .collect::<Result<Vec<_>, _>>()?;
+        let store = BdCli::new(workdir).with_actor("operator");
+        let waiting = !needs.is_empty();
+        let id = app::submit_plan_request(&store, &plan_text, "cli", needs).await?;
+        if waiting {
+            println!("request {id} waiting on {}", after.join(", "));
+        } else {
+            println!("request {id} queued; the rig's planner service will take it");
+        }
+        return Ok(());
+    }
+    if !after.is_empty() {
+        anyhow::bail!("--after needs --queued (queue on this rig) or --rig (queue on a console)");
+    }
     let effort = effort.map(|e| e.parse::<domain::Effort>()).transpose()?;
     let mut defaults = PlanDefaults {
         effort,
@@ -120,11 +145,7 @@ pub(crate) async fn run(workdir: &Path, args: PlanArgs) -> anyhow::Result<()> {
         }
         return Ok(());
     }
-    let plan_text = match (file, text) {
-        (Some(f), _) => std::fs::read_to_string(f)?,
-        (None, Some(t)) => t,
-        (None, None) => anyhow::bail!("give the plan with --text or --file"),
-    };
+    let plan_text = read_plan_text(file, text)?;
     let harness = build_harness(harness, model, max_budget_usd)?;
     let git = GitCli::new(&repo, repo.join(".factory-worktrees"));
     let store = BdCli::new(workdir).with_actor("planner");
@@ -148,4 +169,12 @@ pub(crate) async fn run(workdir: &Path, args: PlanArgs) -> anyhow::Result<()> {
         println!("  {id}  {key}");
     }
     Ok(())
+}
+
+fn read_plan_text(file: Option<PathBuf>, text: Option<String>) -> anyhow::Result<String> {
+    match (file, text) {
+        (Some(f), _) => Ok(std::fs::read_to_string(f)?),
+        (None, Some(t)) => Ok(t),
+        (None, None) => anyhow::bail!("give the plan with --text or --file"),
+    }
 }

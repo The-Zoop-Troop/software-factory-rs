@@ -45,7 +45,8 @@ pub use events::{EventKind, FactoryEvent};
 pub use integrator::{IntegrateConfig, IntegrateReport, IntegratorError, integrate_once};
 pub use mcp::{McpConfig, McpConfigError, McpServer};
 pub use plan_queue::{
-    Progress, QueuedOutcome, plan_outcome, plan_queued_once, plan_request, plan_request_with_needs,
+    Progress, QueuedOutcome, SubmitLocalError, plan_outcome, plan_queued_once, plan_request,
+    plan_request_with_needs, submit_plan_request,
 };
 pub use planner::{PlanReport, PlannerError, plan};
 pub use ports::{
