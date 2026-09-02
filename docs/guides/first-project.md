@@ -157,6 +157,10 @@ curl -s -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
   http://127.0.0.1:7700/rigs/<rig>/a2a
 ```
 
+Without a console token, queue from inside the rig instead — the same request card, no
+API call: `docker compose … run --rm plan --queued --file epic.md` (add `--after rig:epic`
+to gate it on upstream epics; the request waits, then the planner takes it).
+
 The reply is the queued request (`TASK_STATE_SUBMITTED`); the rig's `planner` service picks it up
 within seconds and the request card shows its progress until the epic exists.
 

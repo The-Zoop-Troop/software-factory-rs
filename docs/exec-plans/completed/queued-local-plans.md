@@ -1,6 +1,6 @@
 # Exec plan: queue plan requests from inside the rig
 
-- **Status:** in progress · **Verified:** design verified against `crates/app/src/plan_queue.rs` and `crates/infra/src/bd.rs` 2026-09-02
+- **Status:** completed · **Verified:** landed 2026-09-02 (epic fac-cxz, three commits); design verified against `crates/app/src/plan_queue.rs` and `crates/infra/src/bd.rs` 2026-09-02
 
 ## Goal
 
@@ -44,3 +44,6 @@ the CLI entry point is missing.
 ## Progress log
 
 - **2026-09-02** — Plan authored; epic `fac-cxz` with three tasks.
+- **2026-09-02** — All three tasks landed: `plan_cmd.rs` extraction (cli.rs 600 -> 475
+  lines, generated docs identical), `--queued` + `app::submit_plan_request` with tests,
+  docs. Full gates green: workspace tests, clippy, lint-fp, lint-taste, lint-docs.
