@@ -8,6 +8,7 @@
 mod cli;
 mod doctor;
 mod metrics;
+mod plan_cmd;
 mod remote;
 #[cfg(test)]
 mod remote_tests;

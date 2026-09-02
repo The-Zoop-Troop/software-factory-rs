@@ -13,9 +13,9 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use infra::app::Harness;
-use infra::app::domain::{self, AgentId, BeadId, BranchName, Duration, PlanDefaults};
+use infra::app::domain::{self, AgentId, BeadId, BranchName, Duration};
 use infra::app::{
-    BeadStore, IntegrateConfig, WorkerConfig, inbox, integrate_once, ledger_summary, plan, resolve,
+    BeadStore, IntegrateConfig, WorkerConfig, inbox, integrate_once, ledger_summary, resolve,
     verify_once, work_once,
 };
 use infra::{
@@ -116,47 +116,7 @@ pub(crate) enum Command {
         api_base: String,
     },
     /// Run the Planner: turn a plan (text or file) into an epic of task + verify beads.
-    Plan {
-        /// Path to the project clone (the Planner reads it for context in later phases).
-        #[arg(long, default_value = "repo")]
-        repo: PathBuf,
-        /// Integration branch; tasks are cut from its current tip.
-        #[arg(long, default_value = "main")]
-        main: String,
-        /// Read the plan from this file instead of --text.
-        #[arg(long, conflicts_with = "text")]
-        file: Option<PathBuf>,
-        /// The plan, inline.
-        #[arg(long)]
-        text: Option<String>,
-        /// `rig:epic` this plan waits for (with --rig only).
-        #[arg(long = "after")]
-        after: Vec<String>,
-        /// LLM harness behind the Planner.
-        #[arg(long, value_enum, default_value_t = HarnessKind::Claude)]
-        harness: HarnessKind,
-        /// Model: Claude model name, or `provider/model` for opencode.
-        #[arg(long)]
-        model: Option<String>,
-        /// Thinking effort: low | medium | high | max (harness default when omitted).
-        #[arg(long, env = "RIG_EFFORT")]
-        effort: Option<String>,
-        /// Token budget per task the Planner writes onto new tasks (default 400000).
-        #[arg(long, env = "RIG_TASK_TOKENS")]
-        task_tokens: Option<u64>,
-        /// Spend cap for the planner run, USD (claude only).
-        #[arg(long, default_value_t = 2.0)]
-        max_budget_usd: f64,
-        /// Serve the plan queue instead: plan each open `plan_request` bead (from the console).
-        #[arg(long, conflicts_with_all = ["text", "file"])]
-        queue: bool,
-        /// With --queue: keep polling every N seconds (one sweep when omitted).
-        #[arg(long)]
-        interval: Option<u64>,
-        /// With --queue: event log path (JSONL, appended) for planner progress.
-        #[arg(long, default_value = ".factory/events.jsonl")]
-        events: PathBuf,
-    },
+    Plan(crate::plan_cmd::PlanArgs),
     /// Run a Worker: claim ready tasks and hand each to a fresh Claude Code session.
     Work {
         /// Path to the project clone.
@@ -398,92 +358,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
                 );
             }
         }
-        Command::Plan {
-            repo,
-            main,
-            file,
-            text,
-            harness,
-            model,
-            effort,
-            task_tokens,
-            max_budget_usd,
-            queue,
-            interval,
-            events,
-            after: _,
-        } => {
-            let effort = effort.map(|e| e.parse::<domain::Effort>()).transpose()?;
-            let mut defaults = PlanDefaults {
-                effort,
-                ..PlanDefaults::default()
-            };
-            if let Some(t) = task_tokens {
-                defaults.budget.tokens = domain::Tokens::new(t);
-            }
-            if queue {
-                let harness = build_harness(harness, model, max_budget_usd)?;
-                let git = GitCli::new(&repo, repo.join(".factory-worktrees"));
-                let store = BdCli::new(&cli.workdir).with_actor("planner");
-                let main = BranchName::try_new(main)?;
-                if let Some(dir) = events.parent() {
-                    std::fs::create_dir_all(dir)?;
-                }
-                let log = JsonlSink::open(&events)?;
-                loop {
-                    let out = app::plan_queued_once(
-                        &store,
-                        harness.as_ref(),
-                        &git,
-                        &repo,
-                        &main,
-                        defaults,
-                        app::Progress {
-                            sink: &log,
-                            clock: &SystemClock,
-                        },
-                    )
-                    .await?;
-                    if let Some(o) = out {
-                        let line = match o.result {
-                            Ok(r) => format!("epic {} ({} tasks)", r.epic, r.tasks.len()),
-                            Err(e) => format!("failed: {e}"),
-                        };
-                        println!("{}: {line}", o.request);
-                    }
-                    let Some(secs) = interval else { break };
-                    tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
-                }
-                return Ok(());
-            }
-            let plan_text = match (file, text) {
-                (Some(f), _) => std::fs::read_to_string(f)?,
-                (None, Some(t)) => t,
-                (None, None) => anyhow::bail!("give the plan with --text or --file"),
-            };
-            let harness = build_harness(harness, model, max_budget_usd)?;
-            let git = GitCli::new(&repo, repo.join(".factory-worktrees"));
-            let store = BdCli::new(&cli.workdir).with_actor("planner");
-            let report = plan(
-                &store,
-                harness.as_ref(),
-                &git,
-                &repo,
-                &BranchName::try_new(main)?,
-                &plan_text,
-                defaults,
-            )
-            .await?;
-            println!(
-                "epic {}  ({} tasks, {} tokens)",
-                report.epic,
-                report.tasks.len(),
-                report.tokens
-            );
-            for (key, id) in &report.tasks {
-                println!("  {id}  {key}");
-            }
-        }
+        Command::Plan(args) => crate::plan_cmd::run(&cli.workdir, args).await?,
         Command::Work {
             repo,
             worktrees,

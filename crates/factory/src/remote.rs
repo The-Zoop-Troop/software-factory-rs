@@ -74,9 +74,10 @@ pub(crate) fn remote_command(cmd: Command) -> Result<RemoteCommand, RemoteUnsupp
             poll,
             api_base,
         }),
-        Command::Plan {
-            file, text, after, ..
-        } => {
+        Command::Plan(args) => {
+            let crate::plan_cmd::PlanArgs {
+                file, text, after, ..
+            } = args;
             let text = match (file, text) {
                 (Some(f), _) => {
                     std::fs::read_to_string(f).map_err(|e| RemoteUnsupported::PlanFile {

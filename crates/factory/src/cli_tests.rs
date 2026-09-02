@@ -30,10 +30,10 @@ fn parses_every_command() {
     ]);
     assert!(matches!(
         c.command,
-        Command::Plan {
+        Command::Plan(crate::plan_cmd::PlanArgs {
             harness: HarnessKind::Opencode,
             ..
-        }
+        })
     ));
     let c = Cli::parse_from([
         "factory",

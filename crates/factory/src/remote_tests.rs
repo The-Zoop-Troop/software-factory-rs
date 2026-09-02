@@ -57,7 +57,7 @@ fn commands_map_or_are_refused() {
             note: "n".into()
         })
     );
-    let plan = |file, text| Command::Plan {
+    let plan = |file, text| Command::Plan(crate::plan_cmd::PlanArgs {
         repo: "r".into(),
         main: "main".into(),
         file,
@@ -71,7 +71,7 @@ fn commands_map_or_are_refused() {
         interval: None,
         events: "e".into(),
         after: vec![],
-    };
+    });
     assert_eq!(
         remote_command(plan(None, Some("x".into()))),
         Ok(RemoteCommand::Plan {
@@ -316,7 +316,7 @@ async fn bot_answers_allowed_chats_and_pushes_changes() {
 
 #[test]
 fn plan_after_parses_cross_rig_needs_and_rejects_junk() {
-    let plan = |after: Vec<String>| Command::Plan {
+    let plan = |after: Vec<String>| Command::Plan(crate::plan_cmd::PlanArgs {
         repo: "r".into(),
         main: "main".into(),
         file: None,
@@ -330,7 +330,7 @@ fn plan_after_parses_cross_rig_needs_and_rejects_junk() {
         interval: None,
         events: "e".into(),
         after,
-    };
+    });
     let parsed = remote_command(plan(vec!["backend:be-1".into()])).ok();
     let needs = match parsed {
         Some(RemoteCommand::Plan { needs, .. }) => needs,
