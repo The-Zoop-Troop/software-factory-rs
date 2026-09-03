@@ -61,7 +61,8 @@ rules too long for the epic text.
 ## Phase gating across rigs
 
 Pick upstream epics in the plan form's **After** field (or
-`factory --rig … plan --after backend:be-1`). The request waits until each closes; the
+`factory --rig … plan --after backend:be-1`, or from inside a rig
+`factory plan --queued --file plan.md --after backend:be-1`). The request waits until each closes; the
 console then appends their **contracts** — what actually landed: commit range, files, public
 surface — and the planner reads those instead of your guesses about the upstream work. Keep
 the phase order written in the exec plan so anyone can see what waits on what. A canceled

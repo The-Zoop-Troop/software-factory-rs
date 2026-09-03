@@ -9,6 +9,7 @@ Source: `crates/domain/src/meta.rs`. Each block is the JSON stored under the nam
 ```json
 {
   "base": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "blocked_releases": 1,
   "budget": {
     "attempts": 3,
     "tokens": 400000,

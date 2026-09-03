@@ -55,8 +55,9 @@ fn state_machine() -> String {
         s.push_str(&format!("- `{ev}`\n"));
     }
     s.push_str(&format!(
-        "\n## Constants\n\n- Lease expiries before a lease-storm incident: `{}`\n",
-        domain::task::MAX_LEASE_EXPIRIES
+        "\n## Constants\n\n- Lease expiries before a lease-storm incident: `{}`\n- Consecutive blocked releases before a release-loop incident: `{}`\n",
+        domain::task::MAX_LEASE_EXPIRIES,
+        domain::task::MAX_BLOCKED_RELEASES
     ));
     let b = domain::Budget::default();
     s.push_str(&format!(
@@ -77,7 +78,8 @@ fn bead_schema() -> anyhow::Result<String> {
         budget: domain::Budget::default(),
         usage: domain::Usage::default(),
         lease_expiries: domain::Attempts::new(0),
-        blocked_releases: domain::Attempts::new(0),
+        // 1 so the (skip-if-zero) field is visible in the documented sample blob.
+        blocked_releases: domain::Attempts::new(1),
         state: domain::TaskState::Open,
     };
     let verify = domain::VerifyMeta {

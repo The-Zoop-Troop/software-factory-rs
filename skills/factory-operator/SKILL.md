@@ -28,7 +28,7 @@ backups, troubleshooting) keeps that loop healthy.
 
 1. **Plan** — write the epic per `references/plan-writing.md` (this is the highest-leverage
    document in the skill; a good plan is most of a good run). Submit from the console's Plan
-   form, `factory plan --text/--file`, or the A2A API. Gate phases across rigs with
+   form, `factory plan --text/--file` (add `--queued` to queue on the ledger with console visibility and `--after` gating), or the A2A API. Gate phases across rigs with
    **After** / `--after rig:epic` — the request waits, then receives the upstream contracts.
 2. **Watch** — console rig page (cards, live feed, epic tables, task drawer) or
    `factory watch [--interval 30]`. The header badge answers "does anything need me?".

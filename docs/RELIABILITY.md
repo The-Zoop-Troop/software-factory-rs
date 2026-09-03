@@ -6,13 +6,15 @@
 |---|---|---|
 | Worker process dies mid-task | lease expiry (Steward sweep) | task → `open`; ≥3 expiries → incident |
 | Harness errors with no changes | worker | task released (attempt++) |
+| Session declares the task blocked | worker (blocked note) | task released (attempt++); 2 consecutive blocked releases → release-loop incident naming the blocked reason |
+| Verify command needs a tool or interpreter module the image lacks | Verifier environment classifier (exit 126/127, or signatures incl. `no module named` / `cannot find module` / `cannot load such file`) | environment incident; no attempt charged; resume from the branch after fixing the rig |
 | Verify fails | Verifier | task → `open` with output; attempts exhausted → incident |
 | Rebase conflict / project checks fail | Integrator | task → `open` with output (attempt++) |
 | Remote/git/ledger unavailable | Integrator/Worker | nothing changes; retried next pass |
 | Runaway session (wall clock) | Steward, mid-lease projection | incident |
 | Crash between persisting `mergeable` and creating the merge bead | Steward sweep (task mergeable, no merge bead) | merge bead re-created (idempotent) |
 | Push fails after fast-forward | Integrator saga | `main` rolled back by compare-and-swap; task stays mergeable; retry next pass |
-| Planner emits an unrunnable verify command | Verifier failure ×3 | incident; fix the prompt or runner, then reopen |
+| Planner emits an unrunnable verify command | blocked releases ×2 (worker) or Verifier failure ×attempts | release-loop / budget incident; retry with guidance or re-plan |
 | A human is needed (incident, question) or an epic ends | console alert sweep / Telegram bot (poll + diff, closed epics fetched once) | webhook / chat message with the task id |
 | Remote client misuses the console | scope check before every action | HTTP 401/403, refusal audited in the rig's event log |
 | Ledger or repo volume lost | `factory rig doctor` (`ledger=missing`) | restore from the latest `factory rig backup` tarballs |

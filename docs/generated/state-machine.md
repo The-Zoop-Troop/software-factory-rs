@@ -29,4 +29,5 @@ Source: `crates/domain/src/task.rs`.
 ## Constants
 
 - Lease expiries before a lease-storm incident: `3`
+- Consecutive blocked releases before a release-loop incident: `2`
 - Default budget: tokens `400000`, wall clock `2700s`, attempts `3`

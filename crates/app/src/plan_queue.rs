@@ -1,6 +1,8 @@
-//! The plan queue: remote clients cannot run the Planner (it needs the rig's harness
-//! credential), so they leave a `plan_request` bead in the ledger and the rig's Planner
-//! service pulls it, plans, and closes it with the epic id. Pull-based, like everything else.
+//! The plan queue: a `plan_request` bead in the ledger that the rig's Planner service
+//! pulls, plans, and closes with the epic id. Remote clients queue one because they cannot
+//! run the Planner (it needs the rig's harness credential); an in-rig operator queues one
+//! with `factory plan --queued` for console visibility and `--after` gating. Pull-based,
+//! like everything else.
 
 use std::path::Path;
 

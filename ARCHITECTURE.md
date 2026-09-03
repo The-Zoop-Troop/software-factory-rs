@@ -69,7 +69,7 @@ Beads is used as-is (the `bd` CLI + Dolt). We add conventions, not forks.
 | `verify` | Planner (paired with each task) | Verifier | Holds an executable acceptance check |
 | `merge` | Verifier (on verify pass) | Integrator | Branch is ready for the merge queue |
 | `question` | Any agent | Human (via console) | `INPUT_REQUIRED` surfaced to a person |
-| `incident` | Steward | Human or Steward | Budget exceeded, repeated failure, lease storm |
+| `incident` | Steward | Human or Steward | Budget exceeded, repeated failure, lease storm, release loop, environment |
 
 ### 3.2 Required fields on a `task` bead
 

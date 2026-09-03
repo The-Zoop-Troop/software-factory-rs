@@ -28,12 +28,14 @@ epic timeline, `GET /rigs/<rig>/beads/<id>?full=1`. Console API errors and scope
 ## Incidents: the decision table
 
 An incident = the factory gave up: verify failed ×attempts, merge no longer applies, budget
-exhausted, lease kept expiring, or the checks could not run at all. **Read the last verify
+exhausted, lease kept expiring, sessions kept declaring the task blocked (release loop),
+or the checks could not run at all. **Read the last verify
 output first** — real runs show first incidents are usually infrastructure, not model code.
 
 | Choose | When |
 |---|---|
-| **Resume from the branch** | environment incident (exit 126/127, permission denied, no space, missing tool — these charge no attempt); fix the rig, keep the commits |
+| **Resume from the branch** | environment incident (exit 126/127, permission denied, no space, missing tool or interpreter module — these charge no attempt); fix the rig, keep the commits |
+| **Retry with guidance / re-plan** | release-loop incident: 2 sessions declared the contract unsatisfiable — the contract, not the code, is usually what needs fixing |
 | **Retry** | transient failure; fresh attempts + budget from the integration branch |
 | **Retry with guidance** | the model misread the task; the note is read first next session — the most productive lever |
 | **Re-plan** | the decomposition itself was wrong; stops the epic, queues a new plan from its goal + your note |
