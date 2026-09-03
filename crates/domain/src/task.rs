@@ -14,12 +14,11 @@
 //! `transition` is total over `(TaskState, Event)`: every pair yields either a new
 //! state or an `IllegalTransition`. Adding a state or event must break the build.
 
-use crate::budget::{Budget, BudgetExceeded, Usage};
+use crate::budget::{Budget, Usage};
 use crate::counts::{Attempts, Tokens};
 use crate::ids::{AgentId, BeadId, BranchName, Sha};
 use crate::lease::Lease;
 use crate::time::{Duration, Timestamp};
-use core::fmt;
 
 /// Where a task bead is in its lifecycle.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,63 +39,7 @@ pub enum TaskState {
     Incident { reason: IncidentReason },
 }
 
-/// Why a task became an incident.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "kind", rename_all = "snake_case"))]
-pub enum IncidentReason {
-    Budget {
-        exceeded: BudgetExceeded,
-    },
-    /// Reopened by lease expiry too many times without ever reaching verification.
-    LeaseStorm {
-        expiries: Attempts,
-    },
-    /// The Integrator could not land it.
-    MergeConflict {
-        detail: String,
-    },
-    /// A human or agent escalated explicitly.
-    Manual {
-        detail: String,
-    },
-    /// The rig could not run verification (no space, permission denied, missing tool,
-    /// network). Not the task's fault: attempts are not charged and the branch is kept.
-    Environment {
-        detail: String,
-    },
-}
-
-impl fmt::Display for IncidentReason {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Budget { exceeded } => write!(
-                f,
-                "budget exhausted: {exceeded}. The worker kept failing verification or ran out of \
-                 time/tokens. Resolving reopens the task with fresh attempts; if the task itself \
-                 is wrong, stop the epic and re-plan."
-            ),
-            Self::LeaseStorm { expiries } => write!(
-                f,
-                "lease expired {expiries} times without a submission: workers keep dying or \
-                 stalling on this task. Check worker logs; resolving reopens it."
-            ),
-            Self::MergeConflict { detail } => write!(
-                f,
-                "the Integrator could not land this task's branch on main ({detail}). Another \
-                 task changed the same files first. Resolving reopens the task so a worker redoes \
-                 it on top of the current main; if the work is now redundant, stop the epic instead."
-            ),
-            Self::Manual { detail } => write!(f, "escalated by hand: {detail}"),
-            Self::Environment { detail } => write!(
-                f,
-                "the rig could not run the verification ({detail}). This is an environment \
-                 problem, not the task's: fix the rig (image, volume, network), then resume from \
-                 the task's branch or retry."
-            ),
-        }
-    }
-}
+pub use crate::incident::IncidentReason;
 
 /// Something that happened to a task. Carries only facts, never decisions.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -122,11 +65,13 @@ pub enum Event {
         now: Timestamp,
     },
     /// Holder gives the task back without submitting (session errored, nothing produced).
-    /// Counts as an attempt.
+    /// Counts as an attempt. `blocked` marks a session that declared the task's contract
+    /// unsatisfiable rather than erroring.
     Release {
         holder: AgentId,
         now: Timestamp,
         note: String,
+        blocked: bool,
     },
     VerifyPassed,
     /// Verification could not run for environmental reasons; attempts are not charged.
@@ -156,6 +101,9 @@ pub struct Task {
     pub budget: Budget,
     pub usage: Usage,
     pub lease_expiries: Attempts,
+    /// Consecutive releases where the session declared itself blocked; reset by a
+    /// submission or a non-blocked release.
+    pub blocked_releases: Attempts,
     pub state: TaskState,
 }
 
@@ -184,6 +132,10 @@ pub const EVENT_NAMES: [&str; 10] = [
 
 /// Maximum times a lease may expire before the task is treated as a lease storm.
 pub const MAX_LEASE_EXPIRIES: Attempts = Attempts::new(3);
+
+/// Consecutive blocked releases before the task escalates as a [`IncidentReason::ReleaseLoop`]:
+/// sessions that keep proving the contract unsatisfiable must reach an operator, not loop.
+pub const MAX_BLOCKED_RELEASES: Attempts = Attempts::new(2);
 
 /// Result of a successful transition: the new task plus what the shell should do about it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -288,6 +240,7 @@ impl Task {
             budget,
             usage: Usage::default(),
             lease_expiries: Attempts::new(0),
+            blocked_releases: Attempts::new(0),
             state: TaskState::Open,
         }
     }
@@ -358,6 +311,7 @@ impl Task {
                 Ok(Transition {
                     task: Task {
                         usage,
+                        blocked_releases: Attempts::new(0),
                         state: TaskState::InVerify { branch, head },
                         ..self
                     },
@@ -467,13 +421,38 @@ impl Task {
                 }
             }
 
-            (TaskState::Leased { lease }, Event::Release { holder, now, note }) => {
+            (
+                TaskState::Leased { lease },
+                Event::Release {
+                    holder,
+                    now,
+                    note,
+                    blocked,
+                },
+            ) => {
                 Self::require_holder(&self.id, &lease, &holder)?;
                 let usage = self
                     .usage
                     .add_wall_clock(now.since(lease.claimed_at))
                     .add_attempt();
-                let t = Task { usage, ..self };
+                let blocked_releases = if blocked {
+                    self.blocked_releases.incr()
+                } else {
+                    Attempts::new(0)
+                };
+                let t = Task {
+                    usage,
+                    blocked_releases,
+                    ..self
+                };
+                if blocked && blocked_releases >= MAX_BLOCKED_RELEASES {
+                    let mut tr = t.escalate(IncidentReason::ReleaseLoop {
+                        releases: blocked_releases,
+                        detail: note.lines().next().unwrap_or_default().to_owned(),
+                    });
+                    tr.effects.insert(0, Effect::AppendNote { task: id, note });
+                    return Ok(tr);
+                }
                 match t.budget.check(usage) {
                     Ok(()) => Ok(Transition {
                         task: Task {
@@ -592,3 +571,7 @@ impl Task {
 #[cfg(test)]
 #[path = "task_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "task_release_tests.rs"]
+mod release_tests;

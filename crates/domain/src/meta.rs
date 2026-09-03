@@ -44,7 +44,14 @@ pub struct FactoryMeta {
     pub budget: Budget,
     pub usage: Usage,
     pub lease_expiries: Attempts,
+    pub blocked_releases: Attempts,
     pub state: TaskState,
+}
+
+#[cfg(feature = "serde")]
+#[allow(clippy::trivially_copy_pass_by_ref, reason = "serde skip_serializing_if signature")]
+fn u32_is_zero(v: &u32) -> bool {
+    *v == 0
 }
 
 /// Wire shape. Public only so serde can name it; construct `FactoryMeta` instead.
@@ -60,6 +67,11 @@ pub struct RawFactoryMeta {
     pub usage: Usage,
     #[cfg_attr(feature = "serde", serde(default))]
     pub lease_expiries: u32,
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "u32_is_zero")
+    )]
+    pub blocked_releases: u32,
     pub state: TaskState,
 }
 
@@ -104,6 +116,7 @@ impl TryFrom<RawFactoryMeta> for FactoryMeta {
             budget: raw.budget.unwrap_or_default(),
             usage: raw.usage,
             lease_expiries: Attempts::new(raw.lease_expiries),
+            blocked_releases: Attempts::new(raw.blocked_releases),
             state: raw.state,
         })
     }
@@ -118,6 +131,7 @@ impl From<FactoryMeta> for RawFactoryMeta {
             budget: Some(m.budget),
             usage: m.usage,
             lease_expiries: m.lease_expiries.get(),
+            blocked_releases: m.blocked_releases.get(),
             state: m.state,
         }
     }
@@ -134,6 +148,7 @@ impl FactoryMeta {
             budget: self.budget,
             usage: self.usage,
             lease_expiries: self.lease_expiries,
+            blocked_releases: self.blocked_releases,
             state: self.state,
         }
     }
@@ -350,6 +365,7 @@ impl From<Task> for FactoryMeta {
             budget: t.budget,
             usage: t.usage,
             lease_expiries: t.lease_expiries,
+            blocked_releases: t.blocked_releases,
             state: t.state,
         }
     }
@@ -370,6 +386,7 @@ mod tests {
             budget: Budget::default(),
             usage: Usage::default().add_tokens(crate::counts::Tokens::new(5)),
             lease_expiries: Attempts::new(1),
+            blocked_releases: Attempts::new(0),
             state: TaskState::Leased {
                 lease: Lease::grant(
                     AgentId::try_new("w1").unwrap(),
@@ -461,6 +478,7 @@ mod tests {
             budget: Budget::default(),
             usage: Usage::default(),
             lease_expiries: Attempts::new(0),
+            blocked_releases: Attempts::new(0),
             state: TaskState::Open,
         };
         assert_eq!(BeadMeta::Task(m.clone()).key(), META_KEY);

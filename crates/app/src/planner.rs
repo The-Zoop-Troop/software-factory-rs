@@ -189,6 +189,7 @@ async fn materialize(
                     budget: t.budget,
                     usage: Usage::default(),
                     lease_expiries: Attempts::new(0),
+                    blocked_releases: Attempts::new(0),
                     state: TaskState::Open,
                 })),
                 deferred: false,

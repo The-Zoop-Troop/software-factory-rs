@@ -7,21 +7,22 @@
 )]
 
 use super::*;
+use crate::budget::BudgetExceeded;
 use crate::counts::{Attempts, Tokens};
 
 fn id(s: &str) -> BeadId {
     BeadId::try_new(s).unwrap()
 }
-fn agent(s: &str) -> AgentId {
+pub(crate) fn agent(s: &str) -> AgentId {
     AgentId::try_new(s).unwrap()
 }
 fn sha(c: char) -> Sha {
     Sha::try_new(core::iter::repeat_n(c, 40).collect::<String>()).unwrap()
 }
-fn t(secs: i64) -> Timestamp {
+pub(crate) fn t(secs: i64) -> Timestamp {
     Timestamp::from_unix_seconds(secs)
 }
-fn fresh() -> Task {
+pub(crate) fn fresh() -> Task {
     Task::new(
         id("fac-1"),
         id("fac-2"),
@@ -32,14 +33,14 @@ fn fresh() -> Task {
         },
     )
 }
-fn claim(now: i64) -> Event {
+pub(crate) fn claim(now: i64) -> Event {
     Event::Claim {
         holder: agent("w1"),
         now: t(now),
         ttl: Duration::from_seconds(60),
     }
 }
-fn submit(now: i64) -> Event {
+pub(crate) fn submit(now: i64) -> Event {
     Event::Submit {
         holder: agent("w1"),
         branch: BranchName::try_new("task/fac-1").unwrap(),
@@ -281,6 +282,7 @@ fn release_reopens_and_counts_attempt_then_escalates() {
         holder: agent("w1"),
         now: t(now),
         note: "harness error".into(),
+        blocked: false,
     };
     let tr = task.apply(rel(5)).unwrap();
     assert_eq!(tr.task.state, TaskState::Open);
@@ -499,6 +501,7 @@ fn name_tables_match_the_types() {
             holder: agent("w"),
             now: t(0),
             note: String::new(),
+            blocked: false,
         },
         Event::VerifyPassed,
         Event::VerifyFailed {

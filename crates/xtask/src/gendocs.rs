@@ -77,6 +77,7 @@ fn bead_schema() -> anyhow::Result<String> {
         budget: domain::Budget::default(),
         usage: domain::Usage::default(),
         lease_expiries: domain::Attempts::new(0),
+        blocked_releases: domain::Attempts::new(0),
         state: domain::TaskState::Open,
     };
     let verify = domain::VerifyMeta {

@@ -40,6 +40,7 @@ async fn store_mergeable(attempts: Attempts) -> FakeStore {
                 },
                 usage: Usage::default(),
                 lease_expiries: Attempts::new(0),
+                blocked_releases: Attempts::new(0),
                 state: TaskState::Open,
             },
         )
@@ -258,6 +259,7 @@ async fn stale_merge_bead_is_closed() {
                 budget: Budget::default(),
                 usage: Usage::default(),
                 lease_expiries: Attempts::new(0),
+                blocked_releases: Attempts::new(0),
                 state: TaskState::Open,
             },
         )

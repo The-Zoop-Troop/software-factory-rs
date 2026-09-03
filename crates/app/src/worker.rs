@@ -191,6 +191,7 @@ pub async fn work_once(
                 holder: cfg.agent.clone(),
                 now,
                 note,
+                blocked: blocked.is_some(),
             },
         )
         .await?;

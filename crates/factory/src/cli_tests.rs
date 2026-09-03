@@ -105,6 +105,7 @@ fn meta(state: TaskState) -> FactoryMeta {
         budget: Budget::default(),
         usage: Usage::default(),
         lease_expiries: Attempts::new(0),
+        blocked_releases: Attempts::new(0),
         state,
     }
 }

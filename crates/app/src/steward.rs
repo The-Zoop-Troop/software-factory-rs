@@ -364,6 +364,7 @@ mod tests {
             budget,
             usage: Usage::default(),
             lease_expiries: Attempts::new(0),
+            blocked_releases: Attempts::new(0),
             state: TaskState::Leased {
                 lease: Lease::grant(
                     AgentId::try_new("w1").unwrap(),

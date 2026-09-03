@@ -96,6 +96,7 @@ pub async fn resolve(
             // continuation of a session that already blew its limits.
             usage: domain::Usage::default(),
             lease_expiries: Attempts::new(0),
+            blocked_releases: Attempts::new(0),
             ..meta
         };
         store.set_meta(&task_id, &reopened).await?;
@@ -139,6 +140,7 @@ mod tests {
                 ..Usage::default()
             },
             lease_expiries: Attempts::new(2),
+            blocked_releases: Attempts::new(0),
             state,
         }
     }

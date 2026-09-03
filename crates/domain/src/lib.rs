@@ -18,6 +18,7 @@ pub mod budget;
 pub mod counts;
 pub mod effort;
 pub mod ids;
+pub mod incident;
 pub mod kind;
 pub mod lease;
 pub mod meta;

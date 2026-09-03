@@ -81,6 +81,7 @@ async fn full_ledger_roundtrip() {
         budget: Budget::default(),
         usage: Usage::default(),
         lease_expiries: Attempts::new(0),
+        blocked_releases: Attempts::new(0),
         state: TaskState::Open,
     };
     let task = store

@@ -208,6 +208,9 @@ fn reason_of(task: Option<&Bead>, description: &str) -> Reason {
                 ("merge_conflict", "The branch no longer merges")
             }
             IncidentReason::Manual { .. } => ("manual", "Escalated by hand"),
+            IncidentReason::ReleaseLoop { .. } => {
+                ("release_loop", "Sessions keep declaring this task blocked")
+            }
             IncidentReason::Environment { .. } => {
                 ("environment", "The rig could not run the checks")
             }

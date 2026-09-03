@@ -84,6 +84,7 @@ fn event(holder: AgentId) -> impl Strategy<Value = Event> {
                 holder: h.clone(),
                 now,
                 note: "r".into(),
+                blocked: false,
             }
         }),
         Just(Event::VerifyPassed),

@@ -26,6 +26,7 @@ fn meta(state: TaskState, tokens: u64) -> anyhow::Result<FactoryMeta> {
             attempts: Attempts::new(1),
         },
         lease_expiries: Attempts::new(0),
+        blocked_releases: Attempts::new(0),
         state,
     })
 }
