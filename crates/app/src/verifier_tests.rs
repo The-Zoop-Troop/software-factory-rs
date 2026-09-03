@@ -27,6 +27,7 @@ async fn store_in_verify() -> FakeStore {
                 },
                 usage: Usage::default(),
                 lease_expiries: Attempts::new(0),
+                blocked_releases: Attempts::new(0),
                 state: TaskState::Open,
             },
         )
@@ -164,6 +165,7 @@ async fn skips_when_task_not_in_verify() {
                 budget: Budget::default(),
                 usage: Usage::default(),
                 lease_expiries: Attempts::new(0),
+                blocked_releases: Attempts::new(0),
                 state: TaskState::Open,
             },
         )
@@ -232,6 +234,22 @@ mod environment_tests {
             environmental(&[out(1, "fork/exec /tmp/go-build/x.test: Permission denied")])
                 .unwrap()
                 .contains("permission denied")
+        );
+        // Interpreter missing-dependency aborts exit 1 but are the image's fault, not the task's.
+        assert!(
+            environmental(&[out(1, "ModuleNotFoundError: No module named 'yaml'")])
+                .unwrap()
+                .contains("no module named")
+        );
+        assert!(
+            environmental(&[out(1, "Error: Cannot find module 'js-yaml'")])
+                .unwrap()
+                .contains("cannot find module")
+        );
+        assert!(
+            environmental(&[out(1, "LoadError: cannot load such file -- yaml")])
+                .unwrap()
+                .contains("cannot load such file")
         );
         assert!(
             environmental(&[out(2, "write /work: no space left on device")])

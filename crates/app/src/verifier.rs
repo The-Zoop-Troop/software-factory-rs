@@ -221,7 +221,9 @@ async fn run_all(
 }
 
 /// Signatures of a rig that cannot run the checks, as opposed to checks that fail.
-const ENVIRONMENT_SIGNATURES: [&str; 10] = [
+/// Includes interpreter missing-dependency aborts (Python/Node/Ruby): those exit 1, not
+/// 126/127, and mean the runtime image lacks a module the verify command needs.
+const ENVIRONMENT_SIGNATURES: [&str; 13] = [
     "permission denied",
     "no space left on device",
     "read-only file system",
@@ -232,6 +234,9 @@ const ENVIRONMENT_SIGNATURES: [&str; 10] = [
     "connection refused",
     "network is unreachable",
     "temporary failure in name resolution",
+    "no module named",
+    "cannot find module",
+    "cannot load such file",
 ];
 
 /// Pure: was the first failure environmental? Exit 126/127 (not executable / not found) or a
