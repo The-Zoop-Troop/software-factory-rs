@@ -76,6 +76,11 @@ upstream epic surfaces as a question on the dependent rig, not a silent hang.
 - Plan strong, work cheap: `RIG_PLANNER_MODEL`/`RIG_PLANNER_EFFORT` vs
   `RIG_WORKER_MODEL`/`RIG_WORKER_EFFORT` (effort: low|medium|high|max). The same flags exist
   per invocation on `factory plan` / `work`.
+- The Planner verifies the plan's concrete claims (backticked paths, symbols, metrics, env
+  vars) against the repository before decomposing. A plan that depends on something absent
+  is rejected — the request closes with `failed: the plan depends on something absent: …`
+  naming what is missing — or the Planner makes creating the missing thing an explicit
+  early task. Write claims you have checked, and backtick them.
 - Planner spend cap: `factory plan --max-budget-usd` (claude only).
 
 ## Anti-patterns

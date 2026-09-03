@@ -220,7 +220,7 @@ proptest! {
             verify: vec!["true".into()],
             needs: edges.iter().filter(|(a, b)| *a == i && *b < i).map(|(_, b)| keys[*b].clone()).collect(),
         }).collect();
-        let plan = RawPlan { summary: "s".into(), reference: None, tasks }.validate(PlanDefaults::default()).unwrap();
+        let plan = RawPlan { summary: "s".into(), reference: None, tasks, blocked: None }.validate(PlanDefaults::default()).unwrap();
         let order: Vec<String> = plan.tasks.iter().map(|t| t.key.to_string()).collect();
         for t in plan.tasks.iter() {
             let pos = order.iter().position(|k| *k == t.key.to_string()).unwrap();

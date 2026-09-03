@@ -61,6 +61,10 @@ pub struct RawPlan {
     #[cfg_attr(feature = "serde", serde(default))]
     pub reference: Option<String>,
     pub tasks: Vec<RawPlannedTask>,
+    /// Set by the Planner instead of tasks when the plan depends on something that does
+    /// not exist in the repository; the request is rejected with this detail.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub blocked: Option<String>,
 }
 
 /// Wire shape of one task.
@@ -82,6 +86,8 @@ pub struct RawPlannedTask {
 pub enum PlanError {
     #[error("plan has no tasks")]
     Empty,
+    #[error("the plan depends on something absent: {detail}")]
+    Blocked { detail: String },
     #[error("task key `{key}` is empty or malformed")]
     BadKey { key: String },
     #[error("duplicate task key `{key}`")]
@@ -114,6 +120,16 @@ impl RawPlan {
     /// # Errors
     /// The first structural problem found, naming the task.
     pub fn validate(self, defaults: PlanDefaults) -> Result<Plan, PlanError> {
+        if let Some(detail) = self
+            .blocked
+            .as_deref()
+            .map(str::trim)
+            .filter(|d| !d.is_empty())
+        {
+            return Err(PlanError::Blocked {
+                detail: detail.to_owned(),
+            });
+        }
         if self.tasks.is_empty() {
             return Err(PlanError::Empty);
         }
@@ -247,6 +263,31 @@ fn topo_sort(tasks: Vec<PlannedTask>) -> Result<Vec<PlannedTask>, PlanError> {
     Ok(ordered)
 }
 
+/// Backtick-quoted identifiers a plan asserts exist (paths, symbols, metric names, env
+/// vars): the concrete claims the Planner must verify against the repository before
+/// decomposing. Space-free, identifier-shaped tokens only; order-preserving, de-duplicated,
+/// capped so the section cannot dominate the prompt.
+#[must_use]
+pub fn concrete_claims(text: &str) -> Vec<String> {
+    const MAX_CLAIMS: usize = 40;
+    let mut seen: Vec<String> = Vec::new();
+    for piece in text.split('`').skip(1).step_by(2) {
+        let token = piece.trim();
+        let identifier_shaped = token.len() >= 3
+            && token.len() <= 120
+            && !token.contains(char::is_whitespace)
+            && token.chars().any(|c| "_./:{-".contains(c))
+            && !token.chars().all(|c| c.is_ascii_digit() || c == '.');
+        if identifier_shaped && !seen.iter().any(|s| s == token) {
+            seen.push(token.to_owned());
+            if seen.len() == MAX_CLAIMS {
+                break;
+            }
+        }
+    }
+    seen
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -266,6 +307,7 @@ mod tests {
             summary: "s".into(),
             reference: None,
             tasks,
+            blocked: None,
         }
     }
 
@@ -344,5 +386,44 @@ mod tests {
             plan(vec![raw("bad key", &[])]).validate(d),
             Err(PlanError::BadKey { .. })
         ));
+    }
+
+    #[test]
+    fn blocked_plans_are_rejected_with_the_detail() {
+        let raw = RawPlan {
+            summary: String::new(),
+            reference: None,
+            tasks: vec![],
+            blocked: Some(" no quoted-price series exists ".into()),
+        };
+        assert_eq!(
+            raw.validate(PlanDefaults::default()),
+            Err(PlanError::Blocked {
+                detail: "no quoted-price series exists".into()
+            })
+        );
+        let raw = RawPlan {
+            summary: String::new(),
+            reference: None,
+            tasks: vec![],
+            blocked: Some("   ".into()),
+        };
+        assert_eq!(raw.validate(PlanDefaults::default()), Err(PlanError::Empty));
+    }
+
+    #[test]
+    fn concrete_claims_extracts_identifier_shaped_backtick_tokens() {
+        let text = "The backend exports `blueclaw_route_effective_price_wei{eth_address}` \
+            from `src/metrics.rs` behind `FAIRSHARE_EFFECTIVE_PRICE`; run `cargo test` \
+            (not `1.25`, not `foo`), and `src/metrics.rs` again.";
+        assert_eq!(
+            concrete_claims(text),
+            vec![
+                "blueclaw_route_effective_price_wei{eth_address}",
+                "src/metrics.rs",
+                "FAIRSHARE_EFFECTIVE_PRICE",
+            ]
+        );
+        assert!(concrete_claims("no backticks here").is_empty());
     }
 }

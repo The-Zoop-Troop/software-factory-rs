@@ -62,11 +62,12 @@ pub async fn plan(
         .run(HarnessRequest {
             cwd: repo_path.to_path_buf(),
             system_prompt: SYSTEM_PROMPT.to_owned(),
-            prompt: plan_text.to_owned(),
+            prompt: prompt_with_claims(plan_text),
             schema: Some(plan_schema()),
-            tools: ToolPolicy::None,
+            // Read-only so the Planner can verify the plan's concrete claims in the tree.
+            tools: ToolPolicy::ReadOnly,
             mcp: crate::mcp::McpConfig::default(),
-            max_turns: domain::Turns::new(4),
+            max_turns: domain::Turns::new(12),
             timeout: domain::Duration::from_minutes(10),
             effort: defaults.effort,
         })
@@ -289,13 +290,38 @@ must not be chained; they will run in parallel.
 - Keys are short slugs (e.g. `db-schema`, `login-endpoint`). Reference only keys you define.
 - `reference` holds architecture notes and decisions every task's agent should read: module \
 layout, conventions, technology choices. Be concrete.
-- Do not invent tasks outside the plan's scope. Do not include setup tasks the repo already covers.";
+- Do not invent tasks outside the plan's scope. Do not include setup tasks the repo already covers.
+- The plan's concrete claims are hypotheses, not facts. Before writing tasks, verify every file \
+path, symbol, metric name, env var, or command the plan asserts exists by reading the tree and \
+the code (your tools are read-only). If the plan depends on something absent, either make \
+creating it an explicit early task (say so in that task's description), or - when that exceeds \
+the plan's scope - set `blocked` to what is missing and where you looked, with `tasks` empty, \
+instead of writing tasks that cannot be satisfied.";
+
+/// The plan text plus a claims checklist the model is told to verify against the tree.
+fn prompt_with_claims(plan_text: &str) -> String {
+    let claims = domain::plan::concrete_claims(plan_text);
+    if claims.is_empty() {
+        return plan_text.to_owned();
+    }
+    let list = claims
+        .iter()
+        .map(|c| format!("- `{c}`"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "{plan_text}\n\n## Concrete claims to verify before planning\nConfirm each of these \
+exists in the repository (or make creating it an explicit task; if the plan cannot stand \
+without one that is absent, return `blocked`):\n{list}"
+    )
+}
 
 fn plan_schema() -> serde_json::Value {
     serde_json::json!({
         "type": "object",
         "properties": {
             "summary": { "type": "string", "description": "One-line name for the epic" },
+            "blocked": { "type": "string", "description": "Set (with tasks empty) when the plan depends on something absent from the repository: what is missing and where you looked" },
             "reference": { "type": "string", "description": "Architecture notes for all tasks" },
             "tasks": {
                 "type": "array",
@@ -327,6 +353,37 @@ mod tests {
 
     fn main() -> BranchName {
         BranchName::try_new("main").unwrap()
+    }
+
+    #[tokio::test]
+    async fn blocked_plan_is_a_typed_rejection_and_claims_reach_the_prompt() {
+        let harness = FakeHarness::structured(serde_json::json!({
+            "summary": "", "reference": "", "tasks": [],
+            "blocked": "no quoted-price series; checked src/metrics.rs at the contract range"
+        }));
+        let err = plan(
+            &FakeStore::default(),
+            &harness,
+            &FakeRepo::default(),
+            Path::new("/repo"),
+            &main(),
+            "Alert when `effective` >= quoted using `blueclaw_route_quoted_price_wei` from `src/metrics.rs`.",
+            PlanDefaults::default(),
+        )
+        .await
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            PlannerError::Invalid(domain::PlanError::Blocked { .. })
+        ));
+        let requests = harness.requests.lock().unwrap();
+        let req = requests.first().unwrap();
+        assert!(matches!(req.tools, ToolPolicy::ReadOnly));
+        assert!(req.prompt.contains("## Concrete claims to verify before planning"));
+        assert!(req.prompt.contains("- `blueclaw_route_quoted_price_wei`"));
+        assert!(req.prompt.contains("- `src/metrics.rs`"));
+        assert!(!req.prompt.contains("- `effective`"), "plain words are not claims");
+        assert!(req.system_prompt.contains("hypotheses, not facts"));
     }
 
     #[tokio::test]
@@ -410,7 +467,7 @@ mod tests {
             1
         );
         let req = &harness.requests.lock().unwrap()[0];
-        assert_eq!(req.tools, ToolPolicy::None);
+        assert_eq!(req.tools, ToolPolicy::ReadOnly);
         assert!(req.schema.is_some());
     }
 
