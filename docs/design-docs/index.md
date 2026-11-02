@@ -14,3 +14,4 @@ Each doc carries `Status` (draft | accepted | superseded) and `Verified` (how an
 | `railway.md` | Railway-oriented control flow as a product principle; compatibility rule for stored metadata | accepted |
 | `remote-control.md` | The console: A2A over rigs, plan queue, scoped tokens, audit, budgets | accepted |
 | `web-console.md` | The operator UI: Lit + Effect client of the console API, live state, structured attention, gate | accepted |
+| `proven-gates.md` | Why gates must catch planted faults before they are trusted, and what "proven" means | accepted |
