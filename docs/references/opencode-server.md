@@ -1,5 +1,5 @@
-# OpenCode 1.18.18 — `opencode serve` HTTP API
-- **Status:** reference · **Verified:** 2026-08-28 live probes (`/doc` OpenAPI)
+# OpenCode 1.18.34 — `opencode serve` HTTP API
+- **Status:** reference · **Verified:** 2026-11-02 `/doc` OpenAPI on 1.18.34: the adapter's paths and message fields are present. Model calls were last probed on 1.18.18, 2026-08-28.
 
 Why the server, not `opencode run`: with stdout redirected to a file the CLI buffers everything and never exits headlessly.
 

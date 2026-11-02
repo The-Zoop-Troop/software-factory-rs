@@ -1,5 +1,5 @@
-# Claude Code headless (`claude -p`) 2.1.250
-- **Status:** reference · **Verified:** 2026-08-28 live probes
+# Claude Code headless (`claude -p`) 2.1.316
+- **Status:** reference · **Verified:** 2026-11-02 live probes on 2.1.316 of the invocation, all three tool policies, `--json-schema`, `--effort` and the result envelope, with `claude-haiku-5-5`, `claude-sonnet-5-5` and `claude-opus-5-5`. `--mcp-config` and the auth notes were last probed on 2.1.250, 2026-08-28.
 
 - Invocation used: `claude -p "<prompt>" --output-format json --no-session-persistence --max-turns N --system-prompt "…" [--json-schema '<schema>'] [--model m] [--max-budget-usd x]`.
 - Tools: `--tools ""` (none), `--tools Read,Glob,Grep --permission-mode plan` (read-only), `--tools default --dangerously-skip-permissions` (full).
