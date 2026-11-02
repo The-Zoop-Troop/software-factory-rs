@@ -29,6 +29,7 @@ impl FakeHarness {
                 cost_micro_usd: MicroUsd::new(1000),
                 turns: Turns::new(1),
                 is_error: false,
+                provider_stop: None,
             }),
             requests: std::sync::Mutex::default(),
             yields: 0,

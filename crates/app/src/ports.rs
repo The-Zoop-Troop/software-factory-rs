@@ -324,6 +324,33 @@ pub enum ToolPolicy {
     Full,
 }
 
+/// The provider refused a session for a reason outside the task and the model. Waiting may clear
+/// it, so a role waits and tries again rather than charging the task.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum ProviderStop {
+    /// A plan's allowance, or a spend cap on its credits, is used up.
+    UsageLimit,
+    /// An API account's spend limit or credit balance has run out.
+    SpendLimit,
+    /// Too many requests, after the harness's own retries.
+    RateLimit,
+    /// The provider kept failing or overloaded, after the harness's own retries.
+    Outage,
+}
+
+impl core::fmt::Display for ProviderStop {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(match self {
+            Self::UsageLimit => "usage limit",
+            Self::SpendLimit => "spend limit",
+            Self::RateLimit => "rate limit",
+            Self::Outage => "provider outage",
+        })
+    }
+}
+
 /// What came back.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HarnessOutcome {
@@ -333,6 +360,8 @@ pub struct HarnessOutcome {
     pub cost_micro_usd: MicroUsd,
     pub turns: Turns,
     pub is_error: bool,
+    /// Set when `is_error` came from the provider refusing the session.
+    pub provider_stop: Option<ProviderStop>,
 }
 
 /// An LLM agent runner (Claude Code headless today; anything behind an A2A card tomorrow).

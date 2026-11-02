@@ -161,6 +161,12 @@ Options:
       --interval <INTERVAL>
           With --queue: keep polling every N seconds (one sweep when omitted)
 
+      --limit-wait <LIMIT_WAIT>
+          With --queue: seconds to wait after the provider refuses a session (a usage or spend limit, or an outage)
+          
+          [env: RIG_LIMIT_WAIT=]
+          [default: 900]
+
       --events <EVENTS>
           With --queue: event log path (JSONL, appended) for planner progress
           
@@ -232,6 +238,12 @@ Options:
           Spend cap per task session, USD (claude only)
           
           [default: 5]
+
+      --limit-wait <LIMIT_WAIT>
+          Seconds to wait after the provider refuses a session (a usage or spend limit, or an outage). A refused request costs nothing, so trying again is safe
+          
+          [env: RIG_LIMIT_WAIT=]
+          [default: 900]
 
       --harness <HARNESS>
           LLM harness behind the Worker

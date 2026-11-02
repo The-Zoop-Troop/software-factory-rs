@@ -99,6 +99,13 @@ keeps a manifest beside its results until phase 5 adds them.
   `gardening` go red on a schedule with nothing wrong, and a red that means nothing teaches people to
   ignore red. The check does not map docs to the code they describe, so any non-prose commit counts.
   It needs full git history, and refuses a shallow clone, which would read as "nothing changed".
+- **2026-11-02: a provider refusing a session charges the task nothing.** Otherwise a used-up
+  subscription, a reached spend limit or an outage looks like model failure and corrupts the baseline.
+  A partial session is discarded rather than verified, so every verified result comes from one
+  uninterrupted session, and its tokens are logged so cost per accepted result still counts them.
+  The behaviour was captured against a stub provider, not a real limit. A provider that never
+  recovers waits forever instead of reaching an incident; a refused request costs nothing, so the
+  price of that is a quiet rig, visible in the event log.
 - **2026-11-02: phases 0–3 are ordinary pull requests, one per phase, merged by the human.** They
   change the factory's own gates, so the factory does not build them. Dogfooding starts at phase 5.
 - **2026-11-02: the Planner's spend cap is raised from $2 to $5 per plan** with the existing

@@ -32,6 +32,12 @@ pub enum PlannerError {
     Harness(#[from] HarnessError),
     #[error("model reported an error: {message}")]
     ModelError { message: String },
+    /// The provider refused the session; waiting may clear it, and the plan is untouched.
+    #[error("{stop}: {detail}")]
+    ProviderStopped {
+        stop: crate::ports::ProviderStop,
+        detail: String,
+    },
     #[error("model returned no structured output")]
     NoStructuredOutput,
     #[error("model output did not match the plan schema: {detail}")]
@@ -72,6 +78,12 @@ pub async fn plan(
             effort: defaults.effort,
         })
         .await?;
+    if let Some(stop) = outcome.provider_stop {
+        return Err(PlannerError::ProviderStopped {
+            stop,
+            detail: outcome.text,
+        });
+    }
     if outcome.is_error {
         return Err(PlannerError::ModelError {
             message: outcome.text,

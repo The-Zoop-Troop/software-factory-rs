@@ -169,10 +169,11 @@ pub(super) async fn metrics(
 }
 
 /// Event kinds after which a task object differs; mirror of the client's old refresh set.
-const TASK_CHANGING: [&str; 10] = [
+const TASK_CHANGING: [&str; 11] = [
     "claimed",
     "submitted",
     "released",
+    "provider_stopped",
     "verified",
     "verify_blocked",
     "integrated",

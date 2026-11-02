@@ -503,7 +503,11 @@ fn name_tables_match_the_types() {
             note: String::new(),
             blocked: false,
         },
+        Event::ProviderStopped { holder: agent("w") },
         Event::VerifyPassed,
+        Event::VerifyBlocked {
+            note: String::new(),
+        },
         Event::VerifyFailed {
             note: String::new(),
         },

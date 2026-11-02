@@ -51,7 +51,7 @@ pub use plan_queue::{
 pub use planner::{PlanReport, PlannerError, plan};
 pub use ports::{
     BeadStore, Clock, DiffStat, DiffSummary, EventSink, Harness, HarnessOutcome, HarnessRequest,
-    RemoteSync, Repo, RunOutput, Runner, ToolPolicy, Worktree,
+    ProviderStop, RemoteSync, Repo, RunOutput, Runner, ToolPolicy, Worktree,
 };
 pub use remote::attention::{Attention, AttentionOption, attention_for};
 pub use remote::chat::{
