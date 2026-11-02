@@ -6,7 +6,7 @@
 
 **What the rig enforces.** Rootless daemon; non-root uid inside the userns; `cap_drop: ALL`; `no-new-privileges`; resource limits; internal network with no default route; egress only through a default-deny domain allowlist; three named volumes and no host mounts for the roles (the rig-local console bind-mounts `docker/console`); no Docker socket, SSH keys, or host home.
 
-**Credentials.** Injected as env at start from a gitignored file; scoped to one repo/provider; rotated by the operator. Every role receives the same file today, and harness sessions inherit it. An agent can only exfiltrate them to hosts that already hold them. Never bake a credential into the image; never mount a host credential file.
+**Credentials.** Injected as env at start from a gitignored file; scoped to one repo/provider; rotated by the operator. Every role receives the same file today, and harness sessions inherit it. `RIG_AUTH` (`subscription` or `api-key`) chooses which kind the harnesses use and removes the other at start, so a shared env file cannot bill the wrong account; a rig holding both kinds for a harness and no choice refuses to start. An agent can only exfiltrate them to hosts that already hold them. Never bake a credential into the image; never mount a host credential file.
 
 **Protected branches.** The Integrator refuses to run when the integration branch (`RIG_MAIN`) is in `RIG_PROTECTED_BRANCHES` (`main,master` by default): landing on a feature branch is a configuration, landing on `main` is a deliberate override. Combine with branch protection on the remote so a bug cannot get there either.
 

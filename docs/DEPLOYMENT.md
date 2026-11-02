@@ -6,6 +6,7 @@
 - Linux host with **rootless** Docker (`docker info | grep rootless`) and Compose v2+.
 - One credential per harness you intend to run (see `docs/SECURITY.md` for scope):
   `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), `ANTHROPIC_API_KEY`, or `CLAUDE_AUTH_JSON=$(base64 -w0 ~/.claude/.credentials.json)` if host re-logins keep revoking setup tokens; `OPENCODE_*` for an OpenAI-compatible provider; `OPENAI_API_KEY` or `CODEX_AUTH_JSON=$(base64 -w0 ~/.codex/auth.json)` for Codex — the entrypoint seeds Codex's login from these.
+- Set `RIG_AUTH=subscription` or `RIG_AUTH=api-key` to choose between a plan login and an API key; `factory doctor` reports which is in force. A plan login draws on limits shared with your own use of that plan, and each vendor restricts it: Anthropic limits it to ordinary use and bars routing other people's requests through it, and OpenAI says to keep one `auth.json` per runner, on private infrastructure, and not for public repositories. Use API keys for anything that serves other people.
 - Outbound access from the host to the allowlisted domains in `docker/egress/allowlist` (edit it for your git remote and registries). `docker/build.sh --project <dir>` also merges that project's `.factory/allowlist`, which is where a custom provider's host belongs.
 
 ## First run

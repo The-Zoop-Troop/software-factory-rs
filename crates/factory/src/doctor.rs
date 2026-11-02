@@ -298,7 +298,69 @@ pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
         },
         fix: "put one harness credential in docker/rig.env (see docs/SECURITY.md)",
     });
+    checks.push(auth_check(|name| std::env::var(name).ok()));
     checks
+}
+
+/// Which kind of credential this role's harness will use, as chosen by `RIG_AUTH`. The entrypoint
+/// has already removed the other kind, so this reports what is left to bill.
+fn auth_check(env: impl Fn(&str) -> Option<String>) -> Check {
+    let harness = env("RIG_HARNESS")
+        .filter(|h| !h.is_empty())
+        .unwrap_or_else(|| "claude".to_owned());
+    let (subscription, api_key): (&[&str], &[&str]) = match harness.as_str() {
+        "claude" => (
+            &["CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_AUTH_JSON"],
+            &["ANTHROPIC_API_KEY"],
+        ),
+        "codex" => (
+            &["CODEX_AUTH_JSON", "CODEX_OAUTH_TOKEN"],
+            &["OPENAI_API_KEY"],
+        ),
+        _ => (&[], &["OPENCODE_API_KEY"]),
+    };
+    let present = |names: &[&str]| {
+        names
+            .iter()
+            .copied()
+            .filter(|name| env(name).is_some_and(|v| !v.is_empty()))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let using = |kind: &str, names: &[&str]| match present(names) {
+        found if found.is_empty() => (false, format!("RIG_AUTH={kind} but {harness} has none")),
+        found => (true, format!("{harness} uses {kind} ({found})")),
+    };
+    let mode = env("RIG_AUTH").unwrap_or_default();
+    let (ok, detail) = match mode.as_str() {
+        _ if subscription.is_empty() => (
+            true,
+            format!(
+                "{harness} uses its provider key; RIG_AUTH does not apply ({})",
+                present(api_key)
+            ),
+        ),
+        "subscription" => using("subscription", subscription),
+        "api-key" => using("api-key", api_key),
+        "" => (
+            true,
+            format!(
+                "RIG_AUTH unset; {harness} has [{}] [{}]",
+                present(subscription),
+                present(api_key)
+            ),
+        ),
+        other => (
+            false,
+            format!("RIG_AUTH={other} is not subscription or api-key"),
+        ),
+    };
+    Check {
+        name: "auth",
+        ok,
+        detail,
+        fix: "set RIG_AUTH to subscription or api-key and give this harness that kind of credential in docker/rig.env",
+    }
 }
 
 /// Human/agent-readable table; returns whether every check passed.
@@ -325,6 +387,82 @@ pub(crate) fn render(checks: &[Check]) -> (String, bool) {
 #[allow(clippy::unwrap_used, clippy::indexing_slicing)]
 mod tests {
     use super::*;
+
+    fn auth(vars: &[(&str, &str)]) -> Check {
+        auth_check(|name| {
+            vars.iter()
+                .find(|(k, _)| *k == name)
+                .map(|(_, v)| (*v).to_owned())
+        })
+    }
+
+    #[test]
+    fn auth_reports_the_chosen_kind_and_the_credential_in_force() {
+        let sub = auth(&[
+            ("RIG_AUTH", "subscription"),
+            ("CLAUDE_CODE_OAUTH_TOKEN", "t"),
+        ]);
+        assert!(sub.ok);
+        assert_eq!(
+            sub.detail,
+            "claude uses subscription (CLAUDE_CODE_OAUTH_TOKEN)"
+        );
+        let key = auth(&[
+            ("RIG_AUTH", "api-key"),
+            ("RIG_HARNESS", "codex"),
+            ("OPENAI_API_KEY", "k"),
+        ]);
+        assert!(key.ok);
+        assert_eq!(key.detail, "codex uses api-key (OPENAI_API_KEY)");
+    }
+
+    #[test]
+    fn auth_fails_when_the_chosen_kind_is_missing_for_this_harness() {
+        let empty_counts_as_missing = auth(&[
+            ("RIG_AUTH", "subscription"),
+            ("CLAUDE_CODE_OAUTH_TOKEN", ""),
+            ("ANTHROPIC_API_KEY", "k"),
+        ]);
+        assert!(!empty_counts_as_missing.ok);
+        assert_eq!(
+            empty_counts_as_missing.detail,
+            "RIG_AUTH=subscription but claude has none"
+        );
+        let other_harness = auth(&[
+            ("RIG_AUTH", "api-key"),
+            ("RIG_HARNESS", "codex"),
+            ("ANTHROPIC_API_KEY", "k"),
+        ]);
+        assert!(!other_harness.ok);
+    }
+
+    #[test]
+    fn auth_rejects_an_unknown_choice() {
+        let check = auth(&[("RIG_AUTH", "apikey"), ("ANTHROPIC_API_KEY", "k")]);
+        assert!(!check.ok);
+        assert!(check.detail.contains("apikey"));
+    }
+
+    #[test]
+    fn auth_without_a_choice_reports_rather_than_fails() {
+        let check = auth(&[("ANTHROPIC_API_KEY", "k")]);
+        assert!(check.ok);
+        assert_eq!(
+            check.detail,
+            "RIG_AUTH unset; claude has [] [ANTHROPIC_API_KEY]"
+        );
+    }
+
+    #[test]
+    fn auth_does_not_apply_to_a_provider_key_harness() {
+        let check = auth(&[
+            ("RIG_AUTH", "subscription"),
+            ("RIG_HARNESS", "opencode"),
+            ("OPENCODE_API_KEY", "o"),
+        ]);
+        assert!(check.ok);
+        assert!(check.detail.contains("does not apply (OPENCODE_API_KEY)"));
+    }
 
     #[test]
     fn checks_report_missing_ledger_and_repo_with_fixes() {

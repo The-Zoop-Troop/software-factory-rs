@@ -90,6 +90,11 @@ keeps a manifest beside its results until phase 5 adds them.
   factory still makes per-task worktrees, inside its own volume.
 - **2026-11-02: worker models.** The human chose Sonnet 5.5, Haiku 5.5 and `Qwen3.8-27B` for Workers
   and Opus 5.5 at high effort for the Planner.
+- **2026-11-02: subscription and API key are both options, chosen per rig with `RIG_AUTH`.** Left to
+  the variables present, Claude Code prefers an API key and the Codex login prefers a subscription,
+  so one env file could bill the wrong account without saying so. A rig holding both kinds and no
+  choice refuses to start, and each baseline manifest records the mode. A subscription shares limits
+  with the human's own work, so calibration also measures how much of them a run uses.
 - **2026-11-02: phases 0–3 are ordinary pull requests, one per phase, merged by the human.** They
   change the factory's own gates, so the factory does not build them. Dogfooding starts at phase 5.
 - **2026-11-02: the Planner's spend cap is raised from $2 to $5 per plan** with the existing
