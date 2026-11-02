@@ -1,0 +1,45 @@
+name: red-main
+# Main once stayed red for two months unnoticed. One open issue per failing workflow; a pass closes it.
+# To test the alert itself, dispatch with a made-up workflow name and `failure`, then `success`.
+on:
+  workflow_run:
+    workflows: [ci, gardening, runtimes]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      workflow: { description: "Name to report", required: true, default: "alert-test" }
+      conclusion: { description: "failure or success", required: true, default: "failure" }
+permissions:
+  contents: read
+  issues: write
+jobs:
+  report:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open, update or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          WORKFLOW: ${{ inputs.workflow || github.event.workflow_run.name }}
+          CONCLUSION: ${{ inputs.conclusion || github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url || format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+        run: |
+          title="main is red: $WORKFLOW"
+          open=$(gh issue list --state open --search "in:title \"$title\"" --json number,title \
+            --jq "map(select(.title == \"$title\")) | .[0].number // empty")
+          case "$CONCLUSION" in
+            failure|timed_out|startup_failure)
+              if [ -n "$open" ]; then
+                gh issue comment "$open" --body "Still failing: $RUN_URL"
+              else
+                gh issue create --title "$title" --body "\`$WORKFLOW\` failed on \`main\`: $RUN_URL"
+              fi
+              ;;
+            success)
+              if [ -n "$open" ]; then
+                gh issue close "$open" --comment "Green again: $RUN_URL"
+              fi
+              ;;
+          esac

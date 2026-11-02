@@ -1,10 +1,10 @@
 # Runtime images
-- **Status:** accepted · **Verified:** 2026-08-29 (`docker/build.sh rust --conformance`)
+- **Status:** accepted · **Verified:** 2026-11-02 (the `runtimes` workflow built every image and ran conformance)
 
 | Image | Adds to `factory-rig:base` | Caches under `/work/cache` | Egress fragment |
 |---|---|---|---|
 | `factory-rig:base` | nothing — factory binaries, `bd`, git, make, harness CLIs, `rg fd jq yq shellcheck shfmt sqlite3 gh just git-lfs` | — | `docker/egress/allowlist.base` |
-| `factory-rig:rust` | rustup 1.97.1 (rustfmt, clippy, llvm-tools), cargo-nextest, cargo-llvm-cov, gcc/pkg-config/libssl | `rustup/`, `cargo/` | crates.io, static.rust-lang.org |
+| `factory-rig:rust` | Rust 1.97.1 via rustup (rustfmt, clippy, llvm-tools), cargo-nextest, cargo-llvm-cov, gcc/pkg-config/libssl | `rustup/`, `cargo/` | crates.io, static.rust-lang.org |
 | `factory-rig:python` | uv 0.12.7 (Python 3.13 managed, venvs, pyproject/lock), ruff, pytest, build-essential | `uv/`, `uv-python/` | pypi.org, files.pythonhosted.org |
 | `factory-rig:node` | Node 24 LTS, corepack, pnpm 11 (npm/yarn via corepack) | `pnpm/`, `npm/`, `corepack/` | registry.npmjs.org, nodejs.org |
 | `factory-rig:go` | Go 1.27, golangci-lint 2.13, gcc | `go/`, `go-build/` | proxy.golang.org, sum.golang.org, go.dev |
@@ -13,7 +13,7 @@
 | `factory-rig:ruby` | Ruby 3.1 (bookworm), bundler, libpq/sqlite/yaml headers (Rails-ready) | `bundle/`, `gems/` | rubygems.org |
 | `factory-rig:php` | PHP 8.2 CLI + xml/mbstring/intl/curl/zip/sqlite/pgsql, Composer 2.10 | `composer/` | packagist.org, getcomposer.org |
 | `factory-rig:elixir` | Erlang/OTP + Elixir (bookworm), hex, rebar3 | `mix/`, `hex/` | hex.pm, repo.hex.pm, github.com |
-| `factory-rig:web-e2e` | `node` + Playwright 1.62 with Chromium and its system deps | node caches + `ms-playwright/` | node + playwright.azureedge.net, cdn.playwright.dev |
+| `factory-rig:web-e2e` | `node` + Playwright 1.62 with Chromium and its system deps | node caches; browsers are baked into `/opt/ms-playwright` | node + playwright.azureedge.net, cdn.playwright.dev |
 | `factory-rig:polyglot` | `rust` + uv/Python 3.13 + Node 24/pnpm on one image (monorepos; large) | union of rust/python/node | union of rust/python/node |
 
 Language versions in the apt-sourced images (jvm, ruby, php, elixir) follow Debian bookworm; a project

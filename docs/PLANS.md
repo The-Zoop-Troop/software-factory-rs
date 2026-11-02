@@ -1,5 +1,5 @@
 # Plans
-Active: `exec-plans/active/` — `docs/exec-plans/completed/throughput-metrics.md` (one measurement left). Completed: `exec-plans/completed/`. Debt: `exec-plans/tech-debt-tracker.md`.
+Active: `exec-plans/active/` — `docs/exec-plans/active/proven-gates.md`; `docs/exec-plans/completed/throughput-metrics.md` (one measurement left). Completed: `exec-plans/completed/`. Debt: `exec-plans/tech-debt-tracker.md`.
 Roadmap phases live in `ARCHITECTURE.md §9`; each phase item becomes an exec plan and a beads epic before work starts.
 
 Completed: `exec-plans/completed/queued-local-plans.md` (2026-09-02).

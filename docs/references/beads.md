@@ -1,5 +1,5 @@
 # bd 1.2.2 — what the factory relies on
-- **Status:** reference · **Verified:** 2026-08-29 against the binary
+- **Status:** reference · **Verified:** 2026-11-02 against the help output of `bd` 1.2.2
 
 - JSON everywhere: `bd show <id> --json` (array of one), `bd ready --json`, `bd list --json`, `bd create --json` (`{id}`), `bd update … --json`.
 - `bd show` JSON omits `labels`/`metadata`/`notes` when empty — decode with defaults.

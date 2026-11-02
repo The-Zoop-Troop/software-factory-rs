@@ -1,6 +1,6 @@
 # Reliability
 
-- **Status:** accepted · **Verified:** unattended run `rig-v3e` 2026-08-28 (5/5 tasks, 0 incidents)
+- **Status:** accepted · **Verified:** 2026-11-02 against the code; last unattended run on this table `rig-v3e` 2026-08-28 (5/5 tasks, 0 incidents)
 
 | Failure | Detection | Response |
 |---|---|---|
@@ -17,7 +17,7 @@
 | Planner emits an unrunnable verify command | blocked releases ×2 (worker) or Verifier failure ×attempts | release-loop / budget incident; retry with guidance or re-plan |
 | A human is needed (incident, question) or an epic ends | console alert sweep / Telegram bot (poll + diff, closed epics fetched once) | webhook / chat message with the task id |
 | Remote client misuses the console | scope check before every action | HTTP 401/403, refusal audited in the rig's event log |
-| Ledger or repo volume lost | `factory rig doctor` (`ledger=missing`) | restore from the latest `factory rig backup` tarballs |
+| Ledger or repo volume lost | ledger: `factory rig doctor` (`ledger=missing`); doctor does not check the repo volume | restore from the latest `factory rig backup` tarballs |
 
 Budgets default to 400k tokens, 45 min, 3 attempts per task (`domain::Budget`). Every transition is appended to `.factory/events.jsonl`. Known gaps: no flaky-test detection, no batch merge, no automatic re-planning on stalled epics (Phase 1).
 

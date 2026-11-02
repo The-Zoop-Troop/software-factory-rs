@@ -1,6 +1,6 @@
 # Vision
 
-- **Status:** accepted · **Verified:** against the running system, 2026-08-29 · **Owner:** product
+- **Status:** accepted · **Verified:** 2026-11-02 against the code; last against a running system 2026-08-29 · **Owner:** product
 
 ## One sentence
 

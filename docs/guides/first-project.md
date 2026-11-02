@@ -1,6 +1,6 @@
 # Guide: your first project through the factory
 
-- **Status:** accepted · **Verified:** multi-repo feature run completed 2026-08-31 (six phases landed; incidents and timings below are from that run)
+- **Status:** accepted · **Verified:** corrected against the code 2026-11-02; multi-repo feature run completed 2026-08-31 (six phases landed; incidents and timings below are from that run)
 
 This walks one real change through the factory end to end: several repositories, a feature
 branch that must never touch `main`, tests as the definition of done, and an operator who only
@@ -107,8 +107,9 @@ migrated by the tests themselves.
 
 Notes from the run:
 - A fine-grained token has one resource owner; repositories across two organisations need two tokens.
-- Tokens never appear in URLs: the rig installs a git URL rewrite for the host, so `git@…:` and
-  `https://…` both authenticate, including submodule fetches.
+- Tokens stay out of remote URLs and logs: the rig installs a git URL rewrite for the host, so
+  `git@…:` and `https://…` both authenticate, including submodule fetches. The rewrite itself keeps
+  the token in the container's `~/.gitconfig`.
 - The console token file (`~/.factory/console/tokens.toml`) holds sha256 hashes; make one entry per
   person with the scopes they should have (`watch`, `plan`, `resolve`, `admin`) per rig.
 
@@ -124,13 +125,15 @@ docker compose -p factory-<rig> --env-file ~/.factory/<rig>/compose.env -f compo
 factory rig console                     # http://127.0.0.1:7700
 ```
 
-`doctor` must say the repository is on the feature branch, the runtime matches
-`.factory/runtime.toml`, and **only** the intended credential is present. Then open the console in
+`doctor` lists the tools, whether the repository exists and which credentials are present. Confirm
+yourself that the repository is on the feature branch, the runtime matches `.factory/runtime.toml`,
+and **only** the intended credential is listed. Then open the console in
 a browser, paste your token, and you should see every registered rig on the overview — stopped
 rigs show "unavailable", the running one shows counts.
 
 Give the planner the context that lives outside the repository — the decisions table and the
-phase text from your plan — as **reference beads** on the rig; every worker session reads them:
+phase text from your plan — as **reference beads** on the rig. Workers read only reference beads
+that are children of their own epic, so add `--parent <epic>` once the epic exists:
 
 ```sh
 docker compose -p factory-<rig> --env-file ~/.factory/<rig>/compose.env -f compose.yaml \
@@ -191,7 +194,7 @@ $R logs -f worker                                                               
 $R exec steward sh -c 'cd /work/rig && factory watch'                                     # ledger view
 ```
 
-Landed work is on `<feature-branch>` at the remote after every `integrated` event (one squash
+With `RIG_REMOTE` set, landed work is on `<feature-branch>` at the remote after every `integrated` event (one squash
 commit per task, message from the task title). `main` is untouched.
 
 Every surface above has a deeper view one click away:
@@ -245,8 +248,8 @@ first; in this run both first incidents were infrastructure, not the model's cod
   cached prompt prefix as input on every turn; the adapter now counts uncached tokens only, and
   `RIG_TASK_TOKENS` raises the per-task budget written by the planner (2,000,000 for this run).
 
-Both of those are now caught by the Verifier's environment classifier, so a repeat shows up as
-an environment incident rather than a burned attempt.
+The first is now caught by the Verifier's environment classifier, so a repeat shows up as an
+environment incident rather than a burned attempt. The second is fixed in the Codex adapter.
 
 Then pick an option on the panel:
 
@@ -296,7 +299,7 @@ order:
    one most likely to drift from the code when two tasks conflict, so read it against the code.
 
 Anything you want changed goes back through the factory as a new plan slice ("review notes:
-…") rather than a hand edit on the branch — a hand commit is fine (the Integrator fetches and
+…") rather than a hand edit on the branch — a hand commit is fine (with `RIG_REMOTE` set, the Integrator fetches and
 fast-forwards before every landing), but the next session rebases onto it blind. Then stop the rig (`factory rig stop <rig>` — roles down, ledger up, so the
 console still shows its history; `factory rig start <rig>` later); the ledger
 and repo volumes survive) and gate the next phase.

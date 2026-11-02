@@ -1,5 +1,5 @@
 # Codex CLI 0.149.1 — `codex exec`
-- **Status:** reference · **Verified:** 2026-08-28 live probes
+- **Status:** reference · **Verified:** 2026-11-02: the pin is unchanged at 0.149.1 (`docker/base/Dockerfile`), so the live probes of 2026-08-28 still describe the pinned binary. Not re-probed.
 
 - Invocation used: `codex exec --json --ephemeral --skip-git-repo-check --color never -C <dir> -o <last-message-file> [-s read-only | --dangerously-bypass-approvals-and-sandbox] [--output-schema <file>] [-m model] "<message>" < /dev/null`. **Stdin must be closed** or it waits for "additional input".
 - No system-prompt flag; prepend instructions to the message.

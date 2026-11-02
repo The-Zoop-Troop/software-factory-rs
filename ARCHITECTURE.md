@@ -240,6 +240,8 @@ That's the whole packet. Small, deterministic, reproducible. If a task needs mor
 - Snippet-level SCA/license check as a Verifier skill.
 - Multi-rig: several project containers, one console.
 
+**Gate evidence.** Measure what each gate catches and let that set autonomy: `docs/design-docs/proven-gates.md`, tracked in `docs/exec-plans/active/proven-gates.md`. Batch-then-bisect, flaky detection and the context items above wait for its measurements.
+
 ---
 
 ## 10. Open decisions

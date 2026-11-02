@@ -11,8 +11,7 @@ github.com
 api.openai.com
 chatgpt.com
 *.chatgpt.com
-# custom OpenAI-compatible provider (OpenCode):
-openai.blueclaw.network
+# A custom OpenAI-compatible provider (OpenCode) goes in the project's .factory/allowlist.
 # package registries the project toolchain needs:
 crates.io
 static.crates.io

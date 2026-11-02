@@ -1,4 +1,4 @@
-- **Status:** reference · **Verified:** spec v1.0 copy, 2026-08-29
+- **Status:** reference · **Verified:** 2026-11-02: the console still advertises protocol version 1.0 (`crates/console/src/server.rs:155`). This remains a copy of spec v1.0, taken 2026-08-29.
 
 # A2A (Agent-to-Agent) Protocol — Technical Reference
 

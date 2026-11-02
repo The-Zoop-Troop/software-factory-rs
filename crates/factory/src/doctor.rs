@@ -240,7 +240,7 @@ pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
             "bd",
             "bd",
             &["version"],
-            "install beads: https://github.com/gastownhall/beads (pinned in docker/Dockerfile.rig)",
+            "install beads: https://github.com/gastownhall/beads (pinned in docker/base/Dockerfile)",
         ),
         tool("git", "git", &["--version"], "install git"),
         tool(

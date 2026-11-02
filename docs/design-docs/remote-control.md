@@ -1,8 +1,8 @@
 # Remote control
 
-- **Status:** accepted · **Verified:** 2026-08-29 (`crates/console` tests over the app fakes; `docker compose up console`)
+- **Status:** accepted · **Verified:** 2026-11-02 against the code (`crates/console` tests over the app fakes pass); `docker compose up console` last run 2026-08-29
 
-The console (`crates/console`) is the only surface of a rig reachable from outside its network. It is an A2A server (`docs/references/a2a.md`): every client — the `factory` CLI, a chat bot, a browser, another agent — is an A2A client with a bearer token. The exec plan is `docs/exec-plans/completed/remote-control.md`.
+The console (`crates/console`) is the only surface of a rig reachable from outside its network; the optional `tls` profile puts Caddy in front of it. It is an A2A server (`docs/references/a2a.md`): every client — the `factory` CLI, a chat bot, a browser, another agent — is an A2A client with a bearer token. The exec plan is `docs/exec-plans/completed/remote-control.md`.
 
 ## Shape
 
@@ -22,9 +22,9 @@ The Planner needs the rig's harness credential, which the console must never hol
 
 ## Auth, audit, budgets
 
-- Tokens are stored as sha256 (`console hash-token`), compared in constant time, and grant scopes per rig: `watch` (list, get, subscribe), `plan` (submit, cancel), `resolve` (answer inbox), `admin` (all). No scope on a rig means the rig does not exist for that client (A2A §13.1).
-- Every remote action appends a `FactoryEvent` with `actor = remote:<client>` to the rig's `events.jsonl`.
-- `RigBudget` (`max_tokens`, `max_usd_micros` in the registry) is checked against the ledger's summed usage before a plan is accepted.
+- Tokens are stored as sha256 (`console hash-token`), compared in constant time, and grant scopes per rig: `watch` (list, get, subscribe), `plan` (submit, cancel), `resolve` (answer inbox), `admin` (all). A registered rig without a grant returns 403 naming the rig and scope; only an unregistered rig returns not-found.
+- Every remote write and every refusal appends a `FactoryEvent` with `actor = remote:<client>` to the rig's `events.jsonl`. Successful reads are not audited.
+- `RigBudget` (`max_tokens`, `max_usd_micros` in the registry) is checked before a plan is accepted. Today spend sums open epics only and reports zero dollars, so the dollar cap cannot trip (`fac-8xl.6.1`).
 
 ## Clients
 
@@ -36,8 +36,8 @@ The Planner needs the rig's harness credential, which the console must never hol
 
 ## Web console (A2UI)
 
-The browser UI is not a bespoke front end: `app::remote::a2ui::console_surface` turns the same task read models into A2UI envelopes (plan editor, one card per epic with a Stop button, one card per inbox item with an answer field and Resolve, Refresh), and `POST /rigs/<rig>/ui/action` accepts A2UI actions. `crates/console/static/console.html` is a small renderer for that subset; the Agent Card advertises the A2UI extension so an agent with any A2UI renderer sees and drives the same surface. The UI can never do more than the API: every action goes through the same scoped, audited workflows.
+The main browser UI at `/` is the Lit app in `web-console.md`. Alongside it, `app::remote::a2ui::console_surface` turns the same task read models into A2UI envelopes (plan editor, one card per epic with a Stop button, one card per inbox item with an answer field and Resolve, Refresh), and `POST /rigs/<rig>/ui/action` accepts A2UI actions. `crates/console/static/console.html`, served at `/a2ui`, is a small renderer for that subset; the Agent Card advertises the A2UI extension so an agent with any A2UI renderer sees and drives the same surface. The UI can never do more than the API: every action goes through the same scoped, audited workflows.
 
 ## What it refuses by design
 
-Merging, force-closing tasks, editing beads, reading provider credentials. Done means verified, remotely too.
+Merging, editing beads, reading provider credentials. `CancelTask` can close an epic's open tasks unverified with `plan` scope, and `SendMessage` with a task id can reopen an incident, but neither lands anything. Anything that lands was verified, remotely too.
