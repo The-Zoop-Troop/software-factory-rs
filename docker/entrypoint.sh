@@ -34,6 +34,11 @@ if [ "${1:-}" = ledger ]; then
   exec dolt sql-server --data-dir "$RIG_DIR/.beads/embeddeddolt" -H 0.0.0.0 -P 3307 --loglevel=warning
 fi
 
+# Subscription or API key, before any credential is used (see the sourced file).
+# shellcheck source=docker/harness-auth.sh
+. /usr/local/lib/rig-harness-auth.sh
+select_harness_auth
+
 # A hosted-git token (fine-grained, scoped to this repo) is applied as a URL rewrite so it
 # never appears in RIG_REPO_URL, .gitmodules, or a log line: both SSH and HTTPS forms of the
 # host resolve to token-authenticated HTTPS.
@@ -86,7 +91,12 @@ fi
 # is baked into the image. An access token (ChatGPT OAuth) expires; an API key does not.
 if [ -n "${CODEX_AUTH_JSON:-}" ]; then
   # base64 of a logged-in host's ~/.codex/auth.json (ChatGPT OAuth tokens incl. refresh token).
-  mkdir -p "$HOME/.codex" && printf '%s' "$CODEX_AUTH_JSON" | base64 -d > "$HOME/.codex/auth.json" && chmod 600 "$HOME/.codex/auth.json"
+  # Seed once per container: Codex refreshes this file in use, so reseeding on a restart would
+  # discard the refreshed tokens. A changed env file recreates the container, which reseeds it.
+  mkdir -p "$HOME/.codex"
+  if [ ! -f "$HOME/.codex/auth.json" ]; then
+    printf '%s' "$CODEX_AUTH_JSON" | base64 -d > "$HOME/.codex/auth.json" && chmod 600 "$HOME/.codex/auth.json"
+  fi
 elif [ -n "${CODEX_OAUTH_TOKEN:-}" ]; then
   # An agent-identity JWT (not a ChatGPT access token).
   printf '%s' "$CODEX_OAUTH_TOKEN" | codex login --with-access-token >/dev/null 2>&1 || echo "[rig] codex login (access token) failed" >&2

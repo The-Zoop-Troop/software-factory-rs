@@ -9,6 +9,7 @@
 !crates/
 crates/**/target
 !docker/entrypoint.sh
+!docker/harness-auth.sh
 !docker/console/tokens.toml.example
 crates/console/ui/node_modules
 crates/console/ui/dist

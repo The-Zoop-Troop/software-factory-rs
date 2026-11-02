@@ -47,4 +47,5 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker compose config -q
       - run: cp docker/egress/allowlist.base docker/egress/allowlist && docker build -q -f docker/Dockerfile.egress docker
-      - run: bash -n docker/build.sh docker/runtimes/conformance.sh docker/entrypoint.sh
+      - run: bash -n docker/build.sh docker/runtimes/conformance.sh docker/entrypoint.sh docker/harness-auth.sh
+      - run: bash docker/harness-auth.test.sh

@@ -105,6 +105,7 @@ RUN set -eu; cd /tmp; \
 
 COPY --from=build --chmod=0755 /out/factory /out/stewardd /out/console /usr/local/bin/
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/rig-entrypoint
+COPY --chmod=0644 docker/harness-auth.sh /usr/local/lib/rig-harness-auth.sh
 
 # /work/rig: .beads + .factory (ledger volume); /work/rig/repo: project clone (repo volume);
 # /work/cache: runtime package caches (cache volume).
