@@ -31,11 +31,20 @@ fn harness_text(text: &str) -> FakeHarness {
             cost_micro_usd: domain::MicroUsd::new(10),
             turns: Turns::new(7),
             is_error: false,
+            provider_stop: None,
         }),
         requests: std::sync::Mutex::default(),
         yields: 0,
         blocked: None,
     }
+}
+fn harness_stopped(stop: ProviderStop) -> FakeHarness {
+    let mut harness = harness_text("You've hit your 5-hour limit");
+    if let Some(outcome) = harness.outcome.as_mut() {
+        outcome.is_error = true;
+        outcome.provider_stop = Some(stop);
+    }
+    harness
 }
 
 async fn seeded() -> FakeStore {
@@ -332,4 +341,85 @@ async fn skips_tasks_not_open() {
     .await
     .unwrap();
     assert_eq!(out, None);
+}
+
+#[tokio::test]
+async fn a_limit_charges_nothing_opens_no_incident_and_the_task_runs_after_the_wait() {
+    let store = seeded().await;
+    let repo = FakeRepo {
+        commit_head: Some(sha('b')),
+        ..FakeRepo::default()
+    };
+    let log = MemorySink::default();
+    let clock = FixedClock(Timestamp::from_unix_seconds(100));
+    let budget = load_task(&store, &id("fac-e.1")).await.unwrap().budget;
+    let stopped = harness_stopped(ProviderStop::UsageLimit);
+
+    // More stops than the attempt budget allows failures, each with a partial commit on the branch.
+    for _ in 0..=budget.attempts.get() {
+        let err = work_once(&store, &repo, &stopped, &clock, &log, &cfg())
+            .await
+            .unwrap_err();
+        assert!(matches!(
+            err,
+            WorkerError::ProviderStopped {
+                stop: ProviderStop::UsageLimit,
+                ..
+            }
+        ));
+        let task = load_task(&store, &id("fac-e.1")).await.unwrap();
+        assert!(matches!(task.state, TaskState::Open), "{:?}", task.state);
+        assert_eq!(task.usage, Usage::default(), "nothing charged");
+    }
+    let events = log.events().await;
+    assert!(!events.iter().any(|e| matches!(
+        e.kind,
+        EventKind::Submitted { .. } | EventKind::Released { .. }
+    )));
+    assert!(events.iter().any(|e| matches!(
+        &e.kind,
+        EventKind::ProviderStopped { stop: ProviderStop::UsageLimit, tokens, detail, .. }
+            if tokens.get() == 5000 && detail.contains("5-hour")
+    )));
+    let notes = store.show(&id("fac-e.1")).await.unwrap().notes;
+    assert!(
+        !notes.unwrap_or_default().contains("5-hour"),
+        "a limit is no lesson for the next session"
+    );
+
+    // Once the limit clears, the same task runs and submits as usual.
+    let report = work_once(&store, &repo, &harness_text("done"), &clock, &log, &cfg())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(report.task, id("fac-e.1"));
+    let task = load_task(&store, &id("fac-e.1")).await.unwrap();
+    assert!(matches!(task.state, TaskState::InVerify { .. }));
+}
+
+#[tokio::test]
+async fn a_limit_outranks_a_blocked_note() {
+    let store = seeded().await;
+    let root = std::env::temp_dir().join(format!("factory-limit-{}", std::process::id()));
+    let repo = FakeRepo {
+        worktree_root: Some(root.clone()),
+        ..FakeRepo::default()
+    };
+    let harness = FakeHarness {
+        blocked: Some("stuck".into()),
+        ..harness_stopped(ProviderStop::RateLimit)
+    };
+    let result = work_once(
+        &store,
+        &repo,
+        &harness,
+        &FixedClock(Timestamp::from_unix_seconds(100)),
+        &MemorySink::default(),
+        &cfg(),
+    )
+    .await;
+    let _ = std::fs::remove_dir_all(&root);
+    assert!(matches!(result, Err(WorkerError::ProviderStopped { .. })));
+    let task = load_task(&store, &id("fac-e.1")).await.unwrap();
+    assert_eq!(task.blocked_releases, Attempts::new(0));
 }

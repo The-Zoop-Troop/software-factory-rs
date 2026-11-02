@@ -87,6 +87,7 @@ fn event(holder: AgentId) -> impl Strategy<Value = Event> {
                 blocked: false,
             }
         }),
+        Just(Event::ProviderStopped { holder: h.clone() }),
         Just(Event::VerifyPassed),
         Just(Event::VerifyFailed { note: "f".into() }),
         sha().prop_map(|s| Event::Merged { merged: s }),

@@ -27,6 +27,15 @@ pub enum EventKind {
     },
     /// A worker gave a task back without submitting (errored session, no changes).
     Released { holder: String, detail: String },
+    /// The provider refused a session, so the task went back with nothing charged. Tokens and turns
+    /// are what the discarded session used, for cost per accepted result.
+    ProviderStopped {
+        holder: String,
+        stop: crate::ports::ProviderStop,
+        tokens: domain::Tokens,
+        turns: domain::Turns,
+        detail: String,
+    },
     /// Verifier picked up an awaiting task and is running its checks (the other edge of `Verified`).
     VerifyStarted { verify_bead: BeadId },
     /// Verifier ran a verify bead against a task.

@@ -20,7 +20,9 @@ Source: `crates/domain/src/task.rs`.
 - `submit`
 - `lease_expired`
 - `release`
+- `provider_stopped`
 - `verify_passed`
+- `verify_blocked`
 - `verify_failed`
 - `merged`
 - `merge_failed`

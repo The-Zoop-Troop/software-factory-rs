@@ -5,7 +5,9 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use app::domain::{MicroUsd, Tokens, Turns};
-use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, HarnessStage, ToolPolicy};
+use app::{
+    Harness, HarnessError, HarnessOutcome, HarnessRequest, HarnessStage, ProviderStop, ToolPolicy,
+};
 use async_trait::async_trait;
 use serde::Deserialize;
 use tokio::process::Command;
@@ -60,6 +62,12 @@ impl ClaudeCli {
 struct Envelope {
     #[serde(default)]
     is_error: bool,
+    /// The harness's typed kind of API error; a plan limit is `usage_limit_reached`.
+    #[serde(default)]
+    api_error: Option<String>,
+    /// The provider's HTTP status, when an API request failed.
+    #[serde(default)]
+    api_error_status: Option<u16>,
     #[serde(default)]
     result: String,
     #[serde(default)]
@@ -88,8 +96,31 @@ struct Usage {
     cache_read_input_tokens: u64,
 }
 
+/// Why the provider refused the session, if it did. Fields first; the only text matched is the one
+/// case with no field of its own, because an exhausted API account answers a plain 400.
+fn provider_stop(e: &Envelope) -> Option<ProviderStop> {
+    if !e.is_error {
+        return None;
+    }
+    if e.api_error.as_deref() == Some("usage_limit_reached") {
+        return Some(ProviderStop::UsageLimit);
+    }
+    match e.api_error_status? {
+        429 => Some(ProviderStop::RateLimit),
+        402 => Some(ProviderStop::SpendLimit),
+        400 if e.result.contains("Credit balance is too low")
+            || e.result.contains("reached your specified API usage limits") =>
+        {
+            Some(ProviderStop::SpendLimit)
+        }
+        500..=599 => Some(ProviderStop::Outage),
+        _ => None,
+    }
+}
+
 impl From<Envelope> for HarnessOutcome {
     fn from(e: Envelope) -> Self {
+        let provider_stop = provider_stop(&e);
         let u = e.usage;
         Self {
             text: e.result,
@@ -103,6 +134,7 @@ impl From<Envelope> for HarnessOutcome {
             cost_micro_usd: MicroUsd::new(micro_usd(e.total_cost_usd)),
             turns: Turns::new(e.num_turns),
             is_error: e.is_error,
+            provider_stop,
         }
     }
 }
@@ -223,6 +255,72 @@ mod tests {
         assert_eq!(o.cost_micro_usd.get(), 89_700);
         assert_eq!(o.structured, Some(serde_json::json!({"ok": true})));
         assert!(!o.is_error);
+    }
+
+    /// Field values as Claude Code 2.1.316 printed them against a stub provider answering each
+    /// status (docs/references/claude-headless.md). A real limit has not been observed.
+    #[test]
+    fn captured_refusals_are_classified() {
+        let decode = |fields: &str| {
+            let json = format!(
+                r#"{{"type":"result","subtype":"success","is_error":true,"terminal_reason":"api_error",{fields}}}"#
+            );
+            HarnessOutcome::from(serde_json::from_str::<Envelope>(&json).unwrap()).provider_stop
+        };
+        for (fields, expected) in [
+            (
+                r#""api_error":"usage_limit_reached","api_error_status":429,"result":"You've hit your 5-hour limit · resets 3:26pm (America/New_York)""#,
+                Some(ProviderStop::UsageLimit),
+            ),
+            (
+                r#""api_error":"usage_limit_reached","api_error_status":429,"result":"You've hit your weekly limit · resets 3:26pm (America/New_York)""#,
+                Some(ProviderStop::UsageLimit),
+            ),
+            (
+                r#""api_error_status":429,"result":"API Error: Request rejected (429) · This request would exceed your organization's rate limit of 50 requests per minute.""#,
+                Some(ProviderStop::RateLimit),
+            ),
+            (
+                r#""api_error_status":400,"result":"Credit balance is too low""#,
+                Some(ProviderStop::SpendLimit),
+            ),
+            (
+                r#""api_error_status":400,"result":"API Error: 400 You have reached your specified API usage limits. You will regain access on 2026-12-01 at 00:00 UTC.""#,
+                Some(ProviderStop::SpendLimit),
+            ),
+            (
+                r#""api_error_status":402,"result":"API Error: 402 Your account has a billing issue.""#,
+                Some(ProviderStop::SpendLimit),
+            ),
+            (
+                r#""api_error_status":529,"result":"API Error: 529 Overloaded.""#,
+                Some(ProviderStop::Outage),
+            ),
+            (
+                r#""api_error_status":500,"result":"API Error: 500 Internal server error.""#,
+                Some(ProviderStop::Outage),
+            ),
+            // Faults a person must fix still reach them through attempts and an incident.
+            (
+                r#""api_error_status":401,"result":"Invalid API key · Fix external API key""#,
+                None,
+            ),
+            (
+                r#""api_error_status":400,"result":"API Error: 400 prompt is too long""#,
+                None,
+            ),
+            (r#""result":"Not logged in""#, None),
+        ] {
+            assert_eq!(decode(fields), expected, "{fields}");
+        }
+    }
+
+    #[test]
+    fn a_session_that_succeeded_has_no_stop_whatever_its_text_says() {
+        let json =
+            r#"{"is_error":false,"api_error_status":429,"result":"Credit balance is too low"}"#;
+        let o = HarnessOutcome::from(serde_json::from_str::<Envelope>(json).unwrap());
+        assert_eq!(o.provider_stop, None);
     }
 
     #[test]

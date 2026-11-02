@@ -143,3 +143,18 @@ fn attempts_end_on_release_reap_and_escalation_and_ignore_other_epics() {
     assert_eq!(m.work, 0, "no session ever submitted");
     assert!(epic("none", &[]).stages.iter().all(|s| s.samples == 0));
 }
+
+#[test]
+fn a_provider_stop_ends_the_attempt_and_names_why() {
+    let attempts = |log: &[EventRecord]| epic("fac-e", log).tasks;
+    let log = [
+        rec(1, "fac-e.1", "claimed", &[]),
+        rec(9, "fac-e.1", "provider_stopped", &[]),
+    ];
+    let tasks = attempts(&log);
+    let ended: Vec<_> = tasks
+        .iter()
+        .flat_map(|t| t.attempts.iter().filter_map(|a| a.ended_by.as_deref()))
+        .collect();
+    assert_eq!(ended, ["provider_stopped"]);
+}

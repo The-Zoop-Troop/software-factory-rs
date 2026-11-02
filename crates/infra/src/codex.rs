@@ -185,6 +185,7 @@ fn fold(events: &str, last_message: Option<String>, schema_requested: bool) -> H
             cost_micro_usd: MicroUsd::new(0),
             turns: Turns::new(turns),
             is_error,
+            provider_stop: None,
         }
     }
 }
@@ -202,6 +203,7 @@ fn text_or(
         cost_micro_usd: MicroUsd::new(0),
         turns: Turns::new(turns),
         is_error: true,
+        provider_stop: None,
     }
 }
 

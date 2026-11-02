@@ -61,6 +61,10 @@ pub(crate) struct PlanArgs {
     /// With --queue: keep polling every N seconds (one sweep when omitted).
     #[arg(long)]
     pub(crate) interval: Option<u64>,
+    /// With --queue: seconds to wait after the provider refuses a session (a usage or spend limit,
+    /// or an outage).
+    #[arg(long, env = "RIG_LIMIT_WAIT", default_value_t = 900)]
+    pub(crate) limit_wait: u64,
     /// With --queue: event log path (JSONL, appended) for planner progress.
     #[arg(long, default_value = ".factory/events.jsonl")]
     pub(crate) events: PathBuf,
@@ -82,6 +86,7 @@ pub(crate) async fn run(workdir: &Path, args: PlanArgs) -> anyhow::Result<()> {
         queued,
         interval,
         events,
+        limit_wait,
     } = args;
     if queued {
         let plan_text = read_plan_text(file, text)?;
@@ -133,14 +138,21 @@ pub(crate) async fn run(workdir: &Path, args: PlanArgs) -> anyhow::Result<()> {
                 },
             )
             .await?;
+            let mut stopped = false;
             if let Some(o) = out {
                 let line = match o.result {
                     Ok(r) => format!("epic {} ({} tasks)", r.epic, r.tasks.len()),
+                    Err(e @ app::PlannerError::ProviderStopped { .. }) => {
+                        stopped = true;
+                        format!("waiting: {e}")
+                    }
                     Err(e) => format!("failed: {e}"),
                 };
                 println!("{}: {line}", o.request);
             }
-            let Some(secs) = interval else { break };
+            let Some(secs) = crate::cli::next_poll(stopped, interval, limit_wait) else {
+                break;
+            };
             tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
         }
         return Ok(());

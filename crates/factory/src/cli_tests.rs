@@ -213,3 +213,13 @@ fn plan_queued_conflicts_with_queue() {
         Command::Plan(crate::plan_cmd::PlanArgs { queued: true, .. })
     ));
 }
+
+#[test]
+fn a_provider_refusal_waits_longer_and_a_one_shot_run_never_waits() {
+    use crate::cli::next_poll;
+    assert_eq!(next_poll(false, Some(10), 900), Some(10));
+    assert_eq!(next_poll(true, Some(10), 900), Some(900));
+    assert_eq!(next_poll(true, Some(1000), 900), Some(1000));
+    assert_eq!(next_poll(true, None, 900), None);
+    assert_eq!(next_poll(false, None, 900), None);
+}

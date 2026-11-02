@@ -59,6 +59,7 @@ fn commands_map_or_are_refused() {
     );
     let plan = |file, text| {
         Command::Plan(crate::plan_cmd::PlanArgs {
+            limit_wait: 900,
             repo: "r".into(),
             main: "main".into(),
             file,
@@ -321,6 +322,7 @@ async fn bot_answers_allowed_chats_and_pushes_changes() {
 fn plan_after_parses_cross_rig_needs_and_rejects_junk() {
     let plan = |after: Vec<String>| {
         Command::Plan(crate::plan_cmd::PlanArgs {
+            limit_wait: 900,
             repo: "r".into(),
             main: "main".into(),
             file: None,
@@ -358,6 +360,7 @@ fn plan_after_parses_cross_rig_needs_and_rejects_junk() {
 #[test]
 fn plan_queued_is_local_only() {
     let cmd = Command::Plan(crate::plan_cmd::PlanArgs {
+        limit_wait: 900,
         repo: "r".into(),
         main: "main".into(),
         file: None,

@@ -73,6 +73,11 @@ pub enum Event {
         note: String,
         blocked: bool,
     },
+    /// The provider refused the session (a usage limit, a spend limit, an outage). Neither the task
+    /// nor the model caused that, so nothing is charged: no attempt, no wall clock, no note.
+    ProviderStopped {
+        holder: AgentId,
+    },
     VerifyPassed,
     /// Verification could not run for environmental reasons; attempts are not charged.
     VerifyBlocked {
@@ -117,13 +122,15 @@ pub const STATE_NAMES: [&str; 6] = [
     "incident",
 ];
 /// Every event name (for generated docs).
-pub const EVENT_NAMES: [&str; 10] = [
+pub const EVENT_NAMES: [&str; 12] = [
     "claim",
     "heartbeat",
     "submit",
     "lease_expired",
     "release",
+    "provider_stopped",
     "verify_passed",
+    "verify_blocked",
     "verify_failed",
     "merged",
     "merge_failed",
@@ -219,6 +226,7 @@ impl Event {
             Self::Submit { .. } => "submit",
             Self::LeaseExpired { .. } => "lease_expired",
             Self::Release { .. } => "release",
+            Self::ProviderStopped { .. } => "provider_stopped",
             Self::VerifyPassed => "verify_passed",
             Self::VerifyFailed { .. } => "verify_failed",
             Self::VerifyBlocked { .. } => "verify_blocked",
@@ -469,6 +477,17 @@ impl Task {
                 }
             }
 
+            (TaskState::Leased { lease }, Event::ProviderStopped { holder }) => {
+                Self::require_holder(&self.id, &lease, &holder)?;
+                Ok(Transition {
+                    task: Task {
+                        state: TaskState::Open,
+                        ..self
+                    },
+                    effects: Vec::new(),
+                })
+            }
+
             // ---- escalate is allowed from every active state ---------------------------
             (
                 TaskState::Open
@@ -485,6 +504,7 @@ impl Task {
                 | Event::Submit { .. }
                 | Event::LeaseExpired { .. }
                 | Event::Release { .. }
+                | Event::ProviderStopped { .. }
                 | Event::VerifyPassed
                 | Event::VerifyFailed { .. }
                 | Event::VerifyBlocked { .. }
@@ -507,6 +527,7 @@ impl Task {
                 | Event::Submit { .. }
                 | Event::LeaseExpired { .. }
                 | Event::Release { .. }
+                | Event::ProviderStopped { .. }
                 | Event::Merged { .. }
                 | Event::MergeFailed { .. }),
             )
@@ -517,6 +538,7 @@ impl Task {
                 | Event::Submit { .. }
                 | Event::LeaseExpired { .. }
                 | Event::Release { .. }
+                | Event::ProviderStopped { .. }
                 | Event::VerifyPassed
                 | Event::VerifyFailed { .. }
                 | Event::VerifyBlocked { .. }),
@@ -528,6 +550,7 @@ impl Task {
                 | Event::Submit { .. }
                 | Event::LeaseExpired { .. }
                 | Event::Release { .. }
+                | Event::ProviderStopped { .. }
                 | Event::VerifyPassed
                 | Event::VerifyFailed { .. }
                 | Event::VerifyBlocked { .. }

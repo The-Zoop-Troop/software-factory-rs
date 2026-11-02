@@ -125,7 +125,8 @@ pub struct QueuedOutcome {
 
 /// Take the oldest ready plan request, plan it, and close it with the result. `Ok(None)`
 /// when the queue is empty. A planner failure closes the request as failed so the
-/// submitter gets an answer; the text stays in the bead for a retry.
+/// submitter gets an answer; the text stays in the bead for a retry. A provider refusing the
+/// session is not an answer, so the request stays open and is tried again after the wait.
 ///
 /// # Errors
 /// Ledger failures while reading or closing the request.
@@ -171,6 +172,13 @@ pub async fn plan_queued_once(
         defaults,
     )
     .await;
+    if let Err(e @ PlannerError::ProviderStopped { .. }) = &result {
+        record("plan_waiting", e.to_string());
+        return Ok(Some(QueuedOutcome {
+            request: request.id,
+            result,
+        }));
+    }
     let line = match &result {
         Ok(report) => format!("{EPIC_PREFIX}{}", report.epic),
         Err(e) => format!("{FAILED_PREFIX}{e}"),
@@ -329,5 +337,44 @@ mod tests {
             plan_outcome(&bead),
             Some(Err(SubmitError::Rejected { .. }))
         ));
+    }
+
+    #[tokio::test]
+    async fn a_provider_refusal_leaves_the_request_open_to_retry() {
+        let store = FakeStore::default();
+        let request = store
+            .create(plan_request("add a farewell", "console"))
+            .await
+            .unwrap();
+        let mut harness = FakeHarness::structured(serde_json::json!({}));
+        if let Some(outcome) = harness.outcome.as_mut() {
+            outcome.is_error = true;
+            outcome.provider_stop = Some(crate::ports::ProviderStop::UsageLimit);
+            outcome.text = "You've hit your weekly limit".into();
+        }
+        let sink = crate::testing::MemorySink::default();
+        let main = BranchName::try_new("main").unwrap();
+        let out = plan_queued_once(
+            &store,
+            &harness,
+            &FakeRepo::default(),
+            Path::new("."),
+            &main,
+            PlanDefaults::default(),
+            Progress {
+                sink: &sink,
+                clock: &crate::testing::FixedClock(domain::Timestamp::from_unix_seconds(1)),
+            },
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        assert!(matches!(
+            out.result,
+            Err(PlannerError::ProviderStopped { .. })
+        ));
+        let bead = store.show(&request).await.unwrap();
+        assert_ne!(bead.status, BeadStatus::Closed);
+        assert!(!bead.notes.unwrap_or_default().contains(FAILED_PREFIX));
     }
 }

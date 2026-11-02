@@ -25,8 +25,8 @@ pub struct Attempt {
     pub integrate_started: Option<Secs>,
     pub integrated: Option<Secs>,
     pub landed: bool,
-    /// What ended the attempt when it did not land: `released`, `lease_reaped`, `escalated`,
-    /// `verify_failed`, `rejected`.
+    /// What ended the attempt when it did not land: `released`, `provider_stopped`, `lease_reaped`,
+    /// `escalated`, `verify_failed`, `rejected`.
     pub ended_by: Option<String>,
     pub tokens: u64,
 }
@@ -203,7 +203,7 @@ pub fn tasks_of(epic: &str, log: &[EventRecord]) -> Vec<TaskMetrics> {
                     }
                 }
             }
-            "released" | "lease_reaped" | "escalated" => {
+            "released" | "lease_reaped" | "escalated" | "provider_stopped" => {
                 if let Some(a) = last {
                     a.ended_by = Some(r.kind.clone());
                 }

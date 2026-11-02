@@ -14,7 +14,8 @@ use futures::future::{Either, select};
 use crate::bead::Bead;
 use crate::events::{EventKind, FactoryEvent};
 use crate::ports::{
-    BeadStore, Clock, EventSink, Harness, HarnessRequest, Repo, RepoError, StoreError, ToolPolicy,
+    BeadStore, Clock, EventSink, Harness, HarnessRequest, ProviderStop, Repo, RepoError,
+    StoreError, ToolPolicy,
 };
 use crate::transition::{TransitionError, apply_event};
 
@@ -71,13 +72,16 @@ pub enum WorkerError {
     Repo(#[from] RepoError),
     #[error("harness: {0}")]
     Harness(#[from] crate::ports::HarnessError),
+    /// The task is already back in `open`, uncharged; the caller should wait before polling again.
+    #[error("{stop}: {detail}")]
+    ProviderStopped { stop: ProviderStop, detail: String },
 }
 
 /// Claim and work one task. `Ok(None)` when nothing is ready.
 ///
 /// # Errors
-/// Ledger, repo or harness infrastructure failures. Model-level failure is not an error:
-/// whatever the session produced is submitted and the Verifier judges it.
+/// Ledger, repo or harness infrastructure failures, and a provider refusing the session. Model-level
+/// failure is not an error: whatever the session produced is submitted and the Verifier judges it.
 #[tracing::instrument(skip_all, fields(agent = %cfg.agent), err)]
 #[allow(
     clippy::too_many_lines,
@@ -166,6 +170,33 @@ pub async fn work_once(
     }
     let head = commit?;
     let outcome = outcome?;
+
+    // The provider cut the session off. Nothing is charged, and a partial commit is not verified:
+    // the retry recuts the branch from main, so every result comes from one uninterrupted session.
+    if let Some(stop) = outcome.provider_stop {
+        apply_event(
+            store,
+            &id,
+            Event::ProviderStopped {
+                holder: cfg.agent.clone(),
+            },
+        )
+        .await?;
+        let detail: String = outcome.text.chars().take(200).collect();
+        log.record(&event(
+            clock,
+            &cfg.agent,
+            &id,
+            EventKind::ProviderStopped {
+                holder: cfg.agent.to_string(),
+                stop,
+                tokens: outcome.tokens,
+                turns: outcome.turns,
+                detail: detail.clone(),
+            },
+        ));
+        return Err(WorkerError::ProviderStopped { stop, detail });
+    }
 
     let now = clock.now();
     // A session that changed nothing has nothing to verify — whether it errored or merely talked —

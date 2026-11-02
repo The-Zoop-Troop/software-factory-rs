@@ -86,3 +86,38 @@ fn a_plain_release_or_submission_resets_the_blocked_streak() {
         .unwrap();
     assert_eq!(submitted.task.blocked_releases, Attempts::new(0));
 }
+
+#[test]
+fn a_provider_stop_charges_nothing_however_often_it_happens() {
+    let mut task = fresh();
+    for round in 0..20 {
+        let tr = task
+            .apply(claim(round))
+            .unwrap()
+            .task
+            .apply(Event::ProviderStopped {
+                holder: agent("w1"),
+            })
+            .unwrap();
+        assert_eq!(tr.task.state, TaskState::Open);
+        assert_eq!(tr.effects, []);
+        task = tr.task;
+    }
+    assert_eq!(task.usage, Usage::default());
+    assert_eq!(task.blocked_releases, Attempts::new(0));
+    assert_eq!(task.lease_expiries, Attempts::new(0));
+}
+
+#[test]
+fn a_provider_stop_needs_the_lease_holder_and_a_lease() {
+    let stop = |who: &str| Event::ProviderStopped { holder: agent(who) };
+    let leased = fresh().apply(claim(0)).unwrap().task;
+    assert!(matches!(
+        leased.apply(stop("someone-else")),
+        Err(IllegalTransition::NotHolder { .. })
+    ));
+    assert!(matches!(
+        fresh().apply(stop("w1")),
+        Err(IllegalTransition::NotAllowed { .. })
+    ));
+}

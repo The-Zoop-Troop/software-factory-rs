@@ -143,6 +143,10 @@ pub(crate) enum Command {
         /// Spend cap per task session, USD (claude only).
         #[arg(long, default_value_t = 5.0)]
         max_budget_usd: f64,
+        /// Seconds to wait after the provider refuses a session (a usage or spend limit, or an
+        /// outage). A refused request costs nothing, so trying again is safe.
+        #[arg(long, env = "RIG_LIMIT_WAIT", default_value_t = 900)]
+        limit_wait: u64,
         /// LLM harness behind the Worker.
         #[arg(long, value_enum, default_value_t = HarnessKind::Claude)]
         harness: HarnessKind,
@@ -273,6 +277,12 @@ pub(crate) enum BeadCommand {
 /// Any adapter or workflow failure, already typed; `main` prints it.
 pub(crate) use crate::render::{render, render_summary};
 
+/// Seconds until a polling role looks again, or `None` for a one-shot run. A provider refusal gets
+/// the longer wait, because each try before it clears would only be refused again.
+pub(crate) fn next_poll(stopped: bool, interval: Option<u64>, limit_wait: u64) -> Option<u64> {
+    interval.map(|secs| if stopped { secs.max(limit_wait) } else { secs })
+}
+
 pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
     if let Some(rig) = cli.rig.as_deref() {
         let token = cli
@@ -368,6 +378,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             lease_ttl,
             max_turns,
             max_budget_usd,
+            limit_wait,
             harness,
             model,
             effort,
@@ -389,13 +400,20 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
                 effort,
             };
             loop {
+                let mut stopped = false;
                 match work_once(&store, &git, harness.as_ref(), &SystemClock, &log, &cfg).await {
                     Ok(Some(report)) => tracing::info!(?report, "task submitted"),
                     Ok(None) => tracing::info!("nothing ready"),
+                    Err(e @ app::WorkerError::ProviderStopped { .. }) => {
+                        stopped = true;
+                        tracing::warn!(error = %e, limit_wait, "provider refused the session; waiting");
+                    }
                     // Infrastructure trouble: log and keep polling; the lease will expire if needed.
                     Err(e) => tracing::error!(error = %e, "work failed"),
                 }
-                let Some(secs) = interval else { break };
+                let Some(secs) = next_poll(stopped, interval, limit_wait) else {
+                    break;
+                };
                 tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
             }
         }
