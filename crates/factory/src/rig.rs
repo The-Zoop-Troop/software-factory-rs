@@ -175,6 +175,8 @@ pub(crate) async fn create(
 /// `rig destroy`: bring the project down (optionally with volumes), forget it.
 #[path = "rig_lifecycle.rs"]
 mod lifecycle;
+#[cfg(test)]
+pub(crate) use lifecycle::STOP_ROLES;
 use lifecycle::checked_up;
 pub(crate) use lifecycle::{start, stop};
 

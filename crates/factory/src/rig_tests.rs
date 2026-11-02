@@ -12,8 +12,8 @@ use app::domain::Timestamp;
 use app::testing::FakeHostDocker;
 
 use crate::rig::{
-    CreateSpec, Layout, RigCmdError, backup, console, create, destroy, doctor, list, restore,
-    start, stop,
+    CreateSpec, Layout, RigCmdError, STOP_ROLES, backup, console, create, destroy, doctor, list,
+    restore, start, stop,
 };
 
 fn spec(
@@ -224,5 +224,71 @@ async fn docker_failures_and_malformed_registry_surface() {
     ));
     std::fs::write(l.root.join("rigs.toml"), "not = [toml").unwrap();
     assert!(matches!(list(&l), Err(RigCmdError::Malformed { .. })));
+    let _ = std::fs::remove_dir_all(&l.root);
+}
+
+/// Top-level compose services whose command is a task-working role, read from the real file.
+fn compose_worker_services(compose: &str) -> Vec<&str> {
+    let mut current = "";
+    let mut workers = Vec::new();
+    for line in compose.lines() {
+        if let Some(name) = line.strip_prefix("  ").and_then(|l| l.strip_suffix(':'))
+            && !name.starts_with([' ', '#'])
+        {
+            current = name;
+        }
+        if line.trim_start().starts_with("command: [work,") {
+            workers.push(current);
+        }
+    }
+    workers
+}
+
+#[test]
+fn compose_workers_are_all_stopped() {
+    let compose = include_str!("../../../compose.yaml");
+    let workers = compose_worker_services(compose);
+    assert_eq!(workers, ["worker", "worker-codex", "worker-opencode"]);
+    for worker in workers {
+        assert!(STOP_ROLES.contains(&worker), "{worker} survives rig stop");
+    }
+}
+
+#[tokio::test]
+async fn stop_names_every_worker_profile_and_leaves_the_ledger_up() {
+    let l = layout("stop-all");
+    let docker = FakeHostDocker::default();
+    create(
+        &docker,
+        &l,
+        &spec("toy", "u", "rust", "opencode", None, false),
+    )
+    .await
+    .unwrap();
+    stop(&docker, &l, "toy").await.unwrap();
+    let calls = docker.calls.lock().await.clone();
+    let call = calls.iter().find(|c| c.contains(" stop ")).unwrap();
+    for service in ["worker-opencode", "worker-codex", "worker", "planner"] {
+        assert!(
+            call.split_whitespace().any(|w| w == service),
+            "{service} not in {call}"
+        );
+    }
+    assert!(!call.split_whitespace().any(|w| w == "ledger"));
+
+    // A rig whose doctor fails is stopped again, by the same list.
+    docker.calls.lock().await.clear();
+    docker
+        .ps
+        .lock()
+        .await
+        .insert("factory-toy".into(), "FAIL auth\n".into());
+    assert!(matches!(
+        start(&docker, &l, "toy").await,
+        Err(RigCmdError::Doctor { .. })
+    ));
+    let calls = docker.calls.lock().await.clone();
+    let call = calls.iter().find(|c| c.contains(" stop ")).unwrap();
+    assert!(call.split_whitespace().any(|w| w == "worker-opencode"));
     let _ = std::fs::remove_dir_all(&l.root);
 }
