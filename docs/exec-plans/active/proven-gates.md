@@ -40,15 +40,33 @@ type-checked and passed 168 of 168 tests in 98 seconds, with no network and a th
 Its browser tests have not been run in the lab. It has 61 commits that pair code with tests, 48 of
 which change at most 400 source lines.
 
+**Tasks.** 41 of those change at most 400 source lines and have non-browser tests. In a no-network
+container, 36 passed all three checks: the commit's tests fail on its parent, pass on the commit, and
+the parent's whole suite is green. All 36 passed two more runs. 30 were selected, leaving out the one
+whose parent carries the project's own `bd` setup and five near-duplicates from one feature family.
+The first 5 tasks for calibration are the ones at the 10th, 30th, 50th, 70th and 90th percentiles of
+size, so the choice involves no judgment about which tasks look easy.
+
+**Task text.** Each task is the original commit message, with attribution and test-count lines
+removed, plus an acceptance contract written from the held-back tests alone: endpoints, status codes,
+field names and exact error codes, with no test code and no implementation hints.
+
 - **Isolation:** a separate clone on the host with no remote. Each run gets a fresh rig state seeded
   from the parent of the original commit, as one commit with no later history, so a Worker cannot
   read the answer from git. `docker/entrypoint.sh` skips its clone when the repo already exists, and
-  an unset `RIG_REMOTE` keeps a rig local. This path has not yet run in a live rig; the first smoke
-  test covers it.
+  an unset `RIG_REMOTE` keeps a rig local. A live rig confirmed this on 2026-11-02, along with the
+  egress list, the database sidecar, `RIG_AUTH`, and `rig stop` on every Worker profile.
+- **Known exposure:** `bd` run from a worktree reaches the factory's own ledger. This was confirmed
+  live and phase 2 closes it. The baseline keeps each run's bead dump so tampering can be checked.
 - **Egress:** model hosts and the package registry only. The clone's tracked `.beads` sync setting
   is removed.
 - **Grading:** the original commit's tests are held back and run after landing, outside the factory,
-  in a no-network container.
+  in a no-network container, with its test files and test runner replacing whatever the Worker left.
+  Browser tests are not run, so UI work is judged only by the audit.
+- **Pipeline test:** a stand-in model ran the whole path at no cost, on two tasks. The original diff
+  landed and passed. A harmless diff landed and failed grading, which is the escape the baseline
+  exists to count. No change reached an incident after three attempts. A plan limit charged nothing,
+  and the retry landed with no partial work.
 - **Audit:** 30 diffs reviewed blind, mixing all three setups with commits already accepted as
   controls. Two questions each: is it wrong or does it need reverting, and would you have asked for
   changes?
@@ -78,7 +96,9 @@ Codex adapter already does (`crates/infra/src/codex.rs:151`).
 
 The stops that apply during a session are 45 minutes of wall clock per task, 200 turns, and $5 per
 session on Claude only. Events do not yet record model, harness or cost per attempt, so the baseline
-keeps a manifest beside its results until phase 5 adds them.
+keeps a manifest beside its results until phase 5 adds them. Claude cost comes from a logger around
+`claude` in a lab-only image, because the factory drops it; OpenCode has only total tokens, so its
+cost is tokens times the provider's price.
 
 ## Decision log
 
@@ -106,6 +126,13 @@ keeps a manifest beside its results until phase 5 adds them.
   The behaviour was captured against a stub provider, not a real limit. A provider that never
   recovers waits forever instead of reaching an incident; a refused request costs nothing, so the
   price of that is a quiet rig, visible in the event log.
+- **2026-11-02: tasks carry a contract written from the held-back tests.** Grading a Worker on names
+  it was never told would measure guessing, and 14 of the 30 commits have no message body at all. The
+  contract raises pass rates for every setup alike, so the comparison stays fair, but those rates
+  should not be read as what the same models would do from a thin ticket. A subagent wrote the
+  contracts from the tests only, without reading the original source changes.
+- **2026-11-02: the lab runner stays on the host.** It names the private project, and phase 5's lab
+  profile replaces it. The cost is that this repository alone cannot reproduce the baseline.
 - **2026-11-02: phases 0–3 are ordinary pull requests, one per phase, merged by the human.** They
   change the factory's own gates, so the factory does not build them. Dogfooding starts at phase 5.
 - **2026-11-02: the Planner's spend cap is raised from $2 to $5 per plan** with the existing
