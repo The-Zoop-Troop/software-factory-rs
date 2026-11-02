@@ -49,7 +49,10 @@ pub struct FactoryMeta {
 }
 
 #[cfg(feature = "serde")]
-#[allow(clippy::trivially_copy_pass_by_ref, reason = "serde skip_serializing_if signature")]
+#[allow(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "serde skip_serializing_if signature"
+)]
 fn u32_is_zero(v: &u32) -> bool {
     *v == 0
 }
@@ -67,10 +70,7 @@ pub struct RawFactoryMeta {
     pub usage: Usage,
     #[cfg_attr(feature = "serde", serde(default))]
     pub lease_expiries: u32,
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "u32_is_zero")
-    )]
+    #[cfg_attr(feature = "serde", serde(default, skip_serializing_if = "u32_is_zero"))]
     pub blocked_releases: u32,
     pub state: TaskState,
 }

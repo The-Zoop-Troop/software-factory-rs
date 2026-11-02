@@ -379,10 +379,16 @@ mod tests {
         let requests = harness.requests.lock().unwrap();
         let req = requests.first().unwrap();
         assert!(matches!(req.tools, ToolPolicy::ReadOnly));
-        assert!(req.prompt.contains("## Concrete claims to verify before planning"));
+        assert!(
+            req.prompt
+                .contains("## Concrete claims to verify before planning")
+        );
         assert!(req.prompt.contains("- `blueclaw_route_quoted_price_wei`"));
         assert!(req.prompt.contains("- `src/metrics.rs`"));
-        assert!(!req.prompt.contains("- `effective`"), "plain words are not claims");
+        assert!(
+            !req.prompt.contains("- `effective`"),
+            "plain words are not claims"
+        );
         assert!(req.system_prompt.contains("hypotheses, not facts"));
     }
 
