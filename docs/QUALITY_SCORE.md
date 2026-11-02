@@ -1,6 +1,6 @@
 # Quality score
 
-- **Status:** accepted · **Verified:** 2026-11-02 (coverage and test counts measured; grades are set by hand). `cargo xtask quality --check` fails when this date or the measured block is over 30 days old.
+- **Status:** accepted · **Verified:** 2026-11-02 (coverage and test counts measured; grades are set by hand). `cargo xtask quality --check` fails when this date or the measured block is over 30 days old and code has changed since.
 
 | Area | Tests | Coverage | Docs | Lints | Grade | Notes |
 |---|---|---|---|---|---|---|
@@ -10,7 +10,7 @@
 | `console` | 36 | 83.9% | remote-control.md, web-console.md | deny tier | B+ | the UI has its own gate, `cargo xtask ui-check` |
 | `factory` / `stewardd` bins | 22 | 68.5% / 62.0% | generated/cli.md | allow list | B+ | doctor/watch/inbox; dispatch arms need adapter injection (debt) |
 | rig (`docker/`, compose) | acceptance script + `factory doctor` | n/a | DEPLOYMENT, SECURITY, rig-sandbox.md | `compose config` in CI | B | the writer can still reach what checks it; see `docs/design-docs/proven-gates.md` |
-| docs | `lint-docs`, `gen-docs --check`, `quality --check` | n/a | this tree | CI + weekly gardening | A- | freshness enforced at 30 days |
+| docs | `lint-docs`, `gen-docs --check`, `quality --check` | n/a | this tree | CI + weekly gardening | A- | freshness enforced at 30 days once code has changed |
 
 ## Measured
 

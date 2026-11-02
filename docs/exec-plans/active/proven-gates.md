@@ -95,6 +95,10 @@ keeps a manifest beside its results until phase 5 adds them.
   so one env file could bill the wrong account without saying so. A rig holding both kinds and no
   choice refuses to start, and each baseline manifest records the mode. A subscription shares limits
   with the human's own work, so calibration also measures how much of them a run uses.
+- **2026-11-02: a doc goes stale only when code has changed since it was verified.** Age alone made
+  `gardening` go red on a schedule with nothing wrong, and a red that means nothing teaches people to
+  ignore red. The check does not map docs to the code they describe, so any non-prose commit counts.
+  It needs full git history, and refuses a shallow clone, which would read as "nothing changed".
 - **2026-11-02: phases 0–3 are ordinary pull requests, one per phase, merged by the human.** They
   change the factory's own gates, so the factory does not build them. Dogfooding starts at phase 5.
 - **2026-11-02: the Planner's spend cap is raised from $2 to $5 per plan** with the existing
