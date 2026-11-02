@@ -1,4 +1,4 @@
-- **Status:** reference · **Verified:** against the A2UI v0.9.1 specification, 2026-08-29
+- **Status:** reference · **Verified:** 2026-11-02: the console still emits v0.9.1 (`crates/app/src/remote/a2ui.rs:9`). Last compared with the A2UI v0.9.1 specification 2026-08-29.
 
 # A2UI — what the console emits
 

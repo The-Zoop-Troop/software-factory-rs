@@ -1,21 +1,23 @@
 # Deployment
 
-- **Status:** accepted · **Verified:** 2026-08-29 on Linux, rootless Docker 29.x, Compose v5
+- **Status:** accepted · **Verified:** 2026-11-02 against the code and `compose.yaml`, without a fresh install; last installed 2026-08-29 on Linux, rootless Docker 29.x, Compose v5
 
 ## Prerequisites
 - Linux host with **rootless** Docker (`docker info | grep rootless`) and Compose v2+.
 - One credential per harness you intend to run (see `docs/SECURITY.md` for scope):
   `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), `ANTHROPIC_API_KEY`, or `CLAUDE_AUTH_JSON=$(base64 -w0 ~/.claude/.credentials.json)` if host re-logins keep revoking setup tokens; `OPENCODE_*` for an OpenAI-compatible provider; `OPENAI_API_KEY` or `CODEX_AUTH_JSON=$(base64 -w0 ~/.codex/auth.json)` for Codex — the entrypoint seeds Codex's login from these.
-- Outbound access from the host to the allowlisted domains in `docker/egress/allowlist` (edit it for your git remote and registries).
+- Outbound access from the host to the allowlisted domains in `docker/egress/allowlist` (edit it for your git remote and registries). `docker/build.sh --project <dir>` also merges that project's `.factory/allowlist`, which is where a custom provider's host belongs.
 
 ## First run
 ```sh
 cp docker/rig.env.example docker/rig.env   # fill in; gitignored
 docker/build.sh rust                        # base + runtime image + egress proxy (see docs/references/runtimes.md)
-docker compose up -d                        # egress, steward, verifier, integrator, worker (claude)
+docker compose up -d                        # ledger, egress, steward, verifier, integrator, worker (claude), planner
 docker compose run --rm shell doctor --probe   # tools, ledger, repo, credentials; --probe sends one token per harness
 ```
-Bring your project in: set `RIG_REPO_URL` in `rig.env` (cloned on first start from `RIG_MAIN`; `RIG_GIT_TOKEN` authenticates through a git URL rewrite so the token never appears in a URL or log; `RIG_SUBMODULES=1` recurses), or seed the `repo` volume via `docker compose run --rm shell`.
+With the example's defaults the Integrator refuses to run, because `RIG_MAIN=main` is in `RIG_PROTECTED_BRANCHES`; point `RIG_MAIN` at a feature branch.
+
+Bring your project in: set `RIG_REPO_URL` in `rig.env` (cloned on first start from `RIG_MAIN`; `RIG_GIT_TOKEN` authenticates through a git URL rewrite, so the token stays out of URLs and logs but sits in the container's `~/.gitconfig`; `RIG_SUBMODULES=1` recurses), or seed the `repo` volume via `docker compose run --rm shell`.
 
 ## Operate
 ```sh
@@ -70,7 +72,7 @@ factory rig backup toy --to backups/                                        # to
 docker compose -p factory-toy down && factory rig restore toy --ledger backups/toy-ledger-<ts>.tgz
 factory rig destroy toy [--volumes]
 ```
-`~/.factory/console/tokens.toml` holds the console tokens; `~/.factory/console/rigs.toml` and `compose.yaml` are regenerated on every change (the console mounts each rig's ledger volume read-write, nothing else). Run the commands from this repository (or set `FACTORY_COMPOSE` to its `compose.yaml`).
+`~/.factory/console/tokens.toml` holds the console tokens; `~/.factory/console/rigs.toml` and `compose.yaml` are regenerated on every change (the console mounts each rig's ledger volume read-write, plus its own directory at `/work/console`). Run the commands from this repository (or set `FACTORY_COMPOSE` to its `compose.yaml`).
 
 ## Production posture
 - **TLS.** `CONSOLE_DOMAIN=console.example.com docker compose --profile tls up -d caddy` puts Caddy (automatic Let's Encrypt, or its internal CA for `localhost`) in front of the console; then set `CONSOLE_URL=https://console.example.com` so the Agent Card advertises the right address, and stop publishing `CONSOLE_PORT` on anything but loopback. The multi-rig console (`~/.factory/console/compose.yaml`) takes the same `caddy` service; copy `docker/caddy/Caddyfile` next to it.
@@ -138,4 +140,4 @@ regenerates to include the rig, and `factory rig console` picks it up.
 - A role logs `nothing ready` forever → `bd ready` in the rig; check `blocked` and incidents.
 - Harness returns `401`/`revoked` → the credential in `rig.env` is stale; recreate the affected service after fixing it.
 - A `plan` run hangs → `docker ps` for stale `plan-run-*` containers (a killed client does not kill the container) and remove them.
-- Verify fails with `command not found` → the rig image lacks the tool; add it to `docker/Dockerfile.rig` (debt: per-project toolchain layer).
+- Verify fails with `command not found` → the rig image lacks the tool; add it to `docker/runtimes/<name>/Dockerfile` or the project's `.factory/Dockerfile`.

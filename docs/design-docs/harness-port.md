@@ -1,6 +1,6 @@
 # The Harness port
 
-- **Status:** accepted · **Verified:** live tests in `crates/infra` (`--ignored`) 2026-08-29
+- **Status:** accepted · **Verified:** 2026-11-02 against the adapters, with live Claude Code 2.1.316 probes and the OpenCode 1.18.34 API; live tests in `crates/infra` (`--ignored`) last run 2026-08-29
 
 `app::ports::Harness::run(HarnessRequest) -> HarnessOutcome` is the only way the factory talks to an LLM agent. A request is: `cwd`, system prompt, prompt, optional JSON schema, `ToolPolicy` (None | ReadOnly | Full), turn cap, timeout. An outcome is: text, optional structured value, tokens, cost (micro-USD), turns, `is_error`.
 

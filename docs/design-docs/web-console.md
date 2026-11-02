@@ -1,8 +1,8 @@
 # Web console
 
-- **Status:** accepted · **Verified:** 2026-08-29 (`cargo xtask ui-check --e2e`; screenshots in `docs/images/`)
+- **Status:** accepted · **Verified:** 2026-11-02 against the code; `cargo xtask ui-check --e2e` runs in CI; screenshots in `docs/images/` date from 2026-08-29
 
-The operator UI is a Lit application embedded in the `console` binary (`crates/console/ui`, served at `/`). It is a client of the audited, scoped console API and nothing more: everything it shows comes from `ListTasks`/`GetTask`/`whoami`/the event stream, and everything it does goes through `SendMessage`/`CancelTask`. Exec plan: `docs/exec-plans/completed/web-console-v2.md`.
+The operator UI is a Lit application embedded in the `console` binary (`crates/console/ui`, served at `/`). It is a client of the audited, scoped console API and nothing more: everything it shows comes from `ListTasks`/`GetTask`/`whoami`/the event stream and the `/rigs`, `/metrics`, `/detail`, `/beads` and `/consumers` routes, and everything it does goes through `SendMessage`/`CancelTask`. Exec plan: `docs/exec-plans/completed/web-console-v2.md`.
 
 ![rig page, dark](../images/console-rig-dark.png)
 
