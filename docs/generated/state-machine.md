@@ -12,6 +12,7 @@ Source: `crates/domain/src/task.rs`.
 - `mergeable`
 - `closed`
 - `incident`
+- `canceled`
 
 ## Events
 
@@ -27,6 +28,8 @@ Source: `crates/domain/src/task.rs`.
 - `merged`
 - `merge_failed`
 - `escalate`
+- `cancel`
+- `operator_retry`
 
 ## Constants
 

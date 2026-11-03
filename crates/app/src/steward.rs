@@ -222,7 +222,8 @@ fn decide(bead: &Bead, now: Timestamp) -> Option<Decision> {
         | TaskState::InVerify { .. }
         | TaskState::Mergeable { .. }
         | TaskState::Closed { .. }
-        | TaskState::Incident { .. } => None,
+        | TaskState::Incident { .. }
+        | TaskState::Canceled { .. } => None,
     }
 }
 

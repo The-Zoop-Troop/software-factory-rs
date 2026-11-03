@@ -1,6 +1,6 @@
 # Task state machine
 
-- **Status:** accepted · **Verified:** 2026-11-02 against `domain::task`, `app::console::resolve` and `app::steward`; the workspace test suite passes; diagram mirrors `domain::task`
+- **Status:** accepted · **Verified:** 2026-11-03 against `domain::task`, `app::console::resolve`, `app::remote::cancel_task` and `app::steward`; the workspace test suite passes; diagram mirrors `domain::task`
 
 ```
 open ──claim──▶ leased ──submit──▶ in_verify ──pass──▶ mergeable ──merged──▶ closed
@@ -9,11 +9,16 @@ open ──claim──▶ leased ──submit──▶ in_verify ──pass─�
                  ▼  ▼                  ▼                   ▼
                 open (attempt++ on release/fail; note appended)
                  └── attempts/tokens/wall-clock budget exceeded, or ≥3 lease expiries ──▶ incident
+
+incident ──operator_retry──▶ open            any state but closed ──cancel──▶ canceled
 ```
 
 - `Task::apply(Event) -> Result<Transition, IllegalTransition>` is total over (state, event); illegal pairs are listed exhaustively so a new variant breaks the build.
-- **Leaving `incident`.** `Task::apply` rejects every event from `incident`. The one way back is an operator's retry: `app::console::resolve` writes `open` directly, with fresh usage, lease expiries and blocked releases.
-- A `Transition` carries **effects** (`AppendNote`, `OpenMergeBead`, `OpenIncidentBead`, `CloseTaskBead`, `CloseVerifyBead`) that the imperative shell (`app::transition::run_effect`) executes after persisting the new state — persist first, so a crash leaves a detectable gap rather than an undoable one.
+- **Operators go through the same function.** Every change to a task's state, including the two a person makes, goes through `Task::apply` and leaves a `transition` event naming the move.
+  - **Retry.** Resolving an incident sends `operator_retry`, the one way out of `incident`: back to `open` with fresh usage, lease expiries and blocked releases, because the earlier sessions already spent theirs.
+  - **Cancel.** Canceling an epic sends `cancel` to each unfinished task, including one in `incident`, and the task ends in `canceled`. Its effect closes the task's open merge beads, which are not children of the epic, so work verified just before the cancel never lands. A Worker still holding the lease finds its next heartbeat refused and abandons the session. The console then closes the epic's bead tree.
+  - **Backstop.** The Integrator also refuses any task whose bead is closed, whatever its state says.
+- A `Transition` carries **effects** (`AppendNote`, `OpenMergeBead`, `OpenIncidentBead`, `CloseTaskBead`, `CloseVerifyBead`, `CloseMergeBeads`) that the imperative shell (`app::transition::run_effect`) executes after persisting the new state — persist first, so a crash leaves a detectable gap rather than an undoable one.
 - **Heartbeat** renews a lease from *now*, never from the old expiry. Only the lease holder may heartbeat, submit, or release. The Worker samples the worktree on every heartbeat (`Repo::diff_stat`) and records a `progress` event — files touched, lines added/removed — so an operator can see a session working without reading the harness log.
 - **Stage edges for metrics.** Every stop has both edges in the event log: `task_planned {epic, needs}` (planner), `claimed`, `submitted`, `verify_started`, `verified`, `integrate_started`, `integrated`, with `released`, `lease_reaped`, `escalated` ending an attempt. A task is *ready* at `max(task_planned, integrated of each need)`, so queue wait, work, and idle time per role are all derivable without any role keeping state (see `docs/exec-plans/completed/throughput-metrics.md`).
 - **Refused by the provider.** A session the provider refused (a usage or spend limit, a rate limit, an outage) goes back to `open` through `provider_stopped`, which charges no attempt and no wall clock, adds no note and opens no incident. A partial commit is not verified: the retry recuts the branch from main, so every verified result comes from one uninterrupted session. The role waits `RIG_LIMIT_WAIT` seconds (default 900) before polling again, and a `provider_stopped` event records the tokens the discarded session used. Faults a person must fix, such as a bad credential, still charge attempts and reach an incident. A provider that never recovers therefore waits forever; only the event log and the role's log show it.

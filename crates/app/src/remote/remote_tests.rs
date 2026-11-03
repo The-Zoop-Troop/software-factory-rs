@@ -269,6 +269,77 @@ async fn cancel_closes_open_children_and_marks_epic() {
 }
 
 #[tokio::test]
+async fn cancel_stops_a_verified_task_from_landing() {
+    // A task that passed verification just before the cancel has an open merge bead, which is
+    // not a child of the epic. Canceling must still keep it off the integration branch.
+    let (rig, store, sink, _) = seeded().await;
+    let branch = domain::BranchName::try_new("task/ep-1.2").expect("branch");
+    let head = domain::Sha::try_new("b".repeat(40)).expect("sha");
+    store
+        .seed_task(
+            id("ep-1.2"),
+            meta(
+                TaskState::Mergeable {
+                    branch: branch.clone(),
+                    head: head.clone(),
+                },
+                0,
+            ),
+        )
+        .await;
+    store.set_parent(&id("ep-1.2"), &id("ep-1")).await;
+    crate::transition::open_merge_bead(store.as_ref(), &id("ep-1.2"), &branch, &head)
+        .await
+        .expect("merge bead");
+    cancel_task(&rig, &clock(), &who(&[Scope::Plan, Scope::Watch]), "ep-1")
+        .await
+        .expect("ok");
+    let repo = crate::testing::FakeRepo::default();
+    let cfg = crate::IntegrateConfig {
+        main: domain::BranchName::try_new("trunk").expect("branch"),
+        remote: None,
+        checks: vec![],
+        check_timeout: domain::Duration::from_seconds(60),
+        protected: vec![],
+    };
+    let report = crate::integrate_once(
+        store.as_ref(),
+        &repo,
+        &crate::testing::FakeRunner::default(),
+        &clock(),
+        &crate::testing::MemorySink::default(),
+        &cfg,
+        "integrator",
+    )
+    .await
+    .expect("pass");
+    assert_eq!(report.landed, 0, "a canceled task landed");
+    assert!(repo.fast_forwards.lock().expect("lock").is_empty());
+    let task = store.show(&id("ep-1.2")).await.expect("task");
+    assert!(matches!(
+        task.meta.expect("meta").state,
+        TaskState::Canceled { by } if by == "remote:tester"
+    ));
+    let moves: Vec<_> = sink
+        .events()
+        .await
+        .into_iter()
+        .filter_map(|e| {
+            if let EventKind::Transition { from, event, to } = e.kind {
+                Some((e.bead, from, event, to))
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(
+        moves,
+        [(Some(id("ep-1.2")), "mergeable", "cancel", "canceled")],
+        "only the unfinished task moves, and the move is logged"
+    );
+}
+
+#[tokio::test]
 async fn events_filter_to_context() {
     let (rig, _, _, tail) = seeded().await;
     tail.push("worker", Some(id("ep-1.2")), "claimed");

@@ -57,7 +57,7 @@ pub(crate) enum RemoteUnsupported {
 pub(crate) fn remote_command(cmd: Command) -> Result<RemoteCommand, RemoteUnsupported> {
     match cmd {
         Command::Watch { interval } => Ok(RemoteCommand::Watch { interval }),
-        Command::Inbox { resolve, note } => Ok(RemoteCommand::Inbox { resolve, note }),
+        Command::Inbox { resolve, note, .. } => Ok(RemoteCommand::Inbox { resolve, note }),
         Command::Stop { epic } => Ok(RemoteCommand::Stop { epic }),
         Command::Doctor { .. } => Ok(RemoteCommand::Doctor),
         Command::Metrics {

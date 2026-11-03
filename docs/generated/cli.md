@@ -78,6 +78,7 @@ Options:
       --workdir <WORKDIR>  Directory containing `.beads/` (defaults to the current directory) [default: .]
       --note <NOTE>        Note recorded with the resolution [default: "resolved by operator"]
       --rig <RIG>          Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
+      --events <EVENTS>    Event log path (JSONL, appended) for the reopened task's transition [default: .factory/events.jsonl]
       --token <TOKEN>      Bearer token for --rig [env: FACTORY_TOKEN]
   -h, --help               Print help
 ```

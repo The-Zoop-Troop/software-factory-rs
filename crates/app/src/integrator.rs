@@ -186,6 +186,13 @@ async fn integrate_one(
     merge_bead: &BeadId,
     meta: &MergeMeta,
 ) -> Result<Option<Landed>, TransitionError> {
+    // A closed task bead never lands, whatever its state says: canceling closes the bead tree.
+    if store.show(&meta.task).await?.status == crate::bead::BeadStatus::Closed {
+        store
+            .close(merge_bead, "task bead is closed; stale merge bead")
+            .await?;
+        return Ok(None);
+    }
     let task = load_task(store, &meta.task).await?;
     let TaskState::Mergeable { branch, head } = &task.state else {
         store

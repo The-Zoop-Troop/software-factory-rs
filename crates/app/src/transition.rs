@@ -98,6 +98,14 @@ async fn run_effect(store: &dyn BeadStore, effect: &Effect) -> Result<(), StoreE
             .map(|_| ()),
         Effect::CloseTaskBead { task: id } => store.close(id, "merged to main").await,
         Effect::CloseVerifyBead { verify } => store.close(verify, "paired task merged").await,
+        Effect::CloseMergeBeads { task: id } => {
+            for merge in store.list_active(BeadKind::Merge).await? {
+                if merge.merge.as_ref().is_some_and(|m| &m.task == id) {
+                    store.close(&merge.id, "task canceled").await?;
+                }
+            }
+            Ok(())
+        }
     }
 }
 

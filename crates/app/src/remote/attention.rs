@@ -220,7 +220,8 @@ fn reason_of(task: Option<&Bead>, description: &str) -> Reason {
             | TaskState::Leased { .. }
             | TaskState::InVerify { .. }
             | TaskState::Mergeable { .. }
-            | TaskState::Closed { .. },
+            | TaskState::Closed { .. }
+            | TaskState::Canceled { .. },
         ) => ("resolved", "The task has already moved on"),
         None => ("question", "An agent needs an answer"),
     };
@@ -237,7 +238,10 @@ fn branch_of(task: &Bead) -> Option<String> {
             Some(branch.to_string())
         }
         TaskState::Leased { lease } => Some(format!("held by {}", lease.holder)),
-        TaskState::Open | TaskState::Closed { .. } | TaskState::Incident { .. } => None,
+        TaskState::Open
+        | TaskState::Closed { .. }
+        | TaskState::Incident { .. }
+        | TaskState::Canceled { .. } => None,
     })
 }
 

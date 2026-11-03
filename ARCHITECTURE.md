@@ -99,7 +99,9 @@ open ──claim──▶ leased ──push──▶ in_verify ──pass──�
                open  ◀──────── open (+failure note appended)
                                     │ fail (attempts exhausted)
                                     ▼
-                                incident
+                                incident ──operator retry──▶ open
+
+cancel (an operator stops the epic): any state but closed ──▶ canceled
 ```
 
 Notes are append-only. Every failure leaves the verifier's output on the bead so the next worker sees what already went wrong — this is the memory that survives agent death.

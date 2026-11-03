@@ -86,7 +86,8 @@ pub fn render(
                 | domain::TaskState::Leased { .. }
                 | domain::TaskState::InVerify { .. }
                 | domain::TaskState::Mergeable { .. }
-                | domain::TaskState::Incident { .. } => None,
+                | domain::TaskState::Incident { .. }
+                | domain::TaskState::Canceled { .. } => None,
             })
             .unwrap_or_else(|| "not landed".to_owned());
         let _ = writeln!(out, "- {} — {} ({landed})", c.id, c.title);
