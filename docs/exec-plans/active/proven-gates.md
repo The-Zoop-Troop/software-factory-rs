@@ -93,10 +93,17 @@ rig and three rigs at a time. No setup reached the stop rule.
 |---|---|---|---|---|---|
 | A | 5 of 5 | 5 of 5 | 0 of 11 | $2.53 | 25 minutes |
 | B | 5 of 5 | 5 of 5 | 0 of 11 | $0.27 | 48 minutes |
-| C | 5 of 5 | 5 of 5 | 1 of 12 | tokens times the provider's price | 1 hour 55 minutes |
+| C | 5 of 5 | 5 of 5 | 1 of 12 | $30.18 on 4 tasks, at list price | 1 hour 55 minutes |
 
-Planning cost $6.13, which is 69% of the $8.93 spent at API prices. On the subscription, the weekly
-limit read 6% before and 7% after, in whole percents and shared with the human's other work. Every
+Planning cost $6.13, which is 69% of the $8.93 the Claude setups spent at API prices. On the
+subscription, the weekly limit read 6% before and 7% after, in whole percents and shared with the
+human's other work.
+
+The human chose Alibaba Cloud's international list price for setup C: $0.50 per million input tokens
+and $3.00 per million output. C's token records were kept for 4 of the 5 tasks. On those 4, C cost
+$30.18, about 15 times what A cost on the same tasks, although its list price is lower. The provider
+reported no cache hits, so every request's whole context was charged in full, while Claude reads most
+of its context from cache. A cheaper C needs caching more than a cheaper model. Every
 run also passed the whole suite, and the session logs confirm each setup used its intended model.
 
 **What this does not show.** Zero escapes says little about the gates, because only one bad submission
