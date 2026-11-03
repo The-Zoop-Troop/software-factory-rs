@@ -82,8 +82,53 @@ field names and exact error codes, with no test code and no implementation hints
 | C | Opus 5.5, high effort | `Qwen3.8-27B`, OpenAI-compatible provider | OpenCode |
 
 The Planner runs once per task, so all three Workers get identical tasks. Setup C changes the harness
-and the model together, so a difference there could come from either. A probe on 2026-11-02 ran all
-three Claude model IDs through Claude Code 2.1.316; `Qwen3.8-27B` has not yet been called.
+and the model together, so a difference there could come from either.
+
+## Calibration results
+
+Five tasks ran through all three setups on 2026-11-02: 15 runs in 2 hours 22 minutes, one setup per
+rig and three rigs at a time. No setup reached the stop rule.
+
+| Setup | Landed | Passed held-back tests | Failed verifies | Worker cost at API prices | Worker time |
+|---|---|---|---|---|---|
+| A | 5 of 5 | 5 of 5 | 0 of 11 | $2.53 | 25 minutes |
+| B | 5 of 5 | 5 of 5 | 0 of 11 | $0.27 | 48 minutes |
+| C | 5 of 5 | 5 of 5 | 1 of 12 | tokens times the provider's price | 1 hour 55 minutes |
+
+Planning cost $6.13, which is 69% of the $8.93 spent at API prices. On the subscription, the weekly
+limit read 6% before and 7% after, in whole percents and shared with the human's other work. Every
+run also passed the whole suite, and the session logs confirm each setup used its intended model.
+
+**What this does not show.** Zero escapes says little about the gates, because only one bad submission
+reached a Verifier in 34 checks. The whole suite caught it, with real 500 responses from a broken
+query, and the retry fixed it. Three things make the high pass rate expected:
+
+- The contract tells each Worker what the held-back tests check.
+- Only 11 of the 38 held-back tests that ran on a task's parent failed there, so the grade rests on
+  few tests that measure the new behaviour.
+- Of the 70 verify commands the Planner wrote, 43 only check that a file or text exists, 12 type-check,
+  7 run the whole suite, 4 run one named test file, and 4 build or list things. That is the same
+  pattern the design doc found in the old project's history.
+
+Evidence about the gates has to come from planted faults and the blind audit.
+
+**Other findings.**
+
+- **Size:** Workers added more lines than the original commits did: A 1.6 times, B 2.4 times, C 3.3
+  times. On one task, C changed about 700 non-whitespace lines of a central file where A changed under
+  20. Tests cannot see this, so it is a question for the audit.
+- **Tampering:** none found. After every run, each Planner bead's title, description, acceptance text
+  and verify commands were unchanged, and no Worker created a bead. C's 351 captured shell commands
+  include no `bd` call. Claude Workers left no transcript, so their read-only `bd` use is unknown.
+- **Idle time:** two B sessions took about 12.5 minutes with under 90 seconds of API time. The cause
+  is unknown for the same reason.
+- **Token counts:** the factory's event log undercounts both harnesses. OpenCode's count covers only
+  each session's final message: C's real use on 4 of the tasks was 59.2M input and 189K output tokens,
+  against about 700K logged, with no cache reads reported. Claude's envelope can cover only the last
+  segment of a session, though its cost and `modelUsage` are cumulative. The real counts come from
+  each harness's own records until phase 5 fixes this.
+- **A harmless race:** a steward sweep opened a second merge bead while a Verifier was finishing a
+  pass, in 1 of 34 checks. The Integrator landed one and closed the other as stale.
 
 ## Budgets during the lab
 
@@ -102,6 +147,14 @@ cost is tokens times the provider's price.
 
 ## Decision log
 
+- **2026-11-02: lab rigs get only a short-lived access token from the human's login.** The runner
+  removes the refresh token, so a rig cannot rotate that login out from under the human, and anything
+  a rig leaks expires soon. It reads the login fresh at each rig start and waits when too little time
+  is left. A rejected credential sets that run aside and runs it again once.
+- **2026-11-02: the lab logger keeps Claude transcripts.** The factory passes
+  `--no-session-persistence`; calibration then left two idle sessions and any read-only `bd` use
+  unexplained. The lab logger drops the flag from the remaining runs, and the factory's own behaviour
+  does not change.
 - **2026-11-02: the original test project was retired.** Its 68 landed tasks stay as the static
   evidence in the design doc, but the executed sweep and audit move to the new lab project.
 - **2026-11-02: a separate clone, not a git worktree.** The human asked for no changes to the real
