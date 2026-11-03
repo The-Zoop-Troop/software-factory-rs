@@ -65,6 +65,11 @@ pub enum EventKind {
     Escalated { exceeded: domain::BudgetExceeded },
     /// Steward re-created a merge bead for a task left `mergeable` without one.
     MergeBeadRepaired,
+    /// A submission changed or deleted test files that exist on its base.
+    TestsChanged {
+        modified: Vec<String>,
+        deleted: Vec<String>,
+    },
     /// Steward closed an epic whose children are all closed.
     EpicClosed { children: usize },
     /// Steward wrote the epic's contract bead (what landed, for downstream planners).

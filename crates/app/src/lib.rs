@@ -28,6 +28,7 @@ pub mod remote;
 pub mod rigs;
 pub mod steward;
 pub mod steward_contract;
+pub mod test_edits;
 pub mod transition;
 pub mod verifier;
 pub mod worker;

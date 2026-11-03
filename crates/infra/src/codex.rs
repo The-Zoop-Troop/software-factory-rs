@@ -15,13 +15,16 @@ use app::domain::{MicroUsd, Tokens, Turns};
 use app::{Harness, HarnessError, HarnessOutcome, HarnessRequest, HarnessStage, ToolPolicy};
 use async_trait::async_trait;
 use serde::Deserialize;
-use tokio::process::Command;
+
+use crate::child_env::{CODEX_CREDENTIALS, ChildEnv};
+use crate::confine::Sandbox;
 
 /// Adapter configuration. Auth comes from the environment (`OPENAI_API_KEY`) or Codex's own login.
 #[derive(Debug, Clone)]
 pub struct CodexCli {
     bin: PathBuf,
     model: Option<String>,
+    sandbox: Sandbox,
 }
 
 impl Default for CodexCli {
@@ -29,6 +32,10 @@ impl Default for CodexCli {
         Self {
             bin: PathBuf::from("codex"),
             model: None,
+            sandbox: Sandbox {
+                env: ChildEnv::from_process(&CODEX_CREDENTIALS),
+                confine: None,
+            },
         }
     }
 }
@@ -48,6 +55,13 @@ impl CodexCli {
             model: Some(model.into()),
             ..self
         }
+    }
+
+    /// How sessions start: their environment and confinement. Defaults to this process's
+    /// environment without the role's secrets, unconfined.
+    #[must_use]
+    pub fn with_sandbox(self, sandbox: Sandbox) -> Self {
+        Self { sandbox, ..self }
     }
 }
 
@@ -223,24 +237,25 @@ impl Harness for CodexCli {
         // fp-allow: removing a previous run's file; absence is the desired state either way
         let _ = tokio::fs::remove_file(&last_path).await;
 
-        let mut cmd = Command::new(&self.bin);
-        cmd.current_dir(&req.cwd)
-            .args([
-                "exec",
-                "--json",
-                "--ephemeral",
-                "--skip-git-repo-check",
-                "--color",
-                "never",
-            ])
-            .arg("-C")
-            .arg(&req.cwd)
-            .arg("-o")
-            .arg(&last_path)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true);
+        let mut cmd =
+            self.sandbox
+                .command_writing(&self.bin, &req.cwd, std::slice::from_ref(&scratch));
+        cmd.args([
+            "exec",
+            "--json",
+            "--ephemeral",
+            "--skip-git-repo-check",
+            "--color",
+            "never",
+        ])
+        .arg("-C")
+        .arg(&req.cwd)
+        .arg("-o")
+        .arg(&last_path)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
         match req.tools {
             ToolPolicy::None | ToolPolicy::ReadOnly => {
                 cmd.args(["-s", "read-only"]);

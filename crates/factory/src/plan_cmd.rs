@@ -116,7 +116,12 @@ pub(crate) async fn run(workdir: &Path, args: PlanArgs) -> anyhow::Result<()> {
         defaults.budget.tokens = domain::Tokens::new(t);
     }
     if queue {
-        let harness = build_harness(harness, model, max_budget_usd)?;
+        let harness = build_harness(
+            harness,
+            model,
+            max_budget_usd,
+            crate::cli::role_confine().await?.as_ref(),
+        )?;
         let git = GitCli::new(&repo, repo.join(".factory-worktrees"));
         let store = BdCli::new(workdir).with_actor("planner");
         let main = BranchName::try_new(main)?;
@@ -158,7 +163,12 @@ pub(crate) async fn run(workdir: &Path, args: PlanArgs) -> anyhow::Result<()> {
         return Ok(());
     }
     let plan_text = read_plan_text(file, text)?;
-    let harness = build_harness(harness, model, max_budget_usd)?;
+    let harness = build_harness(
+        harness,
+        model,
+        max_budget_usd,
+        crate::cli::role_confine().await?.as_ref(),
+    )?;
     let git = GitCli::new(&repo, repo.join(".factory-worktrees"));
     let store = BdCli::new(workdir).with_actor("planner");
     let report = plan(

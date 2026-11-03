@@ -10,7 +10,9 @@ use app::{
 };
 use async_trait::async_trait;
 use serde::Deserialize;
-use tokio::process::Command;
+
+use crate::child_env::{CLAUDE_CREDENTIALS, ChildEnv};
+use crate::confine::Sandbox;
 
 /// Adapter configuration.
 #[derive(Debug, Clone)]
@@ -19,6 +21,7 @@ pub struct ClaudeCli {
     model: Option<String>,
     /// Hard cap per run, in USD, passed as `--max-budget-usd`.
     max_budget_usd: Option<f64>,
+    sandbox: Sandbox,
 }
 
 impl Default for ClaudeCli {
@@ -27,6 +30,10 @@ impl Default for ClaudeCli {
             bin: PathBuf::from("claude"),
             model: None,
             max_budget_usd: None,
+            sandbox: Sandbox {
+                env: ChildEnv::from_process(&CLAUDE_CREDENTIALS),
+                confine: None,
+            },
         }
     }
 }
@@ -54,6 +61,13 @@ impl ClaudeCli {
             max_budget_usd: Some(usd),
             ..self
         }
+    }
+
+    /// How sessions start: their environment and confinement. Defaults to this process's
+    /// environment without the role's secrets, unconfined.
+    #[must_use]
+    pub fn with_sandbox(self, sandbox: Sandbox) -> Self {
+        Self { sandbox, ..self }
     }
 }
 
@@ -158,9 +172,8 @@ fn micro_usd(usd: f64) -> u64 {
 #[async_trait]
 impl Harness for ClaudeCli {
     async fn run(&self, req: HarnessRequest) -> Result<HarnessOutcome, HarnessError> {
-        let mut cmd = Command::new(&self.bin);
-        cmd.current_dir(&req.cwd)
-            .arg("-p")
+        let mut cmd = self.sandbox.command(&self.bin, &req.cwd);
+        cmd.arg("-p")
             .arg(&req.prompt)
             .args(["--output-format", "json", "--no-session-persistence"])
             .arg("--max-turns")

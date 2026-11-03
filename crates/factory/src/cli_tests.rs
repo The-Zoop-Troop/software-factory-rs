@@ -70,14 +70,14 @@ fn parses_every_command() {
 
 #[test]
 fn build_harness_variants() {
-    assert!(build_harness(HarnessKind::Claude, Some("m".into()), 1.0).is_ok());
-    assert!(build_harness(HarnessKind::Codex, None, 1.0).is_ok());
-    assert!(build_harness(HarnessKind::Opencode, Some("p/m".into()), 1.0).is_ok());
+    assert!(build_harness(HarnessKind::Claude, Some("m".into()), 1.0, None).is_ok());
+    assert!(build_harness(HarnessKind::Codex, None, 1.0, None).is_ok());
+    assert!(build_harness(HarnessKind::Opencode, Some("p/m".into()), 1.0, None).is_ok());
     assert!(
-        build_harness(HarnessKind::Opencode, None, 1.0).is_err(),
+        build_harness(HarnessKind::Opencode, None, 1.0, None).is_err(),
         "opencode needs a model"
     );
-    assert!(build_harness(HarnessKind::Opencode, Some("nope".into()), 1.0).is_err());
+    assert!(build_harness(HarnessKind::Opencode, Some("nope".into()), 1.0, None).is_err());
 }
 
 fn bead(meta: Option<FactoryMeta>) -> Bead {

@@ -23,6 +23,10 @@ opentelemetry_sdk.workspace = true
 opentelemetry-otlp.workspace = true
 tracing-opentelemetry.workspace = true
 
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix = { version = "1", features = ["process"] }
+landlock = "0.4"
+
 [features]
 testing = ["app/testing"]
 

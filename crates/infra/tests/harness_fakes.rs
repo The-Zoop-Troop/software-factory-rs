@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use infra::app::domain::{Duration, Turns};
 use infra::app::{Harness, HarnessError, HarnessRequest, ToolPolicy};
-use infra::{ClaudeCli, CodexCli};
+use infra::{CLAUDE_CREDENTIALS, ChildEnv, ClaudeCli, CodexCli, Sandbox};
 
 fn fakebin(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -173,4 +173,37 @@ async fn effort_reaches_the_harness_command_lines() {
         "xhigh"
     );
     assert_eq!(infra::codex::codex_effort(app::domain::Effort::Low), "low");
+}
+
+#[tokio::test]
+async fn a_session_starts_without_the_roles_secrets() {
+    let env = ChildEnv::from_vars(
+        [
+            ("PATH", "/usr/bin:/bin"),
+            ("BEADS_DOLT_PASSWORD", "ledger"),
+            ("RIG_GIT_TOKEN", "git"),
+            ("OPENAI_API_KEY", "another harness"),
+            ("ANTHROPIC_API_KEY", "this harness"),
+            ("DATABASE_URL", "postgresql://postgres:5432/db"),
+        ]
+        .map(|(k, v)| (k.to_owned(), v.to_owned())),
+        &CLAUDE_CREDENTIALS,
+    );
+    let h = ClaudeCli::default()
+        .with_bin(fakebin("claude"))
+        .with_sandbox(Sandbox { env, confine: None });
+    let o = h
+        .run(req("ENVNAMES", ToolPolicy::Full, false))
+        .await
+        .unwrap();
+    let names: Vec<&str> = o.text.split_whitespace().collect();
+    for secret in ["BEADS_DOLT_PASSWORD", "RIG_GIT_TOKEN", "OPENAI_API_KEY"] {
+        assert!(
+            !names.contains(&secret),
+            "{secret} reached the session: {names:?}"
+        );
+    }
+    for kept in ["ANTHROPIC_API_KEY", "DATABASE_URL", "PATH"] {
+        assert!(names.contains(&kept), "{kept} is missing: {names:?}");
+    }
 }

@@ -6,6 +6,7 @@ case "$prompt" in
   *ERROR*) printf '%s\n' '{"type":"result","is_error":true,"result":"Not logged in","num_turns":1}'; exit 0 ;;
   *SLOW*)  sleep 5 ;;
   *GARBAGE*) echo "not json"; exit 1 ;;
+  *ENVNAMES*) names=$(env | cut -d= -f1 | sort | tr '\n' ' '); printf '{"type":"result","is_error":false,"result":"%s","num_turns":1}\n' "$names"; exit 0 ;;
 esac
 schema=""; for a in "$@"; do [ "$a" = "--json-schema" ] && schema=yes; done
 if [ -n "$schema" ]; then

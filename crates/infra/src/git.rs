@@ -4,9 +4,37 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use app::domain::{BranchName, Sha};
+use app::ports::FileChange;
 use app::{DiffStat, DiffSummary, GitOp, RemoteSync, Repo, RepoError, Worktree};
 use async_trait::async_trait;
 use tokio::process::Command;
+
+/// git needs none of the role's secrets: the Integrator's push credential is a URL rewrite in its
+/// own git config, not an environment variable.
+static GIT_ENV: std::sync::LazyLock<crate::child_env::ChildEnv> =
+    std::sync::LazyLock::new(|| crate::child_env::ChildEnv::from_process(&[]));
+
+/// Pure: `git diff --name-status -M` output. A copy is an addition; a type change is a change.
+fn parse_name_status(out: &str) -> Vec<FileChange> {
+    out.lines()
+        .filter_map(|line| {
+            let mut cols = line.split('\t');
+            let status = cols.next()?;
+            let first = cols.next()?.to_owned();
+            match status.chars().next()? {
+                'A' | 'C' => Some(FileChange::Added {
+                    path: cols.next().map_or(first, str::to_owned),
+                }),
+                'D' => Some(FileChange::Deleted { path: first }),
+                'R' => Some(FileChange::Renamed {
+                    to: cols.next()?.to_owned(),
+                    from: first,
+                }),
+                _ => Some(FileChange::Modified { path: first }),
+            }
+        })
+        .collect()
+}
 
 /// A local git clone plus a directory for worktrees.
 #[derive(Debug, Clone)]
@@ -50,7 +78,9 @@ impl GitCli {
     /// As `git`.
     pub async fn git_in(op: GitOp, cwd: &Path, args: &[&str]) -> Result<String, RepoError> {
         tracing::debug!(?cwd, ?args, "git");
-        let out = Command::new("git")
+        let mut cmd = Command::new("git");
+        GIT_ENV.apply(&mut cmd);
+        let out = cmd
             .current_dir(cwd)
             .args(args)
             .stdin(Stdio::null())
@@ -357,6 +387,27 @@ impl Repo for GitCli {
         self.rev_parse(&format!("refs/heads/{branch}")).await
     }
 
+    async fn changed_files(&self, base: &Sha, head: &Sha) -> Result<Vec<FileChange>, RepoError> {
+        let range = format!("{base}..{head}");
+        let out = self
+            .git(GitOp::Status, &["diff", "--name-status", "-M", &range])
+            .await?;
+        Ok(parse_name_status(&out))
+    }
+
+    async fn file_at(&self, branch: &BranchName, path: &str) -> Result<Option<String>, RepoError> {
+        let tip = self.head_of(branch).await?;
+        let spec = format!("{tip}:{path}");
+        if self
+            .git(GitOp::RevParse, &["cat-file", "-e", &spec])
+            .await
+            .is_err()
+        {
+            return Ok(None);
+        }
+        self.git(GitOp::RevParse, &["show", &spec]).await.map(Some)
+    }
+
     async fn branch_worktree(
         &self,
         branch: &BranchName,
@@ -511,64 +562,5 @@ fn parse_numstat(numstat: &str, untracked: &str) -> DiffStat {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn summary_lists_files_and_added_public_surface_only() {
-        let numstat = "3\t1\tsrc/lib.rs\n2\t0\tapi/routes.ts\n";
-        let patch = "+++ b/src/lib.rs\n+pub fn balance() {}\n+fn private() {}\n+    let k = std::env::var(\"DATABASE_URL\");\n+++ b/api/routes.ts\n+export const listModels = () => {};\n+const hidden = 1;\n+func lower() {}\n+func Exported() {}\n";
-        let s = summarise(numstat, patch);
-        assert_eq!(s.files, vec!["src/lib.rs", "api/routes.ts"]);
-        assert_eq!((s.insertions, s.deletions), (5, 1));
-        assert_eq!(
-            s.added_surface,
-            vec![
-                "pub fn balance() {}",
-                "let k = std::env::var(\"DATABASE_URL\");",
-                "export const listModels = () => {};",
-                "func Exported() {}"
-            ]
-        );
-    }
-
-    #[test]
-    fn numstat_sums_lines_and_counts_untracked_files() {
-        let stat = parse_numstat("12\t3\tsrc/a.rs\n-\t-\tlogo.png\n\n", "new.rs\nnotes.md\n");
-        assert_eq!(
-            stat,
-            DiffStat {
-                files: 4,
-                insertions: 12,
-                deletions: 3
-            }
-        );
-        assert_eq!(parse_numstat("", ""), DiffStat::default());
-    }
-
-    #[test]
-    fn stderr_parses_into_each_variant() {
-        assert!(matches!(
-            parse_git_stderr(GitOp::RevParse, "fatal: Needed a single revision"),
-            RepoError::RefNotFound { .. }
-        ));
-        let e = parse_git_stderr(
-            GitOp::Rebase,
-            "Auto-merging lib.sh\nCONFLICT (content): Merge conflict in lib.sh\nCONFLICT (content): Merge conflict in README.md\nerror: could not apply abc... msg",
-        );
-        assert!(
-            matches!(&e, RepoError::Conflict { paths } if paths == &[PathBuf::from("lib.sh"), PathBuf::from("README.md")])
-        );
-        assert!(matches!(
-            parse_git_stderr(
-                GitOp::Push,
-                "fatal: 'nowhere' does not appear to be a git repository"
-            ),
-            RepoError::Rejected {
-                op: GitOp::Push,
-                ..
-            }
-        ));
-        assert!(conflict_paths("no conflicts here").is_empty());
-    }
-}
+#[path = "git_tests.rs"]
+mod tests;

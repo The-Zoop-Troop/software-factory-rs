@@ -280,10 +280,11 @@ Usage: factory verify [OPTIONS]
 Options:
       --repo <REPO>            Path to the project clone [default: repo]
       --workdir <WORKDIR>      Directory containing `.beads/` (defaults to the current directory) [default: .]
+      --main <MAIN>            Integration branch; the Verifier's own configuration is read from it, never from the branch under test [default: main]
       --rig <RIG>              Operate a remote rig through its console instead of a local ledger (`https://host/rigs/<name>`); applies to watch, inbox, plan, stop, doctor [env: FACTORY_RIG=]
+      --token <TOKEN>          Bearer token for --rig [env: FACTORY_TOKEN]
       --worktrees <WORKTREES>  Directory for throwaway worktrees [default: .factory/worktrees]
       --events <EVENTS>        Event log path (JSONL, appended) [default: .factory/events.jsonl]
-      --token <TOKEN>          Bearer token for --rig [env: FACTORY_TOKEN]
       --interval <INTERVAL>    Seconds between passes; omit to run once and exit
   -h, --help                   Print help
 ```

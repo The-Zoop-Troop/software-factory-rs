@@ -266,6 +266,7 @@ pub async fn work_once(
             head: head.clone(),
         },
     ));
+    record_test_edits(repo, log, clock, cfg, &id, &from, &head).await;
     Ok(Some(WorkReport {
         task: id,
         branch,
@@ -273,6 +274,36 @@ pub async fn work_once(
         tokens: outcome.tokens,
         turns: outcome.turns,
     }))
+}
+
+/// Record which tests that exist on `base` the submission changed or deleted. Detection only, so a
+/// failure to diff loses the signal and nothing else.
+async fn record_test_edits(
+    repo: &dyn Repo,
+    log: &dyn EventSink,
+    clock: &dyn Clock,
+    cfg: &WorkerConfig,
+    id: &BeadId,
+    base: &domain::Sha,
+    head: &domain::Sha,
+) {
+    match repo.changed_files(base, head).await {
+        Ok(changes) => {
+            let edits = crate::test_edits::test_edits(&changes);
+            if !edits.is_empty() {
+                log.record(&event(
+                    clock,
+                    &cfg.agent,
+                    id,
+                    EventKind::TestsChanged {
+                        modified: edits.modified,
+                        deleted: edits.deleted,
+                    },
+                ));
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "could not list the submission's changed files"),
+    }
 }
 
 /// First ready task bead in `Open` state.

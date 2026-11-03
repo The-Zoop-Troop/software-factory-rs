@@ -152,6 +152,15 @@ pub enum RemoteSync {
     Diverged { local: Sha, remote: Sha },
 }
 
+/// How one file differs between two commits.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FileChange {
+    Added { path: String },
+    Modified { path: String },
+    Deleted { path: String },
+    Renamed { from: String, to: String },
+}
+
 /// What landed between two commits, as a downstream planner needs it: the files, the size,
 /// and the public surface that appeared (`pub fn`, `export`, exported Go names, routes, env vars).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -227,6 +236,19 @@ pub trait Repo: Send + Sync {
     /// # Errors
     /// `RefNotFound` if the branch doesn't exist.
     async fn head_of(&self, branch: &BranchName) -> Result<Sha, RepoError>;
+
+    /// Contents of `path` at the tip of `branch`, or `None` when the file is absent there.
+    /// The Verifier reads its own configuration this way, so a candidate cannot change it.
+    ///
+    /// # Errors
+    /// `RefNotFound` if the branch doesn't exist.
+    async fn file_at(&self, branch: &BranchName, path: &str) -> Result<Option<String>, RepoError>;
+
+    /// Every file that differs between `base` and `head`, with renames detected.
+    ///
+    /// # Errors
+    /// `RefNotFound` if either commit is unknown.
+    async fn changed_files(&self, base: &Sha, head: &Sha) -> Result<Vec<FileChange>, RepoError>;
 
     /// Compensation: move `branch` back from `from` to `to` (compare-and-swap on `from`).
     /// Used when a later saga step (push) fails after a fast-forward succeeded.

@@ -1,6 +1,6 @@
 # Proven gates
 
-- **Status:** accepted · **Verified:** 2026-11-02 against the code at tag `PRE_PROVEN_GATES` and a static reading of six rigs' history. Nothing below is implemented yet; the thresholds are judgment until measured.
+- **Status:** accepted · **Verified:** 2026-11-02 against the code at tag `PRE_PROVEN_GATES` and a static reading of six rigs' history. Phase 2 closed the writer-to-checker holes listed under Why, checked in a running rig on 2026-11-03; the rest is not implemented yet, and the thresholds are judgment until measured.
 
 A gate earns trust by catching planted faults at a known rate. That rate, together with how
 reversible a change is, decides how much of the factory runs without a human.

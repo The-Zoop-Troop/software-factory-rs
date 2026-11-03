@@ -300,6 +300,71 @@ async fn claims_runs_commits_and_submits() {
 }
 
 #[tokio::test]
+async fn a_submission_that_changes_or_deletes_existing_tests_records_it() {
+    use crate::ports::FileChange;
+    let run = |changed: Vec<FileChange>| async move {
+        let store = seeded().await;
+        let repo = FakeRepo {
+            commit_head: Some(sha('b')),
+            changed,
+            ..FakeRepo::default()
+        };
+        let log = MemorySink::default();
+        work_once(
+            &store,
+            &repo,
+            &harness_text("done"),
+            &FixedClock(Timestamp::from_unix_seconds(100)),
+            &log,
+            &cfg(),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        log.events()
+            .await
+            .into_iter()
+            .filter_map(|e| {
+                if let EventKind::TestsChanged { modified, deleted } = e.kind {
+                    Some((modified, deleted))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+    let weakened = run(vec![
+        FileChange::Modified {
+            path: "tests/old.test.ts".into(),
+        },
+        FileChange::Deleted {
+            path: "tests/gone.test.ts".into(),
+        },
+        FileChange::Modified {
+            path: "src/server.ts".into(),
+        },
+    ])
+    .await;
+    assert_eq!(
+        weakened,
+        [(
+            vec!["tests/old.test.ts".to_owned()],
+            vec!["tests/gone.test.ts".to_owned()]
+        )]
+    );
+    let added_only = run(vec![
+        FileChange::Added {
+            path: "tests/new.test.ts".into(),
+        },
+        FileChange::Modified {
+            path: "src/server.ts".into(),
+        },
+    ])
+    .await;
+    assert!(added_only.is_empty(), "{added_only:?}");
+}
+
+#[tokio::test]
 async fn nothing_ready_is_none() {
     let store = FakeStore::default();
     let out = work_once(

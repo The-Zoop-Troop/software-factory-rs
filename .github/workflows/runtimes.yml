@@ -28,6 +28,12 @@ jobs:
         run: |
           img=factory-rig:${{ matrix.runtime }}
           docker run --rm --cap-drop ALL --security-opt no-new-privileges:true "$img" bash -c 'test "$(id -u)" = 10001 && grep -qE "^CapEff:\s*0+$" /proc/self/status && echo sandbox-ok'
+      - name: Untrusted children cannot reach what judges them (phase 2 holes check)
+        if: matrix.runtime == 'node'
+        run: |
+          docker build -q --build-arg BASE=factory-rig:node -t factory-rig:holes docker/holes-check
+          docker/holes-check/run.sh
+          docker/holes-check/run.sh --control
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
