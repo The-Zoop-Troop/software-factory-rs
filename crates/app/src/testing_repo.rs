@@ -38,6 +38,10 @@ pub struct FakeRepo {
     pub syncs: std::sync::Mutex<Vec<(String, BranchName)>>,
     /// When set, worktrees are real directories under this root (for tests that touch files).
     pub worktree_root: Option<PathBuf>,
+    /// What `file_at` finds on any branch, by path.
+    pub base_files: BTreeMap<String, String>,
+    /// What `changed_files` reports for any pair of commits.
+    pub changed: Vec<crate::ports::FileChange>,
 }
 
 #[async_trait]
@@ -125,6 +129,18 @@ impl Repo for FakeRepo {
             op: crate::ports::GitOp::RevParse,
             detail: e.to_string(),
         })
+    }
+
+    async fn file_at(&self, _branch: &BranchName, path: &str) -> Result<Option<String>, RepoError> {
+        Ok(self.base_files.get(path).cloned())
+    }
+
+    async fn changed_files(
+        &self,
+        _base: &Sha,
+        _head: &Sha,
+    ) -> Result<Vec<crate::ports::FileChange>, RepoError> {
+        Ok(self.changed.clone())
     }
 
     async fn rollback(&self, branch: &BranchName, from: &Sha, to: &Sha) -> Result<(), RepoError> {

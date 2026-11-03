@@ -158,3 +158,27 @@ async fn rebase_conflict_is_reported_and_aborted() {
     let again = git.worktree_add(&b("task/conflict"), &head).await.unwrap();
     git.worktree_remove(again).await.unwrap();
 }
+
+#[tokio::test]
+async fn file_at_reads_the_branch_tip_not_the_working_tree() {
+    let (base, clone, git) = fixture();
+    sh(
+        &clone,
+        "mkdir -p .factory && echo 'prepare = [\"x\"]' > .factory/runtime.toml && git add . && git commit -qm runtime",
+    );
+    // An uncommitted edit, like a candidate's, must not be what the branch holds.
+    std::fs::write(clone.join(".factory/runtime.toml"), "changed in the tree").unwrap();
+    assert_eq!(
+        git.file_at(&b("main"), ".factory/runtime.toml")
+            .await
+            .unwrap()
+            .as_deref(),
+        Some("prepare = [\"x\"]")
+    );
+    assert_eq!(git.file_at(&b("main"), "absent.toml").await.unwrap(), None);
+    assert!(matches!(
+        git.file_at(&b("no-such-branch"), "README.md").await,
+        Err(RepoError::RefNotFound { .. })
+    ));
+    std::fs::remove_dir_all(base).unwrap();
+}

@@ -3,7 +3,7 @@
 
 use std::fmt::Write as _;
 
-use domain::{BeadKind, Event, TaskState, VerifyCommand, VerifyMeta};
+use domain::{BeadKind, BranchName, Event, TaskState, VerifyCommand, VerifyMeta};
 
 use crate::events::{EventKind, FactoryEvent};
 use crate::ports::{BeadStore, Clock, EventSink, Repo, RunOutput, Runner, StoreError};
@@ -28,7 +28,8 @@ pub enum VerifierError {
 /// Maximum characters of command output kept on the bead note.
 const NOTE_TAIL: usize = 4000;
 
-/// Verify every verify bead whose paired task is `in_verify`.
+/// Verify every verify bead whose paired task is `in_verify`. `main` is the integration branch,
+/// where the Verifier's own configuration is read from.
 ///
 /// # Errors
 /// Only when the ledger cannot be listed.
@@ -40,6 +41,7 @@ pub async fn verify_once(
     clock: &dyn Clock,
     log: &dyn EventSink,
     actor: &str,
+    main: &BranchName,
 ) -> Result<VerifyReport, VerifierError> {
     let mut report = VerifyReport::default();
     for bead in store.list_active(BeadKind::Verify).await? {
@@ -47,7 +49,11 @@ pub async fn verify_once(
             report.skipped += 1;
             continue;
         };
-        match verify_one(store, repo, runner, clock, log, actor, &bead.id, &meta).await {
+        match verify_one(
+            store, repo, runner, clock, log, actor, main, &bead.id, &meta,
+        )
+        .await
+        {
             Ok(Outcome::Blocked { reason: detail }) => {
                 report.failed += 1;
                 log.record(&FactoryEvent {
@@ -117,6 +123,7 @@ async fn verify_one(
     clock: &dyn Clock,
     log: &dyn EventSink,
     actor: &str,
+    main: &BranchName,
     verify_bead: &domain::BeadId,
     meta: &VerifyMeta,
 ) -> Result<Outcome, TransitionError> {
@@ -132,9 +139,12 @@ async fn verify_one(
             verify_bead: verify_bead.clone(),
         },
     });
+    // Read before the checkout exists, so a failure cannot leak one. From the integration branch:
+    // the branch under test must not choose commands the Verifier runs.
+    let runtime = repo.file_at(main, RUNTIME_TOML).await?;
     let worktree = repo.worktree_add(branch, head).await?;
     // The checkout is fresh: dependencies are installed by the prepare step, never by the plan.
-    let commands: Vec<VerifyCommand> = prepare_for(&worktree.path)
+    let commands: Vec<VerifyCommand> = prepare_for(&worktree.path, runtime.as_deref())
         .into_iter()
         .chain(meta.commands.iter().cloned())
         .collect();
@@ -158,12 +168,16 @@ async fn verify_one(
     Ok(outcome)
 }
 
-/// Run commands in order; stop at the first failure. `Err` means the command couldn't spawn.
+/// Where a project declares its runtime and `[verify] prepare`, relative to the repo root.
+pub const RUNTIME_TOML: &str = ".factory/runtime.toml";
+
 /// Commands that make a fresh checkout verifiable, before the plan's own: `[verify] prepare`
-/// in `.factory/runtime.toml`, or a default from the lockfile present (`npm ci`, frozen pnpm /
-/// yarn installs, `go mod download`). Nothing for Rust: cargo fetches on its own.
+/// from `runtime`, the integration branch's `.factory/runtime.toml`, or a default from the
+/// lockfile present in the checkout (`npm ci`, frozen pnpm / yarn installs, `go mod download`).
+/// The defaults may follow the candidate because they are fixed commands. Nothing for Rust:
+/// cargo fetches on its own.
 #[must_use]
-pub fn prepare_for(worktree: &std::path::Path) -> Vec<VerifyCommand> {
+pub fn prepare_for(worktree: &std::path::Path, runtime: Option<&str>) -> Vec<VerifyCommand> {
     #[derive(serde::Deserialize, Default)]
     struct Spec {
         #[serde(default)]
@@ -174,9 +188,8 @@ pub fn prepare_for(worktree: &std::path::Path) -> Vec<VerifyCommand> {
         #[serde(default)]
         prepare: Option<Vec<String>>,
     }
-    let declared = std::fs::read_to_string(worktree.join(".factory/runtime.toml"))
-        .ok()
-        .and_then(|t| toml::from_str::<Spec>(&t).ok())
+    let declared = runtime
+        .and_then(|t| toml::from_str::<Spec>(t).ok())
         .and_then(|s| s.verify.prepare);
     let submodules = worktree
         .join(".gitmodules")
@@ -202,6 +215,7 @@ pub fn prepare_for(worktree: &std::path::Path) -> Vec<VerifyCommand> {
         .collect()
 }
 
+/// Run commands in order; stop at the first failure. `Err` means the command couldn't spawn.
 async fn run_all(
     runner: &dyn Runner,
     cwd: &std::path::Path,

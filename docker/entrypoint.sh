@@ -17,6 +17,7 @@ bd metrics off >/dev/null 2>&1 || true
 # `bd` call costs milliseconds instead of opening the engine in-process under a shared lock.
 # It runs before the clone: it needs no repository.
 if [ "${1:-}" = ledger ]; then
+  unset RIG_GIT_TOKEN   # the ledger never touches git
   cd "$RIG_DIR"
   host="ledger-${RIG_NAME:-rig}"
   pw="${LEDGER_PASSWORD:-factory}"
@@ -39,16 +40,10 @@ fi
 . /usr/local/lib/rig-harness-auth.sh
 select_harness_auth
 
-# A hosted-git token (fine-grained, scoped to this repo) is applied as a URL rewrite so it
-# never appears in RIG_REPO_URL, .gitmodules, or a log line: both SSH and HTTPS forms of the
-# host resolve to token-authenticated HTTPS.
-if [ -n "${RIG_GIT_TOKEN:-}" ]; then
-  host=${RIG_GIT_HOST:-github.com}
-  key="url.https://x-access-token:${RIG_GIT_TOKEN}@${host}/.insteadOf"
-  git config --global --unset-all "$key" 2>/dev/null || true   # HOME persists across restarts
-  git config --global --add "$key" "git@${host}:"
-  git config --global --add "$key" "https://${host}/"
-fi
+# The hosted-git token, for the clone below; only the Integrator keeps it (see the sourced file).
+# shellcheck source=docker/git-auth.sh
+. /usr/local/lib/rig-git-auth.sh
+apply_git_token
 
 if [ ! -d "$REPO_DIR/.git" ]; then
   if [ -n "${RIG_REPO_URL:-}" ]; then
@@ -124,9 +119,10 @@ harness_args worker
 [ -n "${GOTMPDIR:-}" ] && mkdir -p "$GOTMPDIR" 2>/dev/null
 
 role=${1:-shell}; shift || true
+drop_git_token "$role"
 case "$role" in
   steward)   exec stewardd --workdir "$RIG_DIR" --events .factory/events.jsonl --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" "$@" ;;
-  verify)    exec factory --workdir "$RIG_DIR" verify    --repo "$REPO_DIR" --worktrees .factory/worktrees --events .factory/events.jsonl "$@" ;;
+  verify)    exec factory --workdir "$RIG_DIR" verify    --repo "$REPO_DIR" --main "${RIG_MAIN:-main}" --worktrees .factory/worktrees --events .factory/events.jsonl "$@" ;;
   integrate)
     # RIG_REMOTE (e.g. origin) makes the Integrator push RIG_MAIN after each landing; unset = local only.
     if [ -n "${RIG_REMOTE:-}" ]; then remote=(--remote "$RIG_REMOTE"); else remote=(); fi

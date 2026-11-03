@@ -19,7 +19,8 @@ use infra::app::{
     verify_once, work_once,
 };
 use infra::{
-    BdCli, ClaudeCli, CodexCli, GitCli, JsonlSink, OpencodeServer, ShellRunner, SystemClock,
+    BdCli, CLAUDE_CREDENTIALS, CODEX_CREDENTIALS, ChildEnv, ClaudeCli, CodexCli, Confine, GitCli,
+    JsonlSink, OPENCODE_CREDENTIALS, OpencodeServer, Sandbox, ShellRunner, SystemClock,
 };
 
 #[derive(Debug, Parser)]
@@ -117,6 +118,17 @@ pub(crate) enum Command {
     },
     /// Run the Planner: turn a plan (text or file) into an epic of task + verify beads.
     Plan(crate::plan_cmd::PlanArgs),
+    /// Internal: run a program that may write only beneath the given directories (Landlock).
+    /// Roles wrap sessions and verify commands with this; the role itself stays unconfined.
+    #[command(hide = true)]
+    Confine {
+        /// A directory the program may write beneath; repeat for each.
+        #[arg(long = "write")]
+        write: Vec<PathBuf>,
+        /// The program and its arguments, after `--`.
+        #[arg(last = true, required = true)]
+        program: Vec<std::ffi::OsString>,
+    },
     /// Run a Worker: claim ready tasks and hand each to a fresh Claude Code session.
     Work {
         /// Path to the project clone.
@@ -165,6 +177,10 @@ pub(crate) enum Command {
         /// Path to the project clone.
         #[arg(long, default_value = "repo")]
         repo: PathBuf,
+        /// Integration branch; the Verifier's own configuration is read from it, never from the
+        /// branch under test.
+        #[arg(long, default_value = "main")]
+        main: String,
         /// Directory for throwaway worktrees.
         #[arg(long, default_value = ".factory/worktrees")]
         worktrees: PathBuf,
@@ -231,22 +247,30 @@ pub(crate) enum HarnessKind {
     Codex,
 }
 
-/// The single place a harness is chosen and configured.
+/// The single place a harness is chosen and configured. Sessions start with this process's
+/// environment minus its secrets (keeping the harness's own credential), confined if `confine`.
 pub(crate) fn build_harness(
     kind: HarnessKind,
     model: Option<String>,
     max_budget_usd: f64,
+    confine: Option<&Confine>,
 ) -> anyhow::Result<Box<dyn Harness>> {
+    let sandbox = |keep: &[&str]| Sandbox {
+        env: ChildEnv::from_process(keep),
+        confine: confine.cloned(),
+    };
     Ok(match kind {
         HarnessKind::Claude => {
-            let mut h = ClaudeCli::default().with_max_budget_usd(max_budget_usd);
+            let mut h = ClaudeCli::default()
+                .with_max_budget_usd(max_budget_usd)
+                .with_sandbox(sandbox(&CLAUDE_CREDENTIALS));
             if let Some(m) = model {
                 h = h.with_model(m);
             }
             Box::new(h)
         }
         HarnessKind::Codex => {
-            let mut h = CodexCli::default();
+            let mut h = CodexCli::default().with_sandbox(sandbox(&CODEX_CREDENTIALS));
             if let Some(m) = model {
                 h = h.with_model(m);
             }
@@ -256,12 +280,33 @@ pub(crate) fn build_harness(
             let spec = model.ok_or_else(|| {
                 anyhow::anyhow!("--harness opencode needs --model provider/model")
             })?;
-            let mut h = OpencodeServer::from_model_spec(&spec)?;
+            let mut h = OpencodeServer::from_model_spec(&spec)?
+                .with_sandbox(sandbox(&OPENCODE_CREDENTIALS));
             if let Ok(cfg) = std::env::var("OPENCODE_CONFIG_CONTENT") {
                 h = h.with_config_content(cfg);
             }
             Box::new(h)
         }
+    })
+}
+
+/// How this role confines its untrusted children, proven to work here before the role starts:
+/// `None` only when `RIG_CONFINE=off`.
+pub(crate) async fn role_confine() -> anyhow::Result<Option<Confine>> {
+    let env = ChildEnv::from_process(&[]);
+    let Some(confine) = Confine::from_env(std::env::current_exe()?, &env) else {
+        tracing::warn!("RIG_CONFINE=off: sessions and verify commands run unconfined");
+        return Ok(None);
+    };
+    infra::confine::probe(&confine).await?;
+    Ok(Some(confine))
+}
+
+/// The candidate's commands, as the Verifier and Integrator run them.
+fn untrusted_runner(confine: Option<Confine>) -> ShellRunner {
+    ShellRunner::with_sandbox(Sandbox {
+        env: ChildEnv::from_process(&[]),
+        confine,
     })
 }
 
@@ -321,6 +366,7 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
         }
         Command::Doctor { repo, probe } => {
             let mut checks = crate::doctor::run_checks(&cli.workdir, &repo);
+            checks.push(crate::doctor::confine_check().await);
             if probe {
                 checks.extend(crate::doctor::probe_harnesses(&cli.workdir).await);
             }
@@ -369,6 +415,21 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             }
         }
         Command::Plan(args) => crate::plan_cmd::run(&cli.workdir, args).await?,
+        Command::Confine { write, program } => {
+            let (bin, args) = program
+                .split_first()
+                .ok_or_else(|| anyhow::anyhow!("confine needs a program after --"))?;
+            infra::confine_self(&write)?;
+            // exec returns only on failure.
+            let err = std::os::unix::process::CommandExt::exec(
+                std::process::Command::new(bin).args(args),
+            );
+            return Err(std::io::Error::new(
+                err.kind(),
+                format!("exec {}: {err}", bin.to_string_lossy()),
+            )
+            .into());
+        }
         Command::Work {
             repo,
             worktrees,
@@ -391,7 +452,12 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
             let git = GitCli::new(&repo, &worktrees);
             let log = JsonlSink::open(&events)?;
             let store = BdCli::new(&cli.workdir).with_actor(&agent);
-            let harness = build_harness(harness, model, max_budget_usd)?;
+            let harness = build_harness(
+                harness,
+                model,
+                max_budget_usd,
+                role_confine().await?.as_ref(),
+            )?;
             let cfg = WorkerConfig {
                 agent: AgentId::try_new(agent)?,
                 main: BranchName::try_new(main)?,
@@ -419,19 +485,23 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
         }
         Command::Verify {
             repo,
+            main,
             worktrees,
             events,
             interval,
         } => {
+            let main = BranchName::try_new(main)?;
             if let Some(dir) = events.parent() {
                 std::fs::create_dir_all(dir)?;
             }
             let git = GitCli::new(&repo, &worktrees);
             let log = JsonlSink::open(&events)?;
             let store = BdCli::new(&cli.workdir).with_actor("verifier");
+            let runner = untrusted_runner(role_confine().await?);
             loop {
                 let report =
-                    verify_once(&store, &git, &ShellRunner, &SystemClock, &log, "verifier").await?;
+                    verify_once(&store, &git, &runner, &SystemClock, &log, "verifier", &main)
+                        .await?;
                 tracing::info!(?report, "verify pass");
                 let Some(secs) = interval else { break };
                 tokio::time::sleep(std::time::Duration::from_secs(secs)).await;
@@ -468,11 +538,12 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
                     .collect::<Result<Vec<_>, _>>()?,
                 check_timeout: Duration::from_seconds(check_timeout),
             };
+            let runner = untrusted_runner(role_confine().await?);
             loop {
                 let report = integrate_once(
                     &store,
                     &git,
-                    &ShellRunner,
+                    &runner,
                     &SystemClock,
                     &log,
                     &cfg,

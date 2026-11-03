@@ -22,6 +22,8 @@ use clap::Parser as _;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Before anything holds a secret: children must not read this process's memory or environ.
+    infra::harden_process()?;
     let _telemetry = infra::telemetry::init("factory", &infra::TelemetryConfig::from_env())?;
     cli::run(cli::Cli::parse()).await
 }

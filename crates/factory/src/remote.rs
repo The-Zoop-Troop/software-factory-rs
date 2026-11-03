@@ -106,6 +106,7 @@ pub(crate) fn remote_command(cmd: Command) -> Result<RemoteCommand, RemoteUnsupp
         Command::Bead { .. } => Err(RemoteUnsupported::LocalOnly { name: "bead" }),
         Command::Rig { .. } => Err(RemoteUnsupported::LocalOnly { name: "rig" }),
         Command::Work { .. } => Err(RemoteUnsupported::LocalOnly { name: "work" }),
+        Command::Confine { .. } => Err(RemoteUnsupported::LocalOnly { name: "confine" }),
         Command::Verify { .. } => Err(RemoteUnsupported::LocalOnly { name: "verify" }),
         Command::Integrate { .. } => Err(RemoteUnsupported::LocalOnly { name: "integrate" }),
     }

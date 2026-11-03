@@ -65,14 +65,16 @@ RUN set -eu; cd /tmp; \
     curl -fsSL -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq_linux_amd64"; chmod 0755 /usr/local/bin/yq; \
     rm -rf /tmp/*; gh --version | head -1; just --version; yq --version
 
-# bd: pinned release tarball, checksum-verified (mirrors scripts/install.sh).
+# bd: pinned release tarball, checksum-verified (mirrors scripts/install.sh). Execute-only for the
+# rig's user: the kernel marks a process non-dumpable when its binary is unreadable, so a session
+# cannot read the ledger password from a running bd's /proc environ.
 RUN set -eu; cd /tmp; \
     base="https://github.com/gastownhall/beads/releases/download/v${BD_VERSION}"; \
     asset="beads_${BD_VERSION}_linux_amd64.tar.gz"; \
     curl -fsSLO "${base}/${asset}"; curl -fsSLO "${base}/checksums.txt"; \
     expected=$(awk -v t="${asset}" '{n=$2; sub(/^\*/,"",n); if (n==t) {print $1; exit}}' checksums.txt); \
     echo "${expected}  ${asset}" | sha256sum -c -; \
-    tar -xzf "${asset}"; install -m 0755 bd /usr/local/bin/bd; rm -rf /tmp/*; \
+    tar -xzf "${asset}"; install -m 0711 bd /usr/local/bin/bd; rm -rf /tmp/*; \
     bd version
 
 # dolt: the ledger's SQL server (one per rig, see docs/design-docs/ledger.md). Pinned + checksummed.
@@ -106,6 +108,7 @@ RUN set -eu; cd /tmp; \
 COPY --from=build --chmod=0755 /out/factory /out/stewardd /out/console /usr/local/bin/
 COPY --chmod=0755 docker/entrypoint.sh /usr/local/bin/rig-entrypoint
 COPY --chmod=0644 docker/harness-auth.sh /usr/local/lib/rig-harness-auth.sh
+COPY --chmod=0644 docker/git-auth.sh /usr/local/lib/rig-git-auth.sh
 
 # /work/rig: .beads + .factory (ledger volume); /work/rig/repo: project clone (repo volume);
 # /work/cache: runtime package caches (cache volume).

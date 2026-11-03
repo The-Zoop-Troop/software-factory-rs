@@ -17,7 +17,10 @@ use app::{
 };
 use async_trait::async_trait;
 use serde::Deserialize;
-use tokio::process::{Child, Command};
+use tokio::process::Child;
+
+use crate::child_env::{ChildEnv, OPENCODE_CREDENTIALS};
+use crate::confine::Sandbox;
 
 /// `--model` was not `provider/model`.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -36,6 +39,7 @@ pub struct OpencodeServer {
     model_id: String,
     /// Extra JSON merged into the server's config via `OPENCODE_CONFIG_CONTENT`.
     config_content: Option<String>,
+    sandbox: Sandbox,
 }
 
 impl OpencodeServer {
@@ -45,6 +49,10 @@ impl OpencodeServer {
             bin: PathBuf::from("opencode"),
             provider_id: provider_id.into(),
             model_id: model_id.into(),
+            sandbox: Sandbox {
+                env: ChildEnv::from_process(&OPENCODE_CREDENTIALS),
+                confine: None,
+            },
             config_content: None,
         }
     }
@@ -80,6 +88,13 @@ impl OpencodeServer {
             config_content: Some(json.into()),
             ..self
         }
+    }
+
+    /// How the server starts: its environment and confinement. Defaults to this process's
+    /// environment without the role's secrets, unconfined.
+    #[must_use]
+    pub fn with_sandbox(self, sandbox: Sandbox) -> Self {
+        Self { sandbox, ..self }
     }
 }
 
@@ -240,7 +255,7 @@ impl Server {
         mcp: &app::McpConfig,
     ) -> Result<Self, HarnessError> {
         let port = free_port().await?;
-        let mut cmd = Command::new(&cfg.bin);
+        let mut cmd = cfg.sandbox.command(&cfg.bin, cwd);
         cmd.args([
             "serve",
             "--pure",
@@ -249,7 +264,6 @@ impl Server {
             "--port",
             &port.to_string(),
         ])
-        .current_dir(cwd)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())

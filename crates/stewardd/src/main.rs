@@ -48,6 +48,8 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Children must not read this process's memory or environ, which holds the ledger password.
+    infra::harden_process()?;
     let _telemetry = infra::telemetry::init("stewardd", &infra::TelemetryConfig::from_env())?;
     let cli = Cli::parse();
 

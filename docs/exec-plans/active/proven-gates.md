@@ -80,6 +80,38 @@ The stops that apply during a session are 45 minutes of wall clock per task, 200
 session on Claude only. Events do not yet record model, harness or cost per attempt, so the baseline
 keeps a manifest beside its results until phase 5 adds them.
 
+## Phase 2: closing the holes
+
+A Worker session is an agent with a shell, so phase 2 treats it as untrusted, and treats the
+candidate's own code the same way when the Verifier runs it. Each hole gets a unit test, and a
+scratch rig with a stand-in model repeats the attempts in the built images.
+
+| Hole | Change | Test |
+|---|---|---|
+| Repo root first on `PATH` | The worktree goes last, so a committed `cargo` or `npm` cannot replace the real one, and `. lib.sh` still resolves | A planted `ls` in the worktree does not run |
+| Prepare commands chosen by the candidate | `[verify] prepare` comes from the integration branch; the lockfile defaults still follow the candidate, because they are fixed commands | A candidate's own prepare list is ignored |
+| Inherited environment | Sessions, verify commands and git lose the factory's secrets, other harnesses' credentials and secret-shaped names; `RIG_SESSION_ENV` passes named variables through. Role processes are non-dumpable and `bd` is execute-only, so no child can read a secret from `/proc` | A planted ledger password and git token are absent, and a child cannot read its parent's environment |
+| Shared git token | Every role but the Integrator drops `RIG_GIT_TOKEN` after the clone, from its environment and its git config | `docker/git-auth.test.sh` |
+| Sessions can write the ledger | Sessions and verify commands run under Landlock, writable only in their worktree, their branch's refs, their home, `/tmp`, `/dev` and the cache | A confined command cannot write the event log, the ledger files or `main` |
+| Undetected test edits | A submission that modifies or deletes a test file that exists on the base records a `tests_changed` event | Deleting a test produces the event; adding one does not |
+
+**In a running rig.** `docker/holes-check/run.sh` builds a scratch rig whose stand-in model
+attacks from the inside: as a Worker session, then as the candidate's code that the Verifier runs.
+On 2026-11-03, all 12 routes were blocked from both places. They were writing the event log
+(append and truncate), the ledger files, the integration branch and the main checkout; reading
+the ledger password and git token from the environment, git config, the role's `/proc` and other
+processes'; and using the ledger through `bd` and as root. The same client with the password got
+through, so the ledger routes failed for want of it. The task still landed, the deleted test was
+recorded, a committed `ls` and the candidate's prepare list never ran, and only the Integrator
+held the git token. With `RIG_CONFINE=off` all five file routes got through from both places
+while secrets stayed out, so the check can fail. It runs in the `runtimes` workflow on the node
+image.
+
+Landlock is a Linux security module that lets an unprivileged process restrict its own file access,
+and its children inherit the restriction. It needs no capability, so it works under the rig's
+`cap_drop: [ALL]`; inside a rig on this host it reports ABI version 5. A host without it refuses to
+start a session unless `RIG_CONFINE=off`, and `factory doctor` says which applies.
+
 ## Decision log
 
 - **2026-11-02: the original test project was retired.** Its 68 landed tasks stay as the static
@@ -115,3 +147,16 @@ keeps a manifest beside its results until phase 5 adds them.
 - **2026-11-02: the reviewer stays narrow, and phase 7 tests moving routine steps out of Workers.**
   Both come from outside work showing large token savings when deterministic code takes over
   bookkeeping. Neither is adopted on that evidence; each is scored here.
+- **2026-11-03: Worker sessions are kept off the ledger, not caught changing it.** Signed verdicts
+  would detect a forged state, but they add keys and leave the event log and `main` writable. Landlock
+  stops the writes, and without the password a session cannot reach the ledger server.
+- **2026-11-03: the session environment drops secrets by name and shape rather than keeping an
+  allowlist.** Ten runtime images each set their own toolchain variables, and an allowlist would
+  break builds that need one nobody listed. The factory's own secrets go by exact name, so the test
+  covers the ones that reach a gate.
+- **2026-11-03: phase 2 is built while the baseline runs.** The lab uses images built before phase 2
+  and does not rebuild them until the baseline finishes, so merging phase 2 does not change what the
+  baseline measures. Phase 2 changes no `compose.yaml` setting the lab reads.
+- **2026-11-03: a role refuses to start when it cannot confine its children.** Failing once at
+  startup, with `factory doctor` naming the fix, beats every session failing as if the model had.
+  `RIG_CONFINE=off` is the explicit way out on a host without Landlock.

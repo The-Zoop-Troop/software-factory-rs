@@ -15,9 +15,11 @@
 
 pub mod a2a;
 pub mod bd;
+pub mod child_env;
 pub mod claude;
 pub mod clock;
 pub mod codex;
+pub mod confine;
 pub mod docker;
 pub mod git;
 pub mod jsonl;
@@ -51,9 +53,12 @@ pub fn classify_io(kind: std::io::ErrorKind) -> app::Unavailable {
 
 pub use a2a::A2aHttp;
 pub use bd::BdCli;
+pub use child_env::{CLAUDE_CREDENTIALS, CODEX_CREDENTIALS, OPENCODE_CREDENTIALS};
+pub use child_env::{ChildEnv, harden_process};
 pub use claude::ClaudeCli;
 pub use clock::SystemClock;
 pub use codex::CodexCli;
+pub use confine::{Confine, ConfineError, Sandbox, confine_self};
 pub use docker::DockerCli;
 pub use git::GitCli;
 pub use jsonl::JsonlSink;

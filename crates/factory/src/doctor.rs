@@ -302,6 +302,32 @@ pub(crate) fn run_checks(workdir: &Path, repo: &Path) -> Vec<Check> {
     checks
 }
 
+/// Whether this rig can confine its sessions and verify commands, or was told not to. A role
+/// refuses to start when it cannot, so this says why before it does.
+pub(crate) async fn confine_check() -> Check {
+    let name = "confine";
+    match crate::cli::role_confine().await {
+        Ok(Some(_)) => Check {
+            name,
+            ok: true,
+            detail: "sessions and verify commands run under Landlock".into(),
+            fix: "",
+        },
+        Ok(None) => Check {
+            name,
+            ok: true,
+            detail: "RIG_CONFINE=off: sessions and verify commands run unconfined".into(),
+            fix: "",
+        },
+        Err(e) => Check {
+            name,
+            ok: false,
+            detail: e.to_string(),
+            fix: "run the rig on Linux 6.2 or later with Landlock enabled, or set RIG_CONFINE=off",
+        },
+    }
+}
+
 /// Which kind of credential this role's harness will use, as chosen by `RIG_AUTH`. The entrypoint
 /// has already removed the other kind, so this reports what is left to bill.
 fn auth_check(env: impl Fn(&str) -> Option<String>) -> Check {

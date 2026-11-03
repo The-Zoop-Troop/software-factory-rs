@@ -9,6 +9,9 @@ use domain::{Attempts, Tokens};
 fn id(s: &str) -> BeadId {
     BeadId::try_new(s).unwrap()
 }
+fn main() -> BranchName {
+    BranchName::try_new("main").unwrap()
+}
 fn sha(c: char) -> Sha {
     Sha::try_new(core::iter::repeat_n(c, 40).collect::<String>()).unwrap()
 }
@@ -82,6 +85,7 @@ async fn pass_opens_merge_bead_and_cleans_worktree() {
         &FixedClock(Timestamp::from_unix_seconds(1)),
         &log,
         "v",
+        &main(),
     )
     .await
     .unwrap();
@@ -132,6 +136,7 @@ async fn failure_stops_at_first_command_and_reopens_with_output() {
         &FixedClock(Timestamp::from_unix_seconds(1)),
         &log,
         "v",
+        &main(),
     )
     .await
     .unwrap();
@@ -181,6 +186,7 @@ async fn skips_when_task_not_in_verify() {
         &FixedClock(Timestamp::from_unix_seconds(1)),
         &log,
         "v",
+        &main(),
     )
     .await
     .unwrap();
@@ -277,6 +283,57 @@ mod environment_tests {
     }
 }
 
+#[tokio::test]
+async fn prepare_commands_come_from_the_integration_branch_not_the_candidate() {
+    let store = store_in_verify().await;
+    let root = std::env::temp_dir().join(format!("factory-verify-base-{}", std::process::id()));
+    let candidate = root.join("task__fac-t/.factory");
+    std::fs::create_dir_all(&candidate).unwrap();
+    std::fs::write(
+        candidate.join("runtime.toml"),
+        "[verify]\nprepare = [\"echo chosen by the candidate\"]\n",
+    )
+    .unwrap();
+    let mut repo = FakeRepo {
+        worktree_root: Some(root.clone()),
+        ..FakeRepo::default()
+    };
+    repo.base_files.insert(
+        RUNTIME_TOML.into(),
+        "[verify]\nprepare = [\"echo from the base\"]\n".into(),
+    );
+    let mut runner = FakeRunner::default();
+    for cmd in ["echo from the base", "cargo test", "cargo clippy"] {
+        runner.script.insert(cmd.into(), FakeRunner::ok(""));
+    }
+    let log = MemorySink::default();
+    verify_once(
+        &store,
+        &repo,
+        &runner,
+        &FixedClock(Timestamp::from_unix_seconds(1)),
+        &log,
+        "v",
+        &main(),
+    )
+    .await
+    .unwrap();
+    let _ = std::fs::remove_dir_all(&root);
+    let ran: Vec<String> = runner
+        .calls
+        .lock()
+        .unwrap()
+        .iter()
+        .map(|(_, c)| c.clone())
+        .collect();
+    assert_eq!(
+        ran.first().map(String::as_str),
+        Some("echo from the base"),
+        "{ran:?}"
+    );
+    assert!(!ran.iter().any(|c| c.contains("candidate")), "{ran:?}");
+}
+
 mod prepare_tests {
     use super::super::prepare_for;
 
@@ -286,8 +343,14 @@ mod prepare_tests {
         d
     }
 
+    /// The checkout's own runtime.toml stands in for the integration branch's here; the
+    /// verify-level test below proves which one the Verifier actually reads.
     fn names(d: &std::path::Path) -> Vec<String> {
-        prepare_for(d).iter().map(ToString::to_string).collect()
+        let runtime = std::fs::read_to_string(d.join(".factory/runtime.toml")).ok();
+        prepare_for(d, runtime.as_deref())
+            .iter()
+            .map(ToString::to_string)
+            .collect()
     }
 
     #[test]
