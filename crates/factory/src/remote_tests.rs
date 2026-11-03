@@ -50,7 +50,8 @@ fn commands_map_or_are_refused() {
     assert_eq!(
         remote_command(Command::Inbox {
             resolve: None,
-            note: "n".into()
+            note: "n".into(),
+            events: ".factory/events.jsonl".into(),
         }),
         Ok(RemoteCommand::Inbox {
             resolve: None,

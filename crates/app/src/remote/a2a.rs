@@ -241,7 +241,10 @@ fn child_summary(c: &Bead) -> serde_json::Value {
                         Some(branch.to_string())
                     }
                     TaskState::Leased { lease } => Some(format!("held by {}", lease.holder)),
-                    TaskState::Open | TaskState::Closed { .. } | TaskState::Incident { .. } => None,
+                    TaskState::Open
+                    | TaskState::Closed { .. }
+                    | TaskState::Incident { .. }
+                    | TaskState::Canceled { .. } => None,
                 };
                 (
                     m.state.name(),

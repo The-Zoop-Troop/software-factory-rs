@@ -84,6 +84,9 @@ pub(crate) enum Command {
         /// Note recorded with the resolution.
         #[arg(long, default_value = "resolved by operator")]
         note: String,
+        /// Event log path (JSONL, appended) for the reopened task's transition.
+        #[arg(long, default_value = ".factory/events.jsonl")]
+        events: PathBuf,
     },
     /// Manage rigs on this host: one compose project per rig, one console over all of them.
     Rig {
@@ -392,10 +395,16 @@ pub(crate) async fn run(cli: Cli) -> anyhow::Result<()> {
         Command::Inbox {
             resolve: target,
             note,
+            events,
         } => {
             if let Some(id) = target {
                 let id = BeadId::try_new(id)?;
-                match resolve(&store, &id, &note).await? {
+                let events = cli.workdir.join(events);
+                if let Some(dir) = events.parent() {
+                    std::fs::create_dir_all(dir)?;
+                }
+                let log = JsonlSink::open(&events)?;
+                match resolve(&store, &log, &SystemClock, "operator", &id, &note).await? {
                     Some(task) => println!("resolved {id}; reopened {task}"),
                     None => println!("resolved {id}"),
                 }

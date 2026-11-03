@@ -53,9 +53,10 @@ impl From<RemoteError> for RpcError {
             RemoteError::Terminal { .. } => Self::new(NOT_CANCELABLE, msg),
             RemoteError::EmptyMessage => Self::new(INVALID_PARAMS, msg),
             RemoteError::Budget(_) => Self::new(BUDGET, msg),
-            RemoteError::Submit(_) | RemoteError::Store(_) | RemoteError::Tail(_) => {
-                Self::new(INTERNAL, msg)
-            }
+            RemoteError::Submit(_)
+            | RemoteError::Store(_)
+            | RemoteError::Tail(_)
+            | RemoteError::Transition(_) => Self::new(INTERNAL, msg),
         }
     }
 }

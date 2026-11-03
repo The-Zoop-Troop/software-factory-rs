@@ -248,6 +248,33 @@ async fn push_failure_is_infra_error_and_leaves_task_mergeable() {
 }
 
 #[tokio::test]
+async fn a_closed_task_bead_never_lands_even_if_its_state_says_mergeable() {
+    // The backstop on its own: a task bead closed by any path, here directly, as cancel did
+    // before it went through the state machine.
+    let store = store_mergeable(Attempts::new(3)).await;
+    store.close(&id("fac-t"), "canceled by hand").await.unwrap();
+    let repo = FakeRepo::default();
+    let report = integrate_once(
+        &store,
+        &repo,
+        &FakeRunner::default(),
+        &FixedClock(Timestamp::from_unix_seconds(5)),
+        &MemorySink::default(),
+        &cfg(&[], None),
+        "i",
+    )
+    .await
+    .unwrap();
+    assert_eq!(report.landed, 0);
+    assert!(repo.fast_forwards.lock().unwrap().is_empty());
+    assert!(
+        repo.added.lock().unwrap().is_empty(),
+        "not even checked out"
+    );
+    assert!(store.list_active(BeadKind::Merge).await.unwrap().is_empty());
+}
+
+#[tokio::test]
 async fn stale_merge_bead_is_closed() {
     let store = FakeStore::default();
     store

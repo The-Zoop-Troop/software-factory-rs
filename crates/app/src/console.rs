@@ -3,10 +3,12 @@
 
 use std::collections::BTreeMap;
 
-use domain::{Attempts, BeadId, BeadKind, TaskState};
+use domain::{BeadId, BeadKind, Event, TaskState};
 
 use crate::bead::Bead;
-use crate::ports::{BeadStore, StoreError};
+use crate::events::{EventKind, FactoryEvent};
+use crate::ports::{BeadStore, Clock, EventSink, StoreError};
+use crate::transition::{TransitionError, apply_event, load_task};
 
 /// Per-epic task counts by factory state.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -72,41 +74,49 @@ pub async fn inbox(store: &dyn BeadStore) -> Result<Vec<Bead>, StoreError> {
 }
 
 /// Resolve an inbox item: close it with the operator's note. For an incident whose task is
-/// still in `incident` state, the task is also reopened with attempts reset so work resumes.
+/// still in `incident` state, the task is also reopened through the state machine
+/// (`operator_retry`: fresh attempts and budget, so work resumes), and the move is logged.
 ///
 /// # Errors
 /// `NotFound` for an unknown id; other ledger failures.
 pub async fn resolve(
     store: &dyn BeadStore,
+    log: &dyn EventSink,
+    clock: &dyn Clock,
+    actor: &str,
     id: &BeadId,
     note: &str,
-) -> Result<Option<BeadId>, StoreError> {
+) -> Result<Option<BeadId>, TransitionError> {
     let bead = store.show(id).await?;
     store.close(id, note).await?;
     let Some(task_id) = incident_task(&bead) else {
         return Ok(None);
     };
-    let task = store.show(&task_id).await?;
-    if let Some(meta) = task.meta
-        && matches!(meta.state, TaskState::Incident { .. })
-    {
-        let reopened = domain::FactoryMeta {
-            state: TaskState::Open,
-            // Fresh attempts *and* fresh budget: the operator asked for a retry, not a
-            // continuation of a session that already blew its limits.
-            usage: domain::Usage::default(),
-            lease_expiries: Attempts::new(0),
-            blocked_releases: Attempts::new(0),
-            ..meta
-        };
-        store.set_meta(&task_id, &reopened).await?;
-        store.unclaim(&task_id).await?;
-        store
-            .note(&task_id, &format!("incident resolved by operator: {note}"))
-            .await?;
-        return Ok(Some(task_id));
+    if !matches!(
+        load_task(store, &task_id).await?.state,
+        TaskState::Incident { .. }
+    ) {
+        return Ok(None);
     }
-    Ok(None)
+    apply_event(
+        store,
+        &task_id,
+        Event::OperatorRetry {
+            note: note.to_owned(),
+        },
+    )
+    .await?;
+    log.record(&FactoryEvent {
+        at: clock.now(),
+        actor: actor.to_owned(),
+        bead: Some(task_id.clone()),
+        kind: EventKind::Transition {
+            from: "incident",
+            event: "operator_retry",
+            to: "open",
+        },
+    });
+    Ok(Some(task_id))
 }
 
 /// Incident beads are titled `incident on <task-id>` by `transition::run_effect`.
@@ -121,7 +131,7 @@ fn incident_task(bead: &Bead) -> Option<BeadId> {
 
 #[cfg(test)]
 mod tests {
-    use domain::{Budget, FactoryMeta, Sha, Usage};
+    use domain::{Attempts, Budget, FactoryMeta, Sha, Usage};
 
     use super::*;
     use crate::bead::NewBead;
@@ -212,9 +222,18 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(inbox(&store).await.unwrap().len(), 1);
-        let reopened = resolve(&store, &inc, "fixed the verify command")
-            .await
-            .unwrap();
+        let log = crate::testing::MemorySink::default();
+        let clock = crate::testing::FixedClock(domain::Timestamp::from_unix_seconds(1));
+        let reopened = resolve(
+            &store,
+            &log,
+            &clock,
+            "operator",
+            &inc,
+            "fixed the verify command",
+        )
+        .await
+        .unwrap();
         assert_eq!(reopened, Some(id("fac-t")));
         let t = store.show(&id("fac-t")).await.unwrap();
         let m = t.meta.unwrap();
@@ -225,6 +244,16 @@ mod tests {
         );
         assert!(t.notes.unwrap().contains("fixed the verify"));
         assert!(inbox(&store).await.unwrap().is_empty());
+        let logged: Vec<_> = log.events().await.into_iter().map(|e| e.kind).collect();
+        assert_eq!(
+            logged,
+            [EventKind::Transition {
+                from: "incident",
+                event: "operator_retry",
+                to: "open",
+            }],
+            "the retry is in the event log"
+        );
         // A question resolves without touching any task.
         let q = store
             .create(NewBead {
@@ -240,10 +269,15 @@ mod tests {
             })
             .await
             .unwrap();
-        assert_eq!(resolve(&store, &q, "postgres").await.unwrap(), None);
+        assert_eq!(
+            resolve(&store, &log, &clock, "operator", &q, "postgres")
+                .await
+                .unwrap(),
+            None
+        );
         assert!(matches!(
-            resolve(&store, &id("fac-nope"), "x").await,
-            Err(StoreError::NotFound { .. })
+            resolve(&store, &log, &clock, "operator", &id("fac-nope"), "x").await,
+            Err(TransitionError::Store(StoreError::NotFound { .. }))
         ));
     }
 }

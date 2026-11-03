@@ -169,7 +169,7 @@ pub(super) async fn metrics(
 }
 
 /// Event kinds after which a task object differs; mirror of the client's old refresh set.
-const TASK_CHANGING: [&str; 11] = [
+const TASK_CHANGING: [&str; 12] = [
     "claimed",
     "submitted",
     "released",
@@ -181,6 +181,7 @@ const TASK_CHANGING: [&str; 11] = [
     "epic_closed",
     "task_planned",
     "merge_bead_repaired",
+    "transition",
 ];
 
 /// The epic (or plan request) a record's bead belongs to.

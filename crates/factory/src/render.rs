@@ -55,6 +55,7 @@ pub(crate) fn render(b: &Bead) -> String {
             }
             TaskState::Closed { merged } => Some(format!("  merged    : {merged}")),
             TaskState::Incident { reason } => Some(format!("  incident  : {reason:?}")),
+            TaskState::Canceled { by } => Some(format!("  canceled  : by {by}")),
             TaskState::Open => None,
         };
         if let Some(d) = detail {

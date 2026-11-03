@@ -8,7 +8,9 @@
 //!                open  ◀──────────── open (+failure note)
 //!                                       │ fail (attempts exhausted)
 //!                                       ▼
-//!                                   incident
+//!                                   incident ──operator_retry──▶ open
+//!
+//! cancel: any state but closed ──▶ canceled (operator; nothing of the task lands after)
 //! ```
 //!
 //! `transition` is total over `(TaskState, Event)`: every pair yields either a new
@@ -37,6 +39,8 @@ pub enum TaskState {
     Closed { merged: Sha },
     /// Needs a human or the Steward.
     Incident { reason: IncidentReason },
+    /// Stopped by an operator before it landed; nothing of it lands afterwards.
+    Canceled { by: String },
 }
 
 pub use crate::incident::IncidentReason;
@@ -95,6 +99,16 @@ pub enum Event {
     Escalate {
         reason: IncidentReason,
     },
+    /// An operator canceled the task's epic. Allowed from every state but `closed` and
+    /// `canceled`; the caller closes the bead tree afterwards.
+    Cancel {
+        by: String,
+    },
+    /// An operator resolved the task's incident and asked for a fresh start: new attempts and
+    /// new budget, because the earlier sessions already used theirs.
+    OperatorRetry {
+        note: String,
+    },
 }
 
 /// A task bead as the factory sees it: state plus the counters the state machine needs.
@@ -112,130 +126,12 @@ pub struct Task {
     pub state: TaskState,
 }
 
-/// Every state name, in lifecycle order (for generated docs and console rendering).
-pub const STATE_NAMES: [&str; 6] = [
-    "open",
-    "leased",
-    "in_verify",
-    "mergeable",
-    "closed",
-    "incident",
-];
-/// Every event name (for generated docs).
-pub const EVENT_NAMES: [&str; 12] = [
-    "claim",
-    "heartbeat",
-    "submit",
-    "lease_expired",
-    "release",
-    "provider_stopped",
-    "verify_passed",
-    "verify_blocked",
-    "verify_failed",
-    "merged",
-    "merge_failed",
-    "escalate",
-];
-
 /// Maximum times a lease may expire before the task is treated as a lease storm.
 pub const MAX_LEASE_EXPIRIES: Attempts = Attempts::new(3);
 
 /// Consecutive blocked releases before the task escalates as a [`IncidentReason::ReleaseLoop`]:
 /// sessions that keep proving the contract unsatisfiable must reach an operator, not loop.
 pub const MAX_BLOCKED_RELEASES: Attempts = Attempts::new(2);
-
-/// Result of a successful transition: the new task plus what the shell should do about it.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Transition {
-    pub task: Task,
-    pub effects: Vec<Effect>,
-}
-
-/// Side effects the imperative shell must perform after a transition.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Effect {
-    /// Create a `merge` bead for this branch.
-    OpenMergeBead {
-        task: BeadId,
-        branch: BranchName,
-        head: Sha,
-    },
-    /// Create an `incident` bead.
-    OpenIncidentBead {
-        task: BeadId,
-        reason: IncidentReason,
-    },
-    /// Append a note to the task bead.
-    AppendNote { task: BeadId, note: String },
-    /// Close the task's own ledger issue (its metadata says `closed`; the issue must agree so
-    /// dependents unblock). Must run before `CloseVerifyBead`, which is blocked by the task.
-    CloseTaskBead { task: BeadId },
-    /// Close the paired verify bead alongside the task.
-    CloseVerifyBead { verify: BeadId },
-}
-
-/// The event is not permitted in the current state.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum IllegalTransition {
-    #[error("task {id}: event {event} not allowed in state {state}")]
-    NotAllowed {
-        id: BeadId,
-        state: &'static str,
-        event: &'static str,
-    },
-    #[error("task {id}: {actor} is not the lease holder ({holder})")]
-    NotHolder {
-        id: BeadId,
-        actor: AgentId,
-        holder: AgentId,
-    },
-    #[error("task {id}: lease already expired at {expires}")]
-    LeaseExpired { id: BeadId, expires: Timestamp },
-}
-
-impl TaskState {
-    #[must_use]
-    pub const fn name(&self) -> &'static str {
-        match self {
-            Self::Open => "open",
-            Self::Leased { .. } => "leased",
-            Self::InVerify { .. } => "in_verify",
-            Self::Mergeable { .. } => "mergeable",
-            Self::Closed { .. } => "closed",
-            Self::Incident { .. } => "incident",
-        }
-    }
-
-    #[must_use]
-    pub const fn is_terminal(&self) -> bool {
-        match self {
-            Self::Closed { .. } | Self::Incident { .. } => true,
-            Self::Open | Self::Leased { .. } | Self::InVerify { .. } | Self::Mergeable { .. } => {
-                false
-            }
-        }
-    }
-}
-
-impl Event {
-    #[must_use]
-    pub const fn name(&self) -> &'static str {
-        match self {
-            Self::Claim { .. } => "claim",
-            Self::Heartbeat { .. } => "heartbeat",
-            Self::Submit { .. } => "submit",
-            Self::LeaseExpired { .. } => "lease_expired",
-            Self::Release { .. } => "release",
-            Self::ProviderStopped { .. } => "provider_stopped",
-            Self::VerifyPassed => "verify_passed",
-            Self::VerifyFailed { .. } => "verify_failed",
-            Self::VerifyBlocked { .. } => "verify_blocked",
-            Self::Merged { .. } => "merged",
-            Self::MergeFailed { .. } => "merge_failed",
-            Self::Escalate { .. } => "escalate",
-        }
-    }
-}
 
 impl Task {
     /// A fresh task in `Open` with default budget and no usage.
@@ -488,6 +384,41 @@ impl Task {
                 })
             }
 
+            // ---- operators ------------------------------------------------------------------
+            (
+                TaskState::Open
+                | TaskState::Leased { .. }
+                | TaskState::InVerify { .. }
+                | TaskState::Mergeable { .. }
+                | TaskState::Incident { .. },
+                Event::Cancel { by },
+            ) => Ok(Transition {
+                task: Task {
+                    state: TaskState::Canceled { by: by.clone() },
+                    ..self
+                },
+                effects: vec![
+                    Effect::CloseMergeBeads { task: id.clone() },
+                    Effect::AppendNote {
+                        task: id,
+                        note: format!("canceled by {by}"),
+                    },
+                ],
+            }),
+            (TaskState::Incident { .. }, Event::OperatorRetry { note }) => Ok(Transition {
+                task: Task {
+                    usage: Usage::default(),
+                    lease_expiries: Attempts::new(0),
+                    blocked_releases: Attempts::new(0),
+                    state: TaskState::Open,
+                    ..self
+                },
+                effects: vec![Effect::AppendNote {
+                    task: id,
+                    note: format!("incident resolved by operator: {note}"),
+                }],
+            }),
+
             // ---- escalate is allowed from every active state ---------------------------
             (
                 TaskState::Open
@@ -509,7 +440,8 @@ impl Task {
                 | Event::VerifyFailed { .. }
                 | Event::VerifyBlocked { .. }
                 | Event::Merged { .. }
-                | Event::MergeFailed { .. }),
+                | Event::MergeFailed { .. }
+                | Event::OperatorRetry { .. }),
             )
             | (
                 state @ TaskState::Leased { .. },
@@ -518,7 +450,8 @@ impl Task {
                 | Event::VerifyFailed { .. }
                 | Event::VerifyBlocked { .. }
                 | Event::Merged { .. }
-                | Event::MergeFailed { .. }),
+                | Event::MergeFailed { .. }
+                | Event::OperatorRetry { .. }),
             )
             | (
                 state @ TaskState::InVerify { .. },
@@ -529,7 +462,8 @@ impl Task {
                 | Event::Release { .. }
                 | Event::ProviderStopped { .. }
                 | Event::Merged { .. }
-                | Event::MergeFailed { .. }),
+                | Event::MergeFailed { .. }
+                | Event::OperatorRetry { .. }),
             )
             | (
                 state @ TaskState::Mergeable { .. },
@@ -541,10 +475,11 @@ impl Task {
                 | Event::ProviderStopped { .. }
                 | Event::VerifyPassed
                 | Event::VerifyFailed { .. }
-                | Event::VerifyBlocked { .. }),
+                | Event::VerifyBlocked { .. }
+                | Event::OperatorRetry { .. }),
             )
             | (
-                state @ (TaskState::Closed { .. } | TaskState::Incident { .. }),
+                state @ TaskState::Incident { .. },
                 event @ (Event::Claim { .. }
                 | Event::Heartbeat { .. }
                 | Event::Submit { .. }
@@ -557,6 +492,23 @@ impl Task {
                 | Event::Merged { .. }
                 | Event::MergeFailed { .. }
                 | Event::Escalate { .. }),
+            )
+            | (
+                state @ (TaskState::Closed { .. } | TaskState::Canceled { .. }),
+                event @ (Event::Claim { .. }
+                | Event::Heartbeat { .. }
+                | Event::Submit { .. }
+                | Event::LeaseExpired { .. }
+                | Event::Release { .. }
+                | Event::ProviderStopped { .. }
+                | Event::VerifyPassed
+                | Event::VerifyFailed { .. }
+                | Event::VerifyBlocked { .. }
+                | Event::Merged { .. }
+                | Event::MergeFailed { .. }
+                | Event::Escalate { .. }
+                | Event::Cancel { .. }
+                | Event::OperatorRetry { .. }),
             ) => Err(illegal(&state, &event)),
         }
     }
@@ -591,6 +543,14 @@ impl Task {
     }
 }
 
+#[path = "task_names.rs"]
+mod names;
+pub use names::{EVENT_NAMES, STATE_NAMES};
+
+#[path = "task_outcome.rs"]
+mod outcome;
+pub use outcome::{Effect, IllegalTransition, Transition};
+
 #[cfg(test)]
 #[path = "task_tests.rs"]
 mod tests;
@@ -598,3 +558,7 @@ mod tests;
 #[cfg(test)]
 #[path = "task_release_tests.rs"]
 mod release_tests;
+
+#[cfg(test)]
+#[path = "task_operator_tests.rs"]
+mod operator_tests;

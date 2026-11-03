@@ -487,6 +487,7 @@ fn name_tables_match_the_types() {
                 detail: String::new(),
             },
         },
+        TaskState::Canceled { by: String::new() },
     ];
     assert_eq!(states.map(|s| s.name()), STATE_NAMES);
     let events = [
@@ -519,6 +520,10 @@ fn name_tables_match_the_types() {
             reason: IncidentReason::Manual {
                 detail: String::new(),
             },
+        },
+        Event::Cancel { by: String::new() },
+        Event::OperatorRetry {
+            note: String::new(),
         },
     ];
     assert_eq!(events.map(|e| e.name()), EVENT_NAMES);

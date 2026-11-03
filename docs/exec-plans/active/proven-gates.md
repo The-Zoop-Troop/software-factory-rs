@@ -160,3 +160,8 @@ start a session unless `RIG_CONFINE=off`, and `factory doctor` says which applie
 - **2026-11-03: a role refuses to start when it cannot confine its children.** Failing once at
   startup, with `factory doctor` naming the fix, beats every session failing as if the model had.
   `RIG_CONFINE=off` is the explicit way out on a host without Landlock.
+- **2026-11-03: cancel and the operator retry go through `Task::apply` (`fac-8xl.3.2`).** Both
+  wrote the ledger directly, so neither was checked or logged. A test then showed a cancel left a
+  verified task's merge bead open, and the Integrator landed it. They are now the `cancel` and
+  `operator_retry` events: cancel ends in a new `canceled` state and closes the task's merge
+  beads, and the Integrator also refuses a task whose bead is closed. The human chose this.

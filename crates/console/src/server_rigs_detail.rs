@@ -46,7 +46,8 @@ fn task_meta_json(bead: &app::Bead) -> Option<Value> {
             app::domain::TaskState::Open
             | app::domain::TaskState::InVerify { .. }
             | app::domain::TaskState::Mergeable { .. }
-            | app::domain::TaskState::Incident { .. } => (None, None),
+            | app::domain::TaskState::Incident { .. }
+            | app::domain::TaskState::Canceled { .. } => (None, None),
         };
         obj([
             ("state", m.state.name().into()),

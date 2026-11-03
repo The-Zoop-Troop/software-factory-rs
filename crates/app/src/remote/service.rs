@@ -34,6 +34,8 @@ pub enum RemoteError {
     Store(#[from] StoreError),
     #[error(transparent)]
     Tail(#[from] TailError),
+    #[error(transparent)]
+    Transition(#[from] crate::transition::TransitionError),
 }
 
 fn audit(
@@ -278,7 +280,15 @@ pub async fn send_message(
             }
             let bead_id =
                 BeadId::try_new(id).map_err(|_| RemoteError::TaskNotFound { id: id.to_owned() })?;
-            let reopened = resolve(rig.store.as_ref(), &bead_id, text).await?;
+            let reopened = resolve(
+                rig.store.as_ref(),
+                rig.sink.as_ref(),
+                clock,
+                &format!("remote:{}", who.client),
+                &bead_id,
+                text,
+            )
+            .await?;
             audit(
                 rig,
                 clock,

@@ -1,6 +1,6 @@
 //! `apply_option`: what each inbox choice does to the ledger before the item is resolved.
 
-use domain::{BeadId, Principal, Scope};
+use domain::{BeadId, BeadKind, Event, Principal, Scope};
 
 use super::super::Rig;
 use super::super::a2a::CANCELED_LABEL;
@@ -10,7 +10,9 @@ use super::{RESUME_MARKER, RemoteError, Sent, authorize, incident_task_bead, sen
 use super::{audit, get_task, list_tasks};
 use crate::bead::Bead;
 use crate::bead::BeadStatus;
+use crate::events::{EventKind, FactoryEvent};
 use crate::ports::{Clock, StoreError};
+use crate::transition::apply_event;
 
 /// An attention option, applied. `note` is required by `RetryWithGuidance`, `Replan`, `Answer`.
 ///
@@ -186,6 +188,7 @@ pub async fn cancel_task(
     let epic_id =
         BeadId::try_new(id).map_err(|_| RemoteError::TaskNotFound { id: id.to_owned() })?;
     let reason = format!("canceled by {}", who.client);
+    cancel_unfinished(rig, clock, &format!("remote:{}", who.client), &epic_id).await?;
     let closed = close_all_children(rig, &epic_id, &reason).await?;
     rig.store.label(&epic_id, CANCELED_LABEL).await?;
     rig.store.close(&epic_id, &reason).await?;
@@ -225,6 +228,41 @@ pub async fn events_after(
         .filter(|r| r.bead.as_ref().is_some_and(|b| members.contains(b)))
         .collect();
     Ok((kept, next))
+}
+
+/// Move every unfinished task under the epic to `canceled` through the state machine, which closes
+/// its merge beads so nothing verified lands afterwards, and log each move.
+async fn cancel_unfinished(
+    rig: &Rig,
+    clock: &dyn Clock,
+    by: &str,
+    epic: &BeadId,
+) -> Result<(), RemoteError> {
+    for child in rig.store.children(epic).await? {
+        let Some(from) = child.meta.as_ref().map(|m| m.state.name()) else {
+            continue;
+        };
+        if child.kind != Some(BeadKind::Task) || matches!(from, "closed" | "canceled") {
+            continue;
+        }
+        apply_event(
+            rig.store.as_ref(),
+            &child.id,
+            Event::Cancel { by: by.to_owned() },
+        )
+        .await?;
+        rig.sink.record(&FactoryEvent {
+            at: clock.now(),
+            actor: by.to_owned(),
+            bead: Some(child.id.clone()),
+            kind: EventKind::Transition {
+                from,
+                event: "cancel",
+                to: "canceled",
+            },
+        });
+    }
+    Ok(())
 }
 
 /// Close every open child, dependents before their blockers (the ledger refuses to close a
